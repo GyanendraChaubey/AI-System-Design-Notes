@@ -1,4 +1,4 @@
-# AI System Design Handbook
+# AI System Design Notes
 
 A Staff-level, production-focused reference for AI System Design — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more). Published as a GitHub Pages site with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
 

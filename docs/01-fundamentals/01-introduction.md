@@ -8,8 +8,8 @@
 - Traditional system design vs ML system design vs AI system design — what's actually different
 - Why non-determinism and quality drift change the reliability contract
 - The four new primitives every AI system adds: prompts, context, retrieval, and tool calls
-- Who this handbook is for and how to read it (chapter format, diagram conventions)
+- Who these notes are for and how to read them (chapter format, diagram conventions)
 
 ---
 
-*Part of [Fundamentals](index.md) in the [AI System Design Handbook](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*
+*Part of [Fundamentals](index.md) in the [AI System Design Notes](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generates section index pages and structured stub chapters/case studies
-for the AI System Design Handbook.
+for the AI System Design Notes.
 
 This is the single source of truth for which docs/ pages are flagship
 (full Staff-level depth, hand-written) vs stub (scaffolded synopsis +
@@ -30,7 +30,7 @@ STUB_TMPL = """# {title}
 
 ---
 
-*Part of [{section_title}](index.md) in the [AI System Design Handbook](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*
+*Part of [{section_title}](index.md) in the [AI System Design Notes](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*
 """
 
 INDEX_TMPL = """# {title}
@@ -74,7 +74,7 @@ SECTIONS = [
             "back-of-envelope math that every later chapter assumes you already have — "
             "what makes AI system design different from system design as you've "
             "practiced it before, and the reference architecture diagram you'll see "
-            "referenced throughout the rest of the handbook."
+            "referenced throughout the rest of these notes."
         ),
         "entries": [
             {
@@ -91,7 +91,7 @@ SECTIONS = [
                     "Traditional system design vs ML system design vs AI system design — what's actually different",
                     "Why non-determinism and quality drift change the reliability contract",
                     "The four new primitives every AI system adds: prompts, context, retrieval, and tool calls",
-                    "Who this handbook is for and how to read it (chapter format, diagram conventions)",
+                    "Who these notes are for and how to read them (chapter format, diagram conventions)",
                 ],
             },
             {
@@ -101,7 +101,7 @@ SECTIONS = [
                 "synopsis": (
                     "The handful of mental models — the cost/latency/quality triangle, "
                     "token economics, probabilistic correctness, and build-vs-buy "
-                    "framing — that recur in nearly every chapter of this handbook."
+                    "framing — that recur in nearly every chapter of these notes."
                 ),
                 "outline": [
                     "The cost / latency / quality triangle and why you can usually only pick two",
@@ -124,7 +124,7 @@ SECTIONS = [
                 "synopsis": (
                     "A back-of-envelope toolkit for sizing AI systems — converting "
                     "DAU/MAU into QPS, QPS into tokens/sec, and tokens/sec into GPU "
-                    "counts — reused throughout every case study in this handbook."
+                    "counts — reused throughout every case study in these notes."
                 ),
                 "outline": [
                     "From DAU to QPS: peak-to-average ratios and why AI traffic is burstier than typical web traffic",

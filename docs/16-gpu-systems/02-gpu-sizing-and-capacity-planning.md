@@ -15,7 +15,7 @@ Without a disciplined sizing method, GPU capacity decisions default to one of tw
 - **Under-provisioning** — capacity is sized to average traffic, so the system saturates the moment traffic exceeds average (which it does, by definition, roughly half the time, and far more during launches, viral moments, or regional peak hours). The result is queued requests, blown latency SLOs, and a fire drill that ends in emergency over-provisioning at on-demand prices — the most expensive way to buy compute.
 - **Over-provisioning** — capacity is sized "to be safe" with no model behind the number, so the fleet sits at 20-30% utilization most of the day. GPUs are the largest line item in an AI product's infrastructure budget; a doubled fleet is millions of dollars a year for a mid-size product and tens of millions for a large one.
 
-Both failure modes share a root cause: nobody wrote down the assumptions (traffic shape, token distribution, throughput per GPU) as explicit, falsifiable numbers. This chapter is the worked-math reference the rest of the handbook leans on — every later case study (ChatGPT-scale, Perplexity-scale, Cursor-scale) reuses this conversion chain rather than re-deriving it.
+Both failure modes share a root cause: nobody wrote down the assumptions (traffic shape, token distribution, throughput per GPU) as explicit, falsifiable numbers. This chapter is the worked-math reference the rest of these notes leans on — every later case study (ChatGPT-scale, Perplexity-scale, Cursor-scale) reuses this conversion chain rather than re-deriving it.
 
 ## Why This Architecture Exists
 
@@ -307,4 +307,4 @@ The architectural consequence: agentic and simple-chat traffic should usually be
 - Agentic and multi-step workloads multiply effective tokens-per-user-request well past a simple chat assumption (the worked example above showed roughly 45x), and must be sized as their own tier rather than blended into a single average.
 - Headroom (N+1, multi-region failover, growth buffer) belongs in the model as an explicit, named policy, not an informal "add some buffer" afterthought that disappears under budget pressure.
 - Always load-test the actual model, precision, batch size, and serving engine before finalizing a per-GPU throughput assumption — every figure in this chapter is illustrative and order-of-magnitude; your production number must come from measurement.
-- This chapter's method is the one every later capacity-planning section in this handbook (ChatGPT-scale, Perplexity-scale, Cursor-scale case studies) reuses — the chain doesn't change; only the inputs (DAU, token distribution, workload tiering) do.
+- This chapter's method is the one every later capacity-planning section in these notes (ChatGPT-scale, Perplexity-scale, Cursor-scale case studies) reuses — the chain doesn't change; only the inputs (DAU, token distribution, workload tiering) do.

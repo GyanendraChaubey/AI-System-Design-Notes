@@ -1,5 +1,5 @@
 <!--
-CASE STUDY TEMPLATE — AI System Design Handbook
+CASE STUDY TEMPLATE — AI System Design Notes
 Copy this file, do not edit it in place. Delete every HTML comment once the
 section is written. Target length: 3,000-5,000 words. This should read like
 the writeup a Staff Engineer would produce after a design review, not a

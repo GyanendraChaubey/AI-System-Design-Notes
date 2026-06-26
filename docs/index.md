@@ -1,4 +1,4 @@
-# AI System Design Handbook
+# AI System Design Notes
 
 A Staff-level reference for designing, scaling, and shipping production AI systems — written for engineers who need to go past "call the OpenAI API" into how ChatGPT, Claude, Perplexity, Cursor, and Glean-style platforms are actually architected, scaled, secured, and paid for.
 
@@ -11,7 +11,7 @@ This is not a machine learning theory book. You will not find derivations of bac
 - Senior and Staff Engineers preparing for AI System Design interviews at Google, OpenAI, Anthropic, Meta, Microsoft, Amazon, Uber, Airbnb, Stripe, Glean, Cursor, or Perplexity
 - Engineering Managers and founders who need to make build-vs-buy and architecture calls for an AI product
 
-## How to use this handbook
+## How to use these notes
 
 Each **chapter** (Fundamentals through Staff-Level Architecture) follows the same fixed format: Overview → Definition → Problem Statement → Architecture → Components → Request Lifecycle → Design Patterns → Tradeoffs → Scalability → Reliability → Security → Cost → Monitoring → Production Best Practices → Real World Examples → Interview Questions (Beginner/Intermediate/Senior/Staff) → Google-Level Follow-Ups → Common Mistakes → Key Takeaways — with 5 Mermaid diagrams each.
 
@@ -21,7 +21,7 @@ If you're prepping for an interview, start with [How AI System Design Interviews
 
 ## Status
 
-This handbook is under active construction. Every topic in the curriculum below already has a page — nothing 404s — but pages are at one of two depths:
+These notes are under active construction. Every topic in the curriculum below already has a page — nothing 404s — but pages are at one of two depths:
 
 - **✅ Complete** — full Staff-level depth: all required sections, 5 Mermaid diagrams, concrete numbers, answered interview questions.
 - **📋 Planned** — scaffolded with a real synopsis and outline, expanded in a future pass.
@@ -60,4 +60,4 @@ See [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob
 
 ---
 
-*This handbook draws inspiration from [AI Engineering Notes](https://gyanendrachaubey.github.io/AI-Engineering-Notes/) but is organized around production system architecture rather than interview Q&A — every chapter is a design reference first, an interview-prep page second.*
+*These notes draw inspiration from [AI Engineering Notes](https://gyanendrachaubey.github.io/AI-Engineering-Notes/) but are organized around production system architecture rather than interview Q&A — every chapter is a design reference first, an interview-prep page second.*

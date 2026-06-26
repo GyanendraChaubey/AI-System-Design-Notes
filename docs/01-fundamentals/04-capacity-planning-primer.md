@@ -1,7 +1,7 @@
 # Capacity Planning Primer
 
 !!! info "📋 Planned"
-    This page is scaffolded but not yet written at full depth. A back-of-envelope toolkit for sizing AI systems — converting DAU/MAU into QPS, QPS into tokens/sec, and tokens/sec into GPU counts — reused throughout every case study in this handbook.
+    This page is scaffolded but not yet written at full depth. A back-of-envelope toolkit for sizing AI systems — converting DAU/MAU into QPS, QPS into tokens/sec, and tokens/sec into GPU counts — reused throughout every case study in these notes.
 
 ## What This Chapter Will Cover
 
@@ -12,4 +12,4 @@
 
 ---
 
-*Part of [Fundamentals](index.md) in the [AI System Design Handbook](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*
+*Part of [Fundamentals](index.md) in the [AI System Design Notes](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*

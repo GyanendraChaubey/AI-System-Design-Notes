@@ -1,7 +1,7 @@
 # Core Mental Models
 
 !!! info "📋 Planned"
-    This page is scaffolded but not yet written at full depth. The handful of mental models — the cost/latency/quality triangle, token economics, probabilistic correctness, and build-vs-buy framing — that recur in nearly every chapter of this handbook.
+    This page is scaffolded but not yet written at full depth. The handful of mental models — the cost/latency/quality triangle, token economics, probabilistic correctness, and build-vs-buy framing — that recur in nearly every chapter of these notes.
 
 ## What This Chapter Will Cover
 
@@ -12,4 +12,4 @@
 
 ---
 
-*Part of [Fundamentals](index.md) in the [AI System Design Handbook](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*
+*Part of [Fundamentals](index.md) in the [AI System Design Notes](../index.md). Tracked in [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md).*

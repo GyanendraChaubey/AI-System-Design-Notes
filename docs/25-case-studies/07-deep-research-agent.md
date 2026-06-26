@@ -13,7 +13,7 @@
 - Support a follow-up turn that refines or extends the report (deepen one section, check a specific claim, narrow scope) without re-running the entire research process from scratch.
 
 **Non-functional**
-- Total task latency in **minutes**, not seconds — typically 3-15 minutes end to end. This is the single biggest departure from every other product in this handbook and shapes nearly every other design decision.
+- Total task latency in **minutes**, not seconds — typically 3-15 minutes end to end. This is the single biggest departure from every other product in these notes and shapes nearly every other design decision.
 - Cost per task in the **dollars**, not fractions of a cent — driven by the token volume of reading dozens of sources plus many rounds of model reasoning, not by a single prompt/response pair.
 - Durability across a long-running task: a transient failure in source #14 of 30 must not discard the first 13 sources' worth of work, and the client must be able to disconnect and reconnect without losing the task.
 - Citation accuracy is a hard product requirement, not a nice-to-have — an uncited or miscited claim in a research report is a trust-destroying failure mode in a way a casual chat hallucination is not, because the entire value proposition is "this is more rigorous than asking a chatbot."

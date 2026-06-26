@@ -1,5 +1,5 @@
 <!--
-CHAPTER TEMPLATE — AI System Design Handbook
+CHAPTER TEMPLATE — AI System Design Notes
 Copy this file, do not edit it in place. Delete every HTML comment once the
 section is written. Target length: 2,500-4,000 words. Target depth: a Staff
 Engineer should be able to use this page as interview prep AND as a design
