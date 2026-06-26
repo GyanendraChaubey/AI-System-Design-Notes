@@ -96,13 +96,13 @@ sequenceDiagram
 
     PM->>Eng: "Add an AI summary to every support ticket, real-time"
     Eng->>Triangle: Which axis matters most here?
-    Triangle-->>Eng: Latency dominates (real-time UI);\nquality bar is moderate (a summary, not a diagnosis);\ncost is secondary at this volume
+    Triangle-->>Eng: Latency dominates (real-time UI),\nquality bar is moderate (a summary, not a diagnosis),\ncost is secondary at this volume
     Eng->>Tokens: Model the cost/latency given that framing
-    Tokens-->>Eng: ~800 input tokens (ticket text),\n~150 output tokens (summary);\nsmall/fast model: ~$0.0003/request, ~400ms p50
+    Tokens-->>Eng: ~800 input tokens (ticket text),\n~150 output tokens (summary),\nsmall/fast model: ~$0.0003/request, ~400ms p50
     Eng->>Bar: What's "good enough" for a summary?
-    Bar-->>Eng: 90% of summaries rated "accurate and complete"\non a 200-case eval set; monitor weekly on sampled traffic
+    Bar-->>Eng: 90% of summaries rated "accurate and complete"\non a 200-case eval set, monitor weekly on sampled traffic
     Eng->>BvB: Do we need a new component for this?
-    BvB-->>Eng: No new infra — reuse existing prompt/context layer;\nno retrieval, no new vector DB, no build decision needed
+    BvB-->>Eng: No new infra — reuse existing prompt/context layer,\nno retrieval, no new vector DB, no build decision needed
     Eng->>PM: Design: small/fast model, no retrieval,\n90% eval bar, ~$0.0003/request, ~400ms p50
 ```
 

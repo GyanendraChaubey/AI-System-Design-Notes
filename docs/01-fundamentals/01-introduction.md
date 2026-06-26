@@ -52,7 +52,7 @@ flowchart TB
     end
 
     subgraph MLSys["Classical ML System"]
-        M1[Client] --> M2[Feature Pipeline] --> M3[Frozen Model:\nscore = f(features)]
+        M1[Client] --> M2[Feature Pipeline] --> M3["Frozen Model:\nscore = f(features)"]
         M3 --> M4[Service Logic] --> M1
     end
 
@@ -119,7 +119,7 @@ sequenceDiagram
     MOD-->>CTX: "Orders over $500 qualify for a 30-day refund window with manager approval."
     Note over MOD: Run B, same exact input
     CTX->>MOD: identical input, Run B
-    MOD-->>CTX: "For purchases above $500, refunds are available within 30 days; a supervisor must approve the request."
+    MOD-->>CTX: "For purchases above $500, refunds are available within 30 days, and a supervisor must approve the request."
     Note over CTX,MOD: Same facts, different wording — usually harmless.\nThe risk case is when Run B drops a fact Run A included,\nor emits a tool call Run A did not.
 ```
 

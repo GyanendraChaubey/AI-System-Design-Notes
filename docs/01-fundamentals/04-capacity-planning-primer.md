@@ -100,8 +100,8 @@ sequenceDiagram
     ENG->>ENG: Derive QPS avg, QPS peak (peak factor)
     ENG->>ENG: Tokens/sec demand = QPS peak x tokens/request
     ENG->>VEND: API-based: request pricing + rate-limit tiers
-    VEND-->>ENG: Price per token; max TPM/RPM at each tier
-    ENG->>ENG: Dollar budget = tokens/sec x price, integrated over time;\ncheck peak tokens/sec against tier ceiling
+    VEND-->>ENG: Price per token, max TPM/RPM at each tier
+    ENG->>ENG: Dollar budget = tokens/sec x price, integrated over time,\ncheck peak tokens/sec against tier ceiling
     ENG->>PM: Provisioned tier + dollar forecast + headroom
     PM-->>ENG: Budget approved, or scope adjusted
 ```
