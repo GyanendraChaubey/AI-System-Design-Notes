@@ -41,7 +41,7 @@ The layered architecture here is the industry's convergent answer to those three
 - **Memory** — state that persists across turns or sessions: conversation history, summarized facts about a user, or longer-term knowledge distinct from the retrieval corpus. See [Memory Systems](../12-memory-systems/index.md).
 - **Guardrails** — checks applied to input, intermediate steps, or output that block, rewrite, or flag unsafe or out-of-policy content. See [AI Security](../21-ai-security/index.md).
 - **Observability** — the metrics, traces, and logs that let an operator know which layer is responsible when quality, latency, or cost regresses. See [Observability](../20-observability/index.md).
-- **The cost/latency/quality triangle** — a recurring constraint where improving one of cost, latency, or quality at a given layer generally costs you one of the other two; this shows up differently at every layer in this chapter (more on this in [Tradeoffs](#tradeoffs)).
+- **The cost/latency/quality triangle** — a recurring constraint where improving one of cost, latency, or quality at a given layer generally costs you one of the other two; this shows up differently at every layer in this chapter (more on this in [Tradeoffs](#tradeoffs)) and gets its full treatment in [Core Mental Models](02-core-mental-models.md).
 
 ## Architecture
 

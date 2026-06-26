@@ -2,7 +2,7 @@
 
 ## Overview
 
-GPU sizing is the process of converting a target traffic profile — daily active users, requests per second, a latency SLO — into a concrete number of accelerators and a serving configuration that can hit that target without falling over at peak. It is arithmetic, not guesswork: every number in the chain (QPS, tokens/sec, tokens/sec-per-GPU) is estimable from first principles or load-test data, and the GPU count falls straight out of dividing one by the other. Get the chain wrong and you either overspend by millions of dollars a year or get paged at 2 a.m. when traffic exceeds capacity nobody sized for.
+GPU sizing is the process of converting a target traffic profile — daily active users, requests per second, a latency SLO — into a concrete number of accelerators and a serving configuration that can hit that target without falling over at peak. It is arithmetic, not guesswork: every number in the chain (QPS, tokens/sec, tokens/sec-per-GPU) is estimable from first principles or load-test data, and the GPU count falls straight out of dividing one by the other. Get the chain wrong and you either overspend by millions of dollars a year or get paged at 2 a.m. when traffic exceeds capacity nobody sized for. This chapter is the self-hosted-specific deep dive into the general chain introduced in [Capacity Planning Primer](../01-fundamentals/04-capacity-planning-primer.md); read that first if the DAU-to-tokens/sec conversion is new to you.
 
 ## Definition
 

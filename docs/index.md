@@ -26,7 +26,7 @@ These notes are under active construction. Every topic in the curriculum below a
 - **✅ Complete** — full Staff-level depth: all required sections, 5 Mermaid diagrams, concrete numbers, answered interview questions.
 - **📋 Planned** — scaffolded with a real synopsis and outline, expanded in a future pass.
 
-See [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md) in the repo for the exact, up-to-date list. Currently complete: **18 flagship chapters/case studies** spanning every major section, so you can see the target depth everywhere in the curriculum.
+See [BACKLOG.md](https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md) in the repo for the exact, up-to-date list. Currently complete: **21 flagship chapters/case studies** spanning every major section, so you can see the target depth everywhere in the curriculum.
 
 ## Curriculum
 

@@ -4,7 +4,7 @@ Start here. This section establishes the mental models, vocabulary, and back-of-
 
 | Page | Status |
 |---|---|
-| [Introduction to AI System Design](01-introduction.md) | 📋 Planned |
-| [Core Mental Models](02-core-mental-models.md) | 📋 Planned |
+| [Introduction to AI System Design](01-introduction.md) | ✅ Complete |
+| [Core Mental Models](02-core-mental-models.md) | ✅ Complete |
 | [Anatomy of an AI System](03-anatomy-of-an-ai-system.md) | ✅ Complete |
-| [Capacity Planning Primer](04-capacity-planning-primer.md) | 📋 Planned |
+| [Capacity Planning Primer](04-capacity-planning-primer.md) | ✅ Complete |

@@ -80,35 +80,16 @@ SECTIONS = [
             {
                 "file": "01-introduction.md",
                 "title": "Introduction to AI System Design",
-                "flagship": False,
-                "synopsis": (
-                    "What AI System Design is as a discipline, how it differs from "
-                    "traditional distributed-systems design and from classical ML "
-                    "system design, and why probabilistic, non-deterministic "
-                    "components change almost every assumption you'd normally rely on."
-                ),
-                "outline": [
-                    "Traditional system design vs ML system design vs AI system design — what's actually different",
-                    "Why non-determinism and quality drift change the reliability contract",
-                    "The four new primitives every AI system adds: prompts, context, retrieval, and tool calls",
-                    "Who these notes are for and how to read them (chapter format, diagram conventions)",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
             {
                 "file": "02-core-mental-models.md",
                 "title": "Core Mental Models",
-                "flagship": False,
-                "synopsis": (
-                    "The handful of mental models — the cost/latency/quality triangle, "
-                    "token economics, probabilistic correctness, and build-vs-buy "
-                    "framing — that recur in nearly every chapter of these notes."
-                ),
-                "outline": [
-                    "The cost / latency / quality triangle and why you can usually only pick two",
-                    "Token economics as the unit economics of an AI product",
-                    "Why a working p50 is not the same bar as a working p50 in a deterministic system",
-                    "Build vs buy as a default lens, introduced early and revisited in Staff-Level Architecture",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
             {
                 "file": "03-anatomy-of-an-ai-system.md",
@@ -120,18 +101,9 @@ SECTIONS = [
             {
                 "file": "04-capacity-planning-primer.md",
                 "title": "Capacity Planning Primer",
-                "flagship": False,
-                "synopsis": (
-                    "A back-of-envelope toolkit for sizing AI systems — converting "
-                    "DAU/MAU into QPS, QPS into tokens/sec, and tokens/sec into GPU "
-                    "counts — reused throughout every case study in these notes."
-                ),
-                "outline": [
-                    "From DAU to QPS: peak-to-average ratios and why AI traffic is burstier than typical web traffic",
-                    "From QPS to tokens/sec: input/output token ratios per use case",
-                    "From tokens/sec to GPU count: throughput-per-GPU as the conversion factor",
-                    "A worked example carried through later case studies",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
         ],
     },

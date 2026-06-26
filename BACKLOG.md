@@ -9,10 +9,10 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Fundamentals (`docs/01-fundamentals/`)
 
-- 📋 `01-introduction.md` — Introduction to AI System Design
-- 📋 `02-core-mental-models.md` — Core Mental Models
+- ✅ `01-introduction.md` — Introduction to AI System Design
+- ✅ `02-core-mental-models.md` — Core Mental Models
 - ✅ `03-anatomy-of-an-ai-system.md` — Anatomy of an AI System
-- 📋 `04-capacity-planning-primer.md` — Capacity Planning Primer
+- ✅ `04-capacity-planning-primer.md` — Capacity Planning Primer
 
 ## LLM Architecture (`docs/02-llm-architecture/`)
 
@@ -203,5 +203,5 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Totals
 
-- 18 flagship chapters/case studies complete
-- 101 stubs remaining
+- 21 flagship chapters/case studies complete
+- 98 stubs remaining
