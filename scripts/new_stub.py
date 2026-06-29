@@ -4,7 +4,8 @@ for the AI System Design Notes.
 
 This is the single source of truth for which docs/ pages are flagship
 (full Staff-level depth, hand-written) vs stub (scaffolded synopsis +
-outline, planned for a future round). Edit the SECTIONS list below, then
+outline, planned for a future round), and which structural template each
+one should follow when written. Edit the SECTIONS list below, then
 re-run:
 
     python3 scripts/new_stub.py
@@ -13,17 +14,60 @@ Re-running is safe: it only overwrites section index.md pages and stub
 files. It never touches a flagship file's content (those are written
 directly with an editor, not by this script) and it regenerates
 BACKLOG.md from the same SECTIONS data so the two never drift apart.
+
+Each entry has a "template" field — "system" (default) or
+"decision_framework". Two chapter shapes exist because not every topic
+in this curriculum is a system with components to diagram:
+
+- "system" (20 sections, 5 Mermaid diagrams): Overview, Definition,
+  Problem Statement, Why This Architecture/Discipline Exists, Core
+  Concepts, Architecture (2 diagrams), Components, Request Lifecycle
+  (sequence diagram), Design Patterns (workflow diagram), Tradeoffs
+  (decision tree + table), Scalability, Reliability, Security, Cost
+  Optimization, Monitoring, Production Best Practices, Real World
+  Examples, Interview Questions, Google-Level Follow-Ups, Common
+  Mistakes, Key Takeaways. Use this for any genuine subsystem (a
+  retrieval pipeline, a serving engine, a security layer) — something
+  that has components, a request path, and an operational profile.
+
+- "decision_framework" (13 sections, 2 Mermaid diagrams): Overview,
+  Definition, The Real Question (strip the framing, find the actual
+  constraint), Core Concepts, Decision Framework (decision tree +
+  criteria table), Worked Example (a concrete walkthrough, optionally
+  with a second diagram), Tradeoffs (advantages/disadvantages table),
+  Cost Implications, Common Mistakes / Anti-Patterns, Real World
+  Examples, Interview Questions, Google-Level Follow-Ups, Key
+  Takeaways. Use this for "X vs Y" judgment calls (Build vs Buy,
+  Fine-Tuning vs RAG) and process/strategy chapters (The Whiteboarding
+  Framework, Company-Specific Focus Areas) that don't have an
+  architecture of their own to diagram — forcing the "system" template
+  onto these produces filler sections (a fake "Architecture" diagram,
+  a "Monitoring" section with nothing to monitor) instead of real
+  content.
 """
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs")
 
+TEMPLATE_NOTE = {
+    "system": "",
+    "decision_framework": (
+        'This is a judgment call between approaches, not a system with '
+        'its own components to diagram, so it will follow the lighter '
+        '**Decision Framework** template (Overview, Definition, The Real '
+        'Question, Core Concepts, Decision Framework, Worked Example, '
+        'Tradeoffs, Cost Implications, Common Mistakes, Real World '
+        'Examples, Interview Questions, Google-Level Follow-Ups, Key '
+        'Takeaways) rather than the full systems-architecture template.'
+    ),
+}
+
 STUB_TMPL = """# {title}
 
 !!! info "📋 Planned"
     This page is scaffolded but not yet written at full depth. {synopsis}
-
+{template_note}
 ## What This {kind_label} Will Cover
 
 {outline}
@@ -45,6 +89,13 @@ INDEX_TMPL = """# {title}
 
 def render_outline(items):
     return "\n".join(f"- {i}" for i in items)
+
+
+def render_template_note(entry):
+    note = TEMPLATE_NOTE.get(entry.get("template", "system"), "")
+    if not note:
+        return ""
+    return f'\n!!! note "Template: Decision Framework"\n    {note}\n'
 
 
 def render_index_rows(section):
@@ -287,6 +338,7 @@ SECTIONS = [
                 "file": "04-long-context-vs-rag.md",
                 "title": "Long Context vs RAG",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "Why bigger context windows did not eliminate RAG — the cost, "
                     "latency, and lost-in-the-middle reasons large-context stuffing "
@@ -526,6 +578,7 @@ SECTIONS = [
                 "file": "03-when-graphrag-beats-vector-rag.md",
                 "title": "When GraphRAG Beats Vector RAG",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "A decision framework for when the extra construction cost of "
                     "GraphRAG pays for itself versus when vector RAG is simply the "
@@ -749,6 +802,7 @@ SECTIONS = [
                 "file": "02-plan-and-execute-vs-react.md",
                 "title": "Plan-and-Execute vs ReAct",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "The architectural fork between planning the whole trajectory "
                     "upfront (plan-and-execute) and deciding one step at a time "
@@ -1579,6 +1633,7 @@ SECTIONS = [
                 "file": "02-build-vs-buy.md",
                 "title": "Build vs Buy",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "A decision framework for build-vs-buy across the AI stack — "
                     "model, retrieval, orchestration, evaluation — weighing "
@@ -1596,6 +1651,7 @@ SECTIONS = [
                 "file": "03-open-source-vs-closed-models.md",
                 "title": "Open Source vs Closed Models",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "How a Staff Engineer weighs open-weight models against "
                     "closed/API models on cost, data control, customization, and "
@@ -1613,6 +1669,7 @@ SECTIONS = [
                 "file": "04-fine-tuning-vs-rag.md",
                 "title": "Fine-Tuning vs RAG",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "The single most common architectural fork in applied AI — "
                     "when fine-tuning beats RAG, when RAG beats fine-tuning, and "
@@ -1630,6 +1687,7 @@ SECTIONS = [
                 "file": "05-single-agent-vs-multi-agent.md",
                 "title": "Single-Agent vs Multi-Agent",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "Why multi-agent systems are not \"free parallelism\" — the "
                     "coordination tax, cost multiplication, and debugging "
@@ -1647,6 +1705,7 @@ SECTIONS = [
                 "file": "06-multi-tenant-architecture.md",
                 "title": "Multi-Tenant Architecture",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "Staff-level tradeoffs in multi-tenant AI platform design — "
                     "isolation vs cost efficiency, per-tenant customization vs "
@@ -1715,6 +1774,7 @@ SECTIONS = [
                 "file": "10-ai-governance-and-platform-strategy.md",
                 "title": "AI Governance & Platform Strategy",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "How Staff Engineers design the internal platform (shared "
                     "infra, guardrails, golden paths) that lets many product "
@@ -1751,6 +1811,7 @@ SECTIONS = [
                 "file": "02-the-whiteboarding-framework.md",
                 "title": "The Whiteboarding Framework",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "A repeatable framework for structuring 45-60 minutes of AI "
                     "system design whiteboarding — requirements, capacity "
@@ -1768,6 +1829,7 @@ SECTIONS = [
                 "file": "03-estimation-and-capacity-planning-drills.md",
                 "title": "Estimation & Capacity Planning Drills",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "Worked practice problems for the back-of-envelope math "
                     "interviewers expect — QPS, token throughput, GPU counts, "
@@ -1785,6 +1847,7 @@ SECTIONS = [
                 "file": "04-company-specific-focus-areas.md",
                 "title": "Company-Specific Focus Areas",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "What Google, OpenAI, Anthropic, Meta, Amazon, Uber, Stripe, "
                     "Glean, Cursor, and Perplexity each tend to emphasize in an AI "
@@ -1802,6 +1865,7 @@ SECTIONS = [
                 "file": "05-common-mistakes-and-red-flags.md",
                 "title": "Common Mistakes & Red Flags",
                 "flagship": False,
+                "template": "decision_framework",
                 "synopsis": (
                     "The recurring mistakes that separate a Senior-level answer "
                     "from a Staff-level answer in AI system design interviews — "
@@ -2146,7 +2210,9 @@ def main():
                 backlog.append(f"- ✅ `{e['file']}` — {e['title']}\n")
                 continue
             total_stub += 1
-            backlog.append(f"- 📋 `{e['file']}` — {e['title']}\n")
+            template = e.get("template", "system")
+            tag = " *(decision framework template)*" if template == "decision_framework" else ""
+            backlog.append(f"- 📋 `{e['file']}` — {e['title']}{tag}\n")
             with open(os.path.join(section_dir, e["file"]), "w") as sf:
                 sf.write(
                     STUB_TMPL.format(
@@ -2155,6 +2221,7 @@ def main():
                         kind_label=kind_label(section),
                         outline=render_outline(e["outline"]),
                         section_title=section["title"],
+                        template_note=render_template_note(e),
                     )
                 )
 

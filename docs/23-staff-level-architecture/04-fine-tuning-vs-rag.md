@@ -3,6 +3,9 @@
 !!! info "📋 Planned"
     This page is scaffolded but not yet written at full depth. The single most common architectural fork in applied AI — when fine-tuning beats RAG, when RAG beats fine-tuning, and why most production systems eventually use both for different jobs.
 
+!!! note "Template: Decision Framework"
+    This is a judgment call between approaches, not a system with its own components to diagram, so it will follow the lighter **Decision Framework** template (Overview, Definition, The Real Question, Core Concepts, Decision Framework, Worked Example, Tradeoffs, Cost Implications, Common Mistakes, Real World Examples, Interview Questions, Google-Level Follow-Ups, Key Takeaways) rather than the full systems-architecture template.
+
 ## What This Chapter Will Cover
 
 - What fine-tuning is actually good at (style, format, latent skill) vs bad at (fresh facts)

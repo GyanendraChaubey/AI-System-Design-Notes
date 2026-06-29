@@ -34,7 +34,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - ✅ `01-what-is-context-engineering.md` — What Is Context Engineering
 - 📋 `02-context-window-budgeting.md` — Context Window Budgeting
 - 📋 `03-context-compression-and-summarization.md` — Context Compression & Summarization
-- 📋 `04-long-context-vs-rag.md` — Long Context vs RAG
+- 📋 `04-long-context-vs-rag.md` — Long Context vs RAG *(decision framework template)*
 - 📋 `05-context-rot-and-failure-modes.md` — Context Rot & Failure Modes
 
 ## Retrieval Systems (`docs/05-retrieval-systems/`)
@@ -56,7 +56,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 - 📋 `01-graphrag-architecture.md` — GraphRAG Architecture
 - 📋 `02-knowledge-graph-construction.md` — Knowledge Graph Construction
-- 📋 `03-when-graphrag-beats-vector-rag.md` — When GraphRAG Beats Vector RAG
+- 📋 `03-when-graphrag-beats-vector-rag.md` — When GraphRAG Beats Vector RAG *(decision framework template)*
 
 ## Agentic RAG (`docs/08-agentic-rag/`)
 
@@ -80,7 +80,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## Planning Systems (`docs/11-planning-systems/`)
 
 - 📋 `01-task-decomposition-and-planning.md` — Task Decomposition & Planning
-- 📋 `02-plan-and-execute-vs-react.md` — Plan-and-Execute vs ReAct
+- 📋 `02-plan-and-execute-vs-react.md` — Plan-and-Execute vs ReAct *(decision framework template)*
 - 📋 `03-replanning-and-error-recovery.md` — Replanning & Error Recovery
 
 ## Memory Systems (`docs/12-memory-systems/`)
@@ -160,23 +160,23 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## Staff-Level Architecture (`docs/23-staff-level-architecture/`)
 
 - ✅ `01-how-staff-engineers-think.md` — How Staff Engineers Think
-- 📋 `02-build-vs-buy.md` — Build vs Buy
-- 📋 `03-open-source-vs-closed-models.md` — Open Source vs Closed Models
-- 📋 `04-fine-tuning-vs-rag.md` — Fine-Tuning vs RAG
-- 📋 `05-single-agent-vs-multi-agent.md` — Single-Agent vs Multi-Agent
-- 📋 `06-multi-tenant-architecture.md` — Multi-Tenant Architecture
+- 📋 `02-build-vs-buy.md` — Build vs Buy *(decision framework template)*
+- 📋 `03-open-source-vs-closed-models.md` — Open Source vs Closed Models *(decision framework template)*
+- 📋 `04-fine-tuning-vs-rag.md` — Fine-Tuning vs RAG *(decision framework template)*
+- 📋 `05-single-agent-vs-multi-agent.md` — Single-Agent vs Multi-Agent *(decision framework template)*
+- 📋 `06-multi-tenant-architecture.md` — Multi-Tenant Architecture *(decision framework template)*
 - 📋 `07-cost-engineering.md` — Cost Engineering
 - 📋 `08-latency-engineering.md` — Latency Engineering
 - 📋 `09-reliability-engineering.md` — Reliability Engineering
-- 📋 `10-ai-governance-and-platform-strategy.md` — AI Governance & Platform Strategy
+- 📋 `10-ai-governance-and-platform-strategy.md` — AI Governance & Platform Strategy *(decision framework template)*
 
 ## Interview Prep (`docs/24-interview-prep/`)
 
 - ✅ `01-how-ai-system-design-interviews-work.md` — How AI System Design Interviews Work
-- 📋 `02-the-whiteboarding-framework.md` — The Whiteboarding Framework
-- 📋 `03-estimation-and-capacity-planning-drills.md` — Estimation & Capacity Planning Drills
-- 📋 `04-company-specific-focus-areas.md` — Company-Specific Focus Areas
-- 📋 `05-common-mistakes-and-red-flags.md` — Common Mistakes & Red Flags
+- 📋 `02-the-whiteboarding-framework.md` — The Whiteboarding Framework *(decision framework template)*
+- 📋 `03-estimation-and-capacity-planning-drills.md` — Estimation & Capacity Planning Drills *(decision framework template)*
+- 📋 `04-company-specific-focus-areas.md` — Company-Specific Focus Areas *(decision framework template)*
+- 📋 `05-common-mistakes-and-red-flags.md` — Common Mistakes & Red Flags *(decision framework template)*
 
 ## Case Studies (`docs/25-case-studies/`)
 

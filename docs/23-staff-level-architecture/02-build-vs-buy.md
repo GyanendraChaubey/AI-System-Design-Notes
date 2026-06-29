@@ -3,6 +3,9 @@
 !!! info "📋 Planned"
     This page is scaffolded but not yet written at full depth. A decision framework for build-vs-buy across the AI stack — model, retrieval, orchestration, evaluation — weighing differentiation, talent cost, and time-to-market against vendor lock-in and margin.
 
+!!! note "Template: Decision Framework"
+    This is a judgment call between approaches, not a system with its own components to diagram, so it will follow the lighter **Decision Framework** template (Overview, Definition, The Real Question, Core Concepts, Decision Framework, Worked Example, Tradeoffs, Cost Implications, Common Mistakes, Real World Examples, Interview Questions, Google-Level Follow-Ups, Key Takeaways) rather than the full systems-architecture template.
+
 ## What This Chapter Will Cover
 
 - Layers where buying is almost always right (commodity infra)
