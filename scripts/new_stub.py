@@ -128,68 +128,30 @@ SECTIONS = [
             {
                 "file": "02-tokenization-and-vocabulary.md",
                 "title": "Tokenization & Vocabulary",
-                "flagship": False,
-                "synopsis": (
-                    "How raw text becomes the integer sequence a model actually "
-                    "consumes, why tokenizer choice silently determines context-window "
-                    "economics and multilingual cost, and where tokenization bugs "
-                    "cause production incidents."
-                ),
-                "outline": [
-                    "BPE vs byte-level BPE vs SentencePiece/Unigram",
-                    "Vocabulary size tradeoffs: throughput vs sequence length vs rare-word handling",
-                    "Token economics: why the same prompt costs 1.5-4x more in some languages",
-                    "Production failure modes: tokenizer/model mismatch, prompt-boundary token leakage",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
             {
                 "file": "03-context-windows-and-positional-encoding.md",
                 "title": "Context Windows & Positional Encoding",
-                "flagship": False,
-                "synopsis": (
-                    "How models extend usable context length via positional encoding "
-                    "schemes (RoPE, ALiBi, NTK/YaRN scaling), and why a model's "
-                    "advertised context window is rarely the length at which it "
-                    "reasons reliably."
-                ),
-                "outline": [
-                    "Absolute vs relative vs rotary positional encoding",
-                    "Context-length extension techniques and their failure modes",
-                    "Lost in the middle: effective vs advertised context length",
-                    "Implications for context engineering and RAG chunk placement",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
             {
                 "file": "04-decoding-and-inference-strategies.md",
                 "title": "Decoding & Inference Strategies",
-                "flagship": False,
-                "synopsis": (
-                    "How a model turns logits into tokens — greedy, sampling, beam "
-                    "search, and speculative decoding — and how decoding choice trades "
-                    "off latency, cost, and output quality/diversity."
-                ),
-                "outline": [
-                    "Greedy vs temperature/top-p/top-k sampling",
-                    "Beam search and when it's worth the extra compute",
-                    "Speculative decoding as a latency lever (full treatment in Distributed Inference)",
-                    "Decoding choice as a product decision, not just a model parameter",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
             {
                 "file": "05-model-families-and-selection.md",
                 "title": "Model Families & Selection",
-                "flagship": False,
-                "synopsis": (
-                    "A practical framework for choosing among dense vs "
-                    "mixture-of-experts architectures and open vs closed model "
-                    "families, given a target latency, cost, and quality bar."
-                ),
-                "outline": [
-                    "Dense vs MoE: capacity, latency, and serving-cost tradeoffs",
-                    "Open-weight vs closed/API models as a build-vs-buy instance",
-                    "Model-size ladders and when a smaller model genuinely suffices",
-                    "A decision checklist for model selection",
-                ],
+                "flagship": True,
+                "synopsis": "",
+                "outline": [],
             },
         ],
     },

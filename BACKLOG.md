@@ -17,10 +17,10 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## LLM Architecture (`docs/02-llm-architecture/`)
 
 - ✅ `01-transformer-internals-for-systems-engineers.md` — Transformer Internals for Systems Engineers
-- 📋 `02-tokenization-and-vocabulary.md` — Tokenization & Vocabulary
-- 📋 `03-context-windows-and-positional-encoding.md` — Context Windows & Positional Encoding
-- 📋 `04-decoding-and-inference-strategies.md` — Decoding & Inference Strategies
-- 📋 `05-model-families-and-selection.md` — Model Families & Selection
+- ✅ `02-tokenization-and-vocabulary.md` — Tokenization & Vocabulary
+- ✅ `03-context-windows-and-positional-encoding.md` — Context Windows & Positional Encoding
+- ✅ `04-decoding-and-inference-strategies.md` — Decoding & Inference Strategies
+- ✅ `05-model-families-and-selection.md` — Model Families & Selection
 
 ## Prompt Architecture (`docs/03-prompt-architecture/`)
 
@@ -203,5 +203,5 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Totals
 
-- 21 flagship chapters/case studies complete
-- 98 stubs remaining
+- 25 flagship chapters/case studies complete
+- 94 stubs remaining

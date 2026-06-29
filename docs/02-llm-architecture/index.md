@@ -5,7 +5,7 @@ The model itself, from a systems engineer's perspective — not a deep learning 
 | Page | Status |
 |---|---|
 | [Transformer Internals for Systems Engineers](01-transformer-internals-for-systems-engineers.md) | ✅ Complete |
-| [Tokenization & Vocabulary](02-tokenization-and-vocabulary.md) | 📋 Planned |
-| [Context Windows & Positional Encoding](03-context-windows-and-positional-encoding.md) | 📋 Planned |
-| [Decoding & Inference Strategies](04-decoding-and-inference-strategies.md) | 📋 Planned |
-| [Model Families & Selection](05-model-families-and-selection.md) | 📋 Planned |
+| [Tokenization & Vocabulary](02-tokenization-and-vocabulary.md) | ✅ Complete |
+| [Context Windows & Positional Encoding](03-context-windows-and-positional-encoding.md) | ✅ Complete |
+| [Decoding & Inference Strategies](04-decoding-and-inference-strategies.md) | ✅ Complete |
+| [Model Families & Selection](05-model-families-and-selection.md) | ✅ Complete |
