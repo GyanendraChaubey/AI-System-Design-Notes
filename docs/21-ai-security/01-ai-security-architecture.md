@@ -191,7 +191,7 @@ The central tuning question in this architecture is how much guardrail strictnes
 
 ```mermaid
 flowchart TD
-    Q1{Does this action have\nreal-world side effects?\n(send, delete, pay, publish)} -->|Yes| Q2{Is the action\nreversible?}
+    Q1{"Does this action have\nreal-world side effects?\n(send, delete, pay, publish)"} -->|Yes| Q2{Is the action\nreversible?}
     Q1 -->|No, read-only| LIGHT[Light-touch checks:\nfast classifier only,\nno human gate]
     Q2 -->|No| HEAVY[Heaviest controls:\nmandatory human approval,\nstrict allowlist, full audit]
     Q2 -->|Yes| MED[Medium controls:\nstricter classifier threshold,\nrate limits, async review]

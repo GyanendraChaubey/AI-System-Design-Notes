@@ -118,7 +118,7 @@ The same recurring decision pattern shows up under every surface-level question 
 
 ```mermaid
 flowchart LR
-    Start[Surface-level question\ne.g. "fine-tune or RAG?"] --> Strip[Strip away the framing,\nfind the real constraint]
+    Start["Surface-level question\ne.g. fine-tune or RAG?"] --> Strip[Strip away the framing,\nfind the real constraint]
     Strip --> Classify{Reversible?}
     Classify -->|Yes| Fast[Decide fast,\npush to team closest to it]
     Classify -->|No| Slow[Apply full 5-question\nframework + written ADR]

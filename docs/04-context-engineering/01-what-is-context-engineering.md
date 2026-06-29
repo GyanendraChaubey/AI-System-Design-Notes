@@ -119,7 +119,7 @@ sequenceDiagram
     CE->>RAG: fetch relevant knowledge (+50-150ms: embed + search + rerank)
     CE->>TOOL: prior tool results already in session state (+5ms)
     CE->>CE: compute budget: 128K window - 4K output headroom - 1.5K system prompt = 122.5K allocatable (+1-3ms)
-    CE->>CE: apply per-source caps; compress history if over cap (+5-40ms if summarization triggered)
+    CE->>CE: apply per-source caps, compress history if over cap (+5-40ms if summarization triggered)
     CE->>CE: order sections, insert delimiters (+1ms)
     CE->>LLM: assembled prompt, ~30-60K tokens typical (+200-600ms time-to-first-token)
     LLM-->>APP: streamed response (~20-60 tok/s)

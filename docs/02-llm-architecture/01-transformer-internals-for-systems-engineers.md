@@ -145,7 +145,7 @@ The recurring architectural question: as required context length grows, at what 
 ```mermaid
 flowchart TD
     Q1{Typical prompt length\nunder ~4K tokens, and\nmoderate concurrency?} -->|Yes| SIMPLE[Co-located prefill+decode,\ncontinuous batching is sufficient]
-    Q1 -->|No| Q2{Are long prompts (50K+ tokens)\ncommon and concurrent with\nlatency-sensitive decode traffic?}
+    Q1 -->|No| Q2{"Are long prompts (50K+ tokens)\ncommon and concurrent with\nlatency-sensitive decode traffic?"}
     Q2 -->|Yes| DISAGG[Consider disaggregated\nprefill/decode pools]
     Q2 -->|No, long-context is rare/batch| CHUNK[Chunked prefill is\nusually enough]
     Q1 -->|No, primarily KV memory\npressure not latency| KVOPT[Prioritize KV cache\nmanagement: paging, eviction,\nprefix sharing]
