@@ -35,6 +35,20 @@ Both relative schemes still have a real-world wrinkle: a model trained at one co
 - **Effective vs. advertised context length** — the advertised number is what the architecture and any extension technique technically accept; the effective number is the length at which the model actually retrieves and reasons over content reliably, measured empirically (commonly via needle-in-a-haystack-style benchmarks), and is frequently shorter than the advertised figure, especially near the top of the advertised range.
 - **Lost in the middle** — the empirical pattern where model recall and reasoning accuracy is measurably worse for information placed in the middle of a long context than for information placed near the start or end, independent of whether the content technically fits within the context window.
 
+The lost-in-the-middle effect is the single most operationally important consequence of how positional encoding interacts with attention over long sequences. The recall probability curve is not flat — it peaks at both ends of the context and drops significantly in the middle.
+
+```mermaid
+flowchart LR
+    subgraph ContextWindow["Context window: 32K tokens"]
+        START["Token positions 0-2K\nHIGH recall probability\nModel attends strongly\nto recent and first content"]
+        MIDDLE["Token positions 2K-30K\nLOW recall probability\nContent here is statistically\nmore likely to be missed\neven if technically in context"]
+        END_POS["Token positions 30K-32K\nHIGH recall probability\nMost recent content\nstrongly attended to"]
+    end
+
+    CRITICAL["Critical fact placed\nin the middle?"] --> RISK["Higher risk of\nbeing missed or\nincorrectly recalled"]
+    CRITICAL2["Critical fact placed\nat start or end?"] --> SAFE["Reliably recalled\nin most models"]
+```
+
 ## Positional Encoding Schemes and Extension Techniques
 
 Positional information enters the model once, near the input, but its consequences — how attention behaves at different relative distances — propagate through every layer's self-attention computation, which is why a scheme decided once at training time shapes behavior at every depth of the network.
@@ -148,6 +162,26 @@ flowchart TD
 
 ## Scalability
 
+KV cache memory grows linearly with context length, but the constant factor is large enough that even moderate context lengths consume gigabytes per request — a critical capacity planning input for any long-context serving system.
+
+```mermaid
+flowchart TB
+    FORMULA["KV Cache per token:\n2 x layers x KV_heads x head_dim x bytes_per_value"]
+
+    subgraph Example["Example: 70B-class model with GQA\n80 layers, 8 KV heads, head_dim 128, FP16"]
+        PER_TOK["Per token: 2 x 80 x 8 x 128 x 2 = 327 KB"]
+        AT_8K["At 8K tokens: ~2.5 GB"]
+        AT_32K["At 32K tokens: ~10 GB"]
+        AT_128K["At 128K tokens: ~40 GB\nExceeds model weights on single GPU"]
+        AT_8K --> AT_32K --> AT_128K
+    end
+
+    FORMULA --> Example
+
+    NOTE["Note: this is per request\nAt 10 concurrent requests at 32K tokens\n= ~100 GB KV cache alone\nbefore model weights"]
+    Example --> NOTE
+```
+
 - **Effective context length does not scale linearly with model size or training compute** — a larger model is not automatically more reliable at long context; effective length is closely tied to the specific positional scheme, extension technique, and how much long-context data and fine-tuning the model actually received, independent of parameter count.
 - **Extension techniques scale differently in cost.** Simple frequency rescaling (linear or NTK-aware) requires no additional training and is essentially free to apply, but typically yields a smaller effective-length gain and a more pronounced lost-in-the-middle effect than YaRN-style approaches that pair scaling with targeted continued fine-tuning at the extended length — a real engineering-cost-versus-quality tradeoff a model provider makes, and a systems engineer inherits without choice once a model is selected.
 - **Lost-in-the-middle severity tends to worsen as context length grows**, even for models with strong long-context training, simply because there's proportionally more "middle" to be lost in — a 4K-context request has comparatively little room for the effect to manifest; a 200K-context request has a vast middle region where it can.
@@ -163,6 +197,24 @@ flowchart TD
 | Apparent "forgetting" of early instructions in a long agentic session | Compounding effect of both context growth and positional placement as history accumulates | Periodically re-inject critical instructions, or summarize/compress older history rather than letting it drift into a disadvantaged position (see [Context Compression & Summarization](../04-context-engineering/03-context-compression-and-summarization.md)) |
 
 A useful operational stance: treat "effective context length" the same way [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md) treats achievable throughput-per-GPU — a number that must come from your own measurement against your own workload, not a spec-sheet figure taken on faith.
+
+The gap between advertised and effective context length is not hypothetical — it is a consistent empirical finding across model families and extension techniques.
+
+```mermaid
+flowchart LR
+    subgraph Model["Model spec card"]
+        ADV["Advertised context window\ne.g. 128K tokens\nArchitecture can accept this"]
+    end
+
+    subgraph Reality["Empirical needle-in-haystack benchmark"]
+        EFF_CLOSE["Effective at short context\n0-16K tokens\nNear-perfect recall\nFully reliable"]
+        EFF_MID["Effective at medium context\n16K-64K tokens\nGood recall\nMinor degradation"]
+        EFF_LONG["Effective at long context\n64K-128K tokens\nDegraded recall\nWorse near maximum\nDo not rely without validation"]
+    end
+
+    ADV -.gap.-> EFF_LONG
+    EFF_CLOSE --> EFF_MID --> EFF_LONG
+```
 
 ## Security
 
@@ -237,6 +289,15 @@ Whether the new model's *effective* context length at the new range has actually
 
 **Q: How would you design a context-assembly strategy for a RAG system that's aware of lost-in-the-middle, without simply reducing how much content you retrieve?**
 Treat assembly order as a separate decision from retrieval ranking: rerank retrieved chunks specifically for *placement* — the single most relevant chunk goes at the very start or very end of the assembled context, not necessarily in its original retrieval-score order if that happens to place it mid-context. For cases where multiple highly relevant chunks exist, consider a "bookend" pattern — most-relevant content at both the start and the end, with lower-relevance supporting content in the middle, since the middle is the zone where its lower importance matters least. This preserves total retrieved volume while deliberately working around the known positional weakness instead of just retrieving less.
+
+```mermaid
+flowchart TB
+    RET["Retrieval returns chunks\nranked R1, R2, R3, R4, R5\nby relevance score"] --> NAIVE["Naive assembly order\nR1, R2, R3, R4, R5\nMost relevant chunk R1 at start\nbut R2-R4 in the low-attention middle"]
+    RET --> BOOKEND["Bookend assembly\nR1 at START — highest relevance\nR3, R4, R5 in middle — lower relevance\nR2 at END — second highest relevance\nBoth high-value chunks in high-attention zones"]
+    NAIVE --> GAP["Risk: critical evidence in R2\nfalls in the low-attention middle\nmodel may miss or under-weight it"]
+    BOOKEND --> WIN["Both critical chunks in\nhigh-attention zones\nsame retrieved volume\nbetter recall"]
+    WIN --> NOTE["Assembly order is a quality lever\nindependent of retrieval quality\nand token budget"]
+```
 
 ### Staff
 

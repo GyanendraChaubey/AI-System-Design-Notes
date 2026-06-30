@@ -39,6 +39,19 @@ Early autoregressive language models faced an immediate design question the mome
 - **Speculative decoding** — a smaller, faster "draft" model proposes several tokens ahead; the full "target" model verifies all proposed tokens in one parallel forward pass, accepting a correctly-predicted prefix and rejecting (and correcting) from the first divergence; output distribution matches what the target model alone would have produced, with materially fewer sequential full-model steps.
 - **Repetition / frequency penalties** — explicit downweighting of tokens (or n-grams) already present in the generated output, a complementary, narrower-purpose lever on top of the main decoding strategy, aimed specifically at the repetition-loop failure mode.
 
+Temperature directly reshapes the probability distribution before sampling. Low temperature concentrates probability mass on the most likely tokens; high temperature spreads it across the vocabulary.
+
+```mermaid
+xychart-beta
+    title "Token probability distribution by temperature"
+    x-axis ["tok_A", "tok_B", "tok_C", "tok_D", "tok_E", "tok_F", "tok_G", "tok_H"]
+    y-axis "Probability" 0 --> 100
+    bar [80, 10, 4, 2, 1, 1, 1, 1]
+    line [80, 10, 4, 2, 1, 1, 1, 1]
+```
+
+At low temperature (near 0), token A dominates — near-greedy behavior. At high temperature, the same base logits produce a nearly flat distribution where low-probability tokens become plausible selections, increasing variety but risking incoherence.
+
 ## The Decoding Pipeline
 
 Decoding sits at one specific, well-defined point in the request path: after the model produces logits for the current step, before the chosen token is appended and fed back in for the next step.
@@ -84,6 +97,25 @@ flowchart TB
 | Draft model (speculative decoding) | Propose several candidate next tokens quickly and cheaply | Final acceptance — verification is the target model's job |
 | Target model (speculative decoding) | Verify proposed tokens in one parallel pass; accept a correct prefix, correct from the first divergence | Proposing tokens itself in this mode — that's the draft model's role |
 | Repetition penalty logic | Downweight already-generated tokens/n-grams as a targeted anti-repetition measure | Overall strategy choice — this is typically layered on top of greedy or sampling, not a strategy by itself |
+
+Top-k and top-p are both ways to trim the token distribution, but they adapt differently to how spread the probability mass is at each step.
+
+```mermaid
+flowchart TB
+    subgraph TopK["Top-K filtering: K=3"]
+        TK_DIST["Full distribution\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\ntok_D: 8%\ntok_E: 4%\ntok_F: 2%\ntok_others: 1%"]
+        TK_KEEP["Keep only top 3:\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\nRenormalize and sample"]
+        TK_ISSUE["Problem: fixed K=3 too narrow\nwhen dist is flat\ntoo wide when dist is peaked"]
+        TK_DIST --> TK_KEEP --> TK_ISSUE
+    end
+
+    subgraph TopP["Top-P filtering: P=0.85"]
+        TP_DIST["Full distribution\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\ntok_D: 8%\ntok_E: 4%\ntok_F: 2%\ntok_others: 1%"]
+        TP_CALC["Cumulative sum until >= 85%:\ntok_A: 50%  cumul: 50%\ntok_B: 20%  cumul: 70%\ntok_C: 15%  cumul: 85% -- stop here\nKeep tok_A, tok_B, tok_C"]
+        TP_BENEFIT["Adapts automatically:\nPeaked dist = smaller candidate set\nFlat dist = larger candidate set"]
+        TP_DIST --> TP_CALC --> TP_BENEFIT
+    end
+```
 
 ## A Streamed Response Step by Step
 
@@ -149,6 +181,23 @@ At each decode step, the decoding engine intersects the model's logit distributi
 Libraries implementing this: **Outlines** (most widely used, grammar-based), **LMFE** (structured output with Pydantic), **Guidance** (handlebars-style templates), **XGrammar** (efficient grammar-constrained decoding). Several serving engines (vLLM, llama.cpp) integrate grammar-based constrained decoding natively.
 
 **The tradeoff:** Constrained decoding imposes a small (~5–20%) throughput overhead per token — the mask computation runs on CPU alongside GPU decoding. For high-throughput batch workloads generating structured output at scale, this overhead is worth measuring explicitly.
+
+```mermaid
+flowchart TD
+    TOKENS["Generated tokens so far\ne.g. {\"name\": \"Alice\", \"age\":"]
+    PARSE["Parse current state\nusing grammar or JSON Schema\nParser determines what comes next"]
+    VALID["Compute valid token mask\nOnly tokens that maintain\nvalid partial structure\ne.g. digits 0-9 are valid\nletters or braces are NOT"]
+    LOGITS["Original model logits\nover full vocabulary"]
+    MASK["Apply mask:\nSet invalid tokens to -infinity\nValid tokens keep their logits"]
+    SAMPLE["Sample from masked distribution\nResult is guaranteed\ngrammatically valid"]
+    APPEND["Append chosen token\ne.g. 2 -> {\"name\": \"Alice\", \"age\": 2"]
+    UPDATE["Update parse state\nNow expect more digits\nor closing quote"]
+
+    TOKENS --> PARSE --> VALID --> MASK
+    LOGITS --> MASK
+    MASK --> SAMPLE --> APPEND --> UPDATE
+    UPDATE -.next step.-> PARSE
+```
 
 **When to use each approach:**
 
@@ -295,6 +344,22 @@ Greedy decoding is only locally optimal — it picks the single best next token 
 
 **Q: What's the difference between top-k and top-p sampling, and why would you prefer one over the other?**
 Top-k restricts sampling to a fixed number of the highest-probability tokens, regardless of how the probability mass is actually distributed among them. Top-p (nucleus sampling) instead includes however many tokens are needed to reach a cumulative probability threshold, which adapts to the shape of the distribution — when the model is very confident (probability concentrated on a few tokens), the effective candidate set shrinks automatically; when it's uncertain (probability spread thin), the set widens. Top-p is generally preferred because it doesn't require guessing a good fixed *k* that works well across both confident and uncertain generation steps.
+
+```mermaid
+flowchart LR
+    subgraph Confident["Model is Confident\nOne token has high probability mass"]
+        CONF_DIST["Token A: 0.80\nToken B: 0.10\nToken C: 0.05\nToken D: 0.03\nToken E: 0.02"]
+        CONF_K["Top-k k=3:\ninclude A, B, C\ncorrect — k matches confident shape"]
+        CONF_P["Top-p p=0.95:\nadd A (0.80) + B (0.10) + C (0.05) = 0.95\nstop — only 3 candidates\ncorrect — adapts automatically"]
+    end
+    subgraph Uncertain["Model is Uncertain\nProbability spread across many tokens"]
+        UNC_DIST["Token A: 0.15\nToken B: 0.12\nToken C: 0.10\n...\nToken K: 0.05"]
+        UNC_K["Top-k k=3:\nonly A, B, C\ncuts off tokens D-K that\nshould be considered"]
+        UNC_P["Top-p p=0.95:\nkeep adding until 0.95 reached\nmay include 10-15 candidates\ncorrect — widens when uncertain"]
+    end
+    CONF_P --> WIN["Top-p adapts to distribution shape\ntop-k does not\ntop-p is generally preferred"]
+    UNC_P --> WIN
+```
 
 **Q: Why is speculative decoding described as a "free" latency win with no quality tradeoff, when it sounds like it's introducing an extra model into the pipeline?**
 Because of how verification works: the small draft model's proposed tokens are only ever *accepted* if the full target model would have generated the same token anyway — verification compares the draft's proposals against the target model's actual distribution in one parallel pass, and rejects (and corrects) anything that doesn't match. The final output is mathematically equivalent to what the target model alone, decoding token by token, would have produced. The "free" part is that this verification happens in one parallel forward pass instead of several sequential ones, exploiting compute capacity that decode's memory-bandwidth-bound steps otherwise leave idle.

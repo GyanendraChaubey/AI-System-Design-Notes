@@ -51,6 +51,29 @@ Three versioning strategies, each suited to different team maturity and prompt u
 
 **Best practice:** Use content hashing as the canonical identifier (for drift detection and reproducibility) alongside a human-readable alias (e.g., `billing-support-v3`) for dashboards and rollback references. Store the mapping between alias and hash in the prompt registry.
 
+```mermaid
+flowchart TB
+    subgraph SemVer["Semantic Versioning: v1.2.3"]
+        SV_PROS["Pros:\nHuman-readable\nConveys change magnitude\nEasy to reference in docs"]
+        SV_CONS["Cons:\nRequires human judgment on bump level\nBreaking changes mislabeled as minor\nVersion drift undetectable without content check"]
+    end
+
+    subgraph HashVer["Content-Hash Versioning: sha256:a3f7..."]
+        HV_PROS["Pros:\nGuaranteed unique per content\nDrift detection is trivial\nNo human classification required"]
+        HV_CONS["Cons:\nNot human-readable in dashboards\nVersion IDs meaningless without registry\nHarder to reference in conversation"]
+    end
+
+    subgraph SeqVer["Sequential / Timestamp: 2024-12-01-v42"]
+        TV_PROS["Pros:\nSimple to implement\nChronological ordering clear\nNo judgment required"]
+        TV_CONS["Cons:\nNo information about change nature\nVersion gaps require changelog lookup\nBroken chain if history is lost"]
+    end
+
+    BEST["Best Practice:\nUse hash as canonical identifier\n+ human-readable alias\ne.g. billing-support-v3 -> sha256:a3f7...\nStore mapping in prompt registry"]
+    SemVer --> BEST
+    HashVer --> BEST
+    SeqVer --> BEST
+```
+
 ## Linking Prompts to Evals and Models
 
 A version of a prompt is only meaningful relative to the model it was tested on. The complete version record for a deployed prompt should capture:
@@ -69,6 +92,21 @@ A version of a prompt is only meaningful relative to the model it was tested on.
 ```
 
 This record enables: (a) rollback to any previous version with full context on why the current version was chosen, (b) detecting model drift when the provider silently updates the model at the same model ID, (c) attributing quality changes to prompt changes vs model changes.
+
+```mermaid
+flowchart TB
+    PROMPT["Prompt Template\nbilling-support\nsha256:a3f7...\nalias: v3.1"]
+    MODEL["Model Version\ngpt-4o-2024-11-20\npinned, not latest"]
+    EVAL["Eval Run\neval-2024-12-01-billing-v3.1\naccuracy: 0.91\nformat_compliance: 0.99"]
+    DEPLOY["Deployment Record\ndeployed_at: 2024-12-02\ndeployed_by: alice@company.com\nrollback_to: v3.0"]
+
+    PROMPT --> EVAL
+    MODEL --> EVAL
+    EVAL --> DEPLOY
+
+    ROLLBACK["Rollback: point to v3.0 hash\nrevert in registry\nno code deploy required\nunder 5 minutes"]
+    DEPLOY -.if regression.-> ROLLBACK
+```
 
 ## Rollout Strategies for Prompt Changes
 
@@ -102,6 +140,23 @@ Reading a prompt diff is harder than reading a code diff. A reviewer cannot imme
 **Diff with eval context.** The PR that changes a prompt should include, alongside the text diff, the eval results before and after the change: which examples regressed, which examples improved, and the aggregate score change. The reviewer is approving an eval-evidenced change, not just an aesthetic judgment about the wording.
 
 **AI-assisted prompt diff.** A supplementary step: pass the before and after prompt versions to an LLM with the instruction "describe how outputs would differ between these two versions on the following inputs." This doesn't replace an eval run but surfaces likely impacts on examples the eval set might not cover, making regressions more discoverable before they reach production.
+
+```mermaid
+flowchart LR
+    PR["Pull Request:\nPrompt text diff\n+/- changed lines shown"]
+    EVAL_RESULTS["Eval results attached:\nbefore score: accuracy 0.88\nafter score: accuracy 0.91\nregressed cases: 0\nimproved cases: 12"]
+    REVIEWER["Reviewer sees:\ntext diff + eval evidence\nnot just wording judgment"]
+    DECISION{"Approve or\nrequest changes?"}
+    APPROVE["Approve:\neval shows improvement\nno regressions"]
+    REJECT["Request changes:\nidentify which dimension\nregressed and why"]
+    MERGE["Merge + shadow deploy\nthen canary\nthen full cutover"]
+
+    PR --> REVIEWER
+    EVAL_RESULTS --> REVIEWER
+    REVIEWER --> DECISION
+    DECISION --> APPROVE --> MERGE
+    DECISION --> REJECT
+```
 
 ## Tools and Ecosystem
 

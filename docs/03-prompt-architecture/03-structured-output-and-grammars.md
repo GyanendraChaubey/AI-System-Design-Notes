@@ -84,6 +84,22 @@ For self-hosted models, or when provider-side constraints are insufficient, gram
 
 **Throughput overhead.** Grammar-constrained decoding adds 5–15% throughput overhead per token (the mask computation runs on CPU alongside GPU decode). For high-throughput batch workloads generating structured output at scale, measure this explicitly before deploying.
 
+```mermaid
+flowchart TD
+    CURR_TOKENS["Current generated tokens\ne.g. {\"status\": \""]
+    PARSE_STATE["Parse grammar state\nJSON parser knows:\nwe are inside a string value\nfor field 'status'"]
+    VALID_MASK["Compute valid token mask\nValid: any character token\nfor the enum values\ne.g. 'a','c','e','f','h','i','l','n','o','p','r','t','u'\nInvalid: closing brace, comma, digit"]
+    MODEL_LOGITS["Full model logits\nover 100K vocabulary entries"]
+    APPLY_MASK["Apply mask:\nset invalid logits to -infinity\nvalid logits unchanged"]
+    SAMPLE["Sample token\nresult: e.g. 'a' -> \"active\""]
+    UPDATE_STATE["Update parse state\nnow inside enum value\nnext valid tokens narrow further"]
+    REPEAT["Repeat until\nJSON structure complete\nGuaranteed valid output"]
+
+    CURR_TOKENS --> PARSE_STATE --> VALID_MASK --> APPLY_MASK
+    MODEL_LOGITS --> APPLY_MASK
+    APPLY_MASK --> SAMPLE --> UPDATE_STATE --> REPEAT
+```
+
 **When to use.** Self-hosted models where provider-side JSON mode is not available; complex grammars (SQL generation, code in a specific language, domain-specific structured formats) that JSON Schema cannot express; cases where output length needs to be tightly controlled by the grammar.
 
 ## Output Failure Modes and Recovery
@@ -98,7 +114,38 @@ Even with structured output modes or grammar constraints, non-format failures oc
 
 **Retry budget.** Define a maximum retry count (typically 2–3) before falling back to a degraded response (a structured error response, a human escalation, or returning partial extracted data). Unlimited retries on persistent failures compound cost and latency.
 
+```mermaid
+flowchart TD
+    OUTPUT["Model output received"]
+    PARSE{"JSON parseable?"}
+    SCHEMA{"Matches schema?\nRequired fields present?\nCorrect types?"}
+    SEMANTIC{"Values semantically\ncorrect?\nRule-based checks pass?"}
+
+    PARSE_ERR["Parse error\ne.g. missing brace\nextra comma"]
+    SCHEMA_ERR["Schema mismatch\ne.g. wrong field name\nmissing required field"]
+    SEMANTIC_ERR["Semantic error\ne.g. wrong entity extracted\nhallucinated value"]
+    TRUNC{"Output truncated?\nNo closing brace?"}
+
+    RETRY_PARSE["Retry with error appended:\nYour output was not valid JSON.\nParse error: {error}\nRetry budget: 2-3x"]
+    RETRY_SCHEMA["Retry with specific error:\nField X is missing\nField Y is not valid\nRetry budget: 2-3x"]
+    ESCALATE["Do NOT retry blindly\nEscalate to stronger model\nor human review"]
+    INC_TOKENS["Increase max_tokens\nand retry\nDo not feed partial output back"]
+    PASS["Pass to downstream system"]
+
+    OUTPUT --> PARSE
+    PARSE -->|Invalid| PARSE_ERR --> RETRY_PARSE
+    PARSE -->|Valid| SCHEMA
+    SCHEMA -->|Mismatch| SCHEMA_ERR --> RETRY_SCHEMA
+    SCHEMA -->|Valid| TRUNC
+    TRUNC -->|Yes| INC_TOKENS
+    TRUNC -->|No| SEMANTIC
+    SEMANTIC -->|Wrong values| SEMANTIC_ERR --> ESCALATE
+    SEMANTIC -->|Correct| PASS
+```
+
 ## When to Validate vs When to Regenerate
+
+The decision of whether to validate, retry, or escalate depends on the failure type. The flowchart above (in the Output Failure Modes section) shows the full decision path. The table below adds nuance on escalation conditions.
 
 Not every validation failure warrants a retry:
 
@@ -138,6 +185,17 @@ At each decode step, a mask is computed from the current parse state of the targ
 
 **Q: A model produces schema-valid JSON but with wrong extracted values. How do you detect and handle this?**
 Schema validation catches syntax and structure violations, not semantic ones. Semantic validation layers: (1) rule-based checks (is the extracted date parseable? is the price in a plausible range?); (2) confidence checks (does the model agree with its own extraction if asked again at temperature 0?); (3) LLM-as-judge (a separate model or the same model in a judge role evaluates the extraction quality). For high-stakes extractions, always add at least rule-based semantic validation in addition to schema validation.
+
+```mermaid
+flowchart LR
+    OUTPUT["Model output:\nSchema-valid JSON"] --> SCHEMA["Layer 1: Schema validation\nPydantic or jsonschema\nChecks: field names, types,\nrequired fields, enum values"]
+    SCHEMA -->|Pass| SEMANTIC["Layer 2: Semantic validation\nRule-based checks:\ndate parseable, price in range,\nentity appears in source text"]
+    SCHEMA -->|Fail| RETRY_FMT["Retry with format error\nAppend parse error to prompt\nRecovers 60-90 percent of cases"]
+    SEMANTIC -->|Pass| JUDGE["Layer 3: LLM-as-judge\nFor high-stakes extractions\nSample-based spot check\nor confidence agreement check"]
+    SEMANTIC -->|Fail| ESCALATE["Do NOT retry blindly\nSemantic retries produce\nthe same wrong answer\nEscalate or use stronger model"]
+    JUDGE -->|Agrees| DOWNSTREAM["Pass to downstream system"]
+    JUDGE -->|Disagrees| ESCALATE
+```
 
 ### Senior
 

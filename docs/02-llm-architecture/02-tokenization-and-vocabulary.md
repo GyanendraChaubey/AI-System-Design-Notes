@@ -146,6 +146,20 @@ flowchart LR
 3. **Vocabulary size as a separate, composable choice** — independent of the algorithm, model families have grown vocabulary size over generations (early models around 32K, many current frontier models 100K-256K) specifically to improve multilingual and code fertility, since a larger vocabulary can dedicate more entries to non-English subwords without sacrificing English efficiency.
 4. **Domain-specialized vocabularies** — code models frequently use vocabularies tuned with code-heavy training corpora, since whitespace-sensitive, symbol-dense code tokenizes poorly under a prose-trained vocabulary (e.g., four-space indentation or repeated punctuation can fragment into many single-character tokens otherwise).
 
+```mermaid
+flowchart TB
+    START["Starting byte sequence\nl o w e r   l o w e s t"]
+    STEP1["Count pair frequencies\nl+o appears 3x\no+w appears 2x\nMerge most frequent: l+o = lo"]
+    STEP1_OUT["lo w e r   lo w e s t"]
+    STEP2["Count again\nlo+w appears 2x\nMerge: lo+w = low"]
+    STEP2_OUT["low e r   low e s t"]
+    STEP3["Count again\nlow+e appears 2x\nMerge: low+e = lowe"]
+    STEP3_OUT["lowe r   lowe s t"]
+    FINAL["Final vocabulary entries added:\nlo, low, lowe\nCommon prefixes now single tokens\nrare words still split into parts"]
+
+    START --> STEP1 --> STEP1_OUT --> STEP2 --> STEP2_OUT --> STEP3 --> STEP3_OUT --> FINAL
+```
+
 ## Multimodal Tokenization: Images, Audio, and Video
 
 Text tokenisation converts bytes to integer IDs. Multimodal models need the equivalent for images, audio, and video — and the engineering problems that follow are analogous but different enough to handle separately.
@@ -176,6 +190,20 @@ Video combines spatial (image) and temporal (sequence) dimensions. Most current 
 **What this means for capacity planning and context engineering:**
 
 Multimodal inputs do not change the capacity chain's structure — tokens/sec is still the intermediate unit — but they change the token distribution dramatically. A "request" for a multimodal product may carry 5,000–30,000 tokens of visual or audio content before a single word of the user's text question. Segment your token distribution by modality, budget multimodal inputs explicitly in the context assembly layer, and measure p95 token counts from real traffic rather than estimating from text-only baselines.
+
+```mermaid
+flowchart TB
+    IMAGE["Input Image\n1024 x 1024 pixels"] --> PATCHES["Vision Encoder\nsplits into 14x14 pixel patches\n~(1024/14)^2 = 5,300 patches"]
+    PATCHES --> PATCH_EMB["Each patch embedded\ninto a dense vector\nsame dimensionality as text tokens"]
+    PATCH_EMB --> IMG_TOKENS["~5,300 image token vectors\nenter transformer context"]
+
+    TEXT["User text question\ne.g. 20 tokens"] --> TEXT_TOKENS["Text token embeddings\n20 token vectors"]
+
+    IMG_TOKENS --> CONCAT["Concatenate into\nshared context sequence\n5,320 total tokens"]
+    TEXT_TOKENS --> CONCAT
+    CONCAT --> TRANSFORMER["Transformer layers\nprocess all tokens equally\nimage tokens consume context budget"]
+    TRANSFORMER --> RESPONSE["Text response\ngenerated autoregressively"]
+```
 
 ## Tradeoffs
 
@@ -219,6 +247,17 @@ Tokenization is a narrow but real attack surface, distinct from the model-level 
 
 - **Special-token injection** — if a chat template inserts role-delimiting special tokens around user text without escaping literal occurrences of those token strings *within* that user text, an attacker can attempt to forge a fake role boundary (e.g., injecting text that looks like an assistant-turn marker) to manipulate how the model interprets the conversation structure. Defense is at the templating/encoding layer: treat special-token strings appearing in untrusted input as plain data, never as the literal control tokens, by encoding them through the regular text path rather than pattern-matching on raw strings.
 - **Tokenization-based jailbreak attempts ("token smuggling")** — encoding a request so that an unsafe phrase's tokens don't align with the boundaries a safety filter pattern-matches against (since BPE merges are context-dependent, the same word can tokenize differently depending on surrounding text), letting harmful content slip past surface-level string filters that don't operate on the model's actual token stream. Defense is layering safety checks on decoded text and on model behavior, not relying on raw token-ID pattern matching as a safety boundary — see [Guardrails & Content Safety](../21-ai-security/04-guardrails-and-content-safety.md).
+
+```mermaid
+flowchart TB
+    UNSAFE["Unsafe phrase in normal context\nexample concept: B-O-M-B\ntokenized as single token: BOMB\nmatches safety filter pattern: BLOCKED"]
+
+    SMUGGLE["Same concept, different tokenization\nInsert space or special character\nexample: B OM B\ntokenized as: B + OM + B\nthree tokens, no single token matches BOMB\nstring filter does not match: PASSES"]
+
+    DEFEND["Correct defense:\nDo NOT filter on raw token IDs\nFilter on decoded text after generation\nOr use model-level safety training\nNot pattern matching on token streams"]
+
+    UNSAFE --> SMUGGLE --> DEFEND
+```
 - **Glitch tokens** — certain rare vocabulary entries (often artifacts of training-data quirks) can trigger anomalous or unstable model behavior when included in a prompt; treat unexplained model instability tied to specific rare strings as a known class of issue worth checking against, not a one-off bug.
 
 ## Cost Optimization

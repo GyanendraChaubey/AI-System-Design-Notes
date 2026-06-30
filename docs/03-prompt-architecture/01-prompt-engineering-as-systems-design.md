@@ -51,6 +51,18 @@ The position of content within a prompt affects output quality in measurable way
 
 **Negative examples placed just before the user input outperform negative examples placed in the preamble.** Negative examples are generally less effective than positive examples for most tasks; when used, recency matters.
 
+```mermaid
+flowchart LR
+    subgraph AttentionCurve["Model attention / recall by position in a long prompt"]
+        POS_START["Position: Start\nHigh attention\nPreamble, role, constraints\nstrongly attended"]
+        POS_EARLY["Position: Early middle\nDecreasing attention\nContent here is recalled\nbut less reliably"]
+        POS_MID["Position: Deep middle\nLowest attention zone\nCritical content placed here\nmost likely to be missed"]
+        POS_LATE["Position: Late middle\nSlightly recovering\nCloser to recency zone"]
+        POS_END["Position: End\nHigh attention\nUser input, postscript\nformat reminders effective here"]
+    end
+    POS_START --> POS_EARLY --> POS_MID --> POS_LATE --> POS_END
+```
+
 ## Few-Shot Example Selection as a Retrieval Problem
 
 The naive approach to few-shot examples is a fixed set hardcoded in the preamble. This works for simple, uniform tasks. For tasks with diverse inputs, it fails — a fixed example set that covers coding questions poorly serves medical questions and vice versa.
@@ -85,6 +97,30 @@ Chain-of-thought (CoT) prompting — asking the model to reason step-by-step bef
 
 **When CoT hurts**: On simple, well-defined tasks — classification, extraction from structured data, format conversion — CoT adds latency and cost without quality benefit. The model can also "reason itself into a wrong answer" when the task requires pattern recognition rather than explicit reasoning. Always A/B test CoT on your specific task before deploying.
 
+```mermaid
+flowchart TB
+    subgraph ZeroShotCoT["Zero-Shot CoT"]
+        ZS_PROMPT["Prompt: question + 'Think step by step'"]
+        ZS_OUTPUT["Output: reasoning trace + answer"]
+        ZS_COST["Cost: +30-200% output tokens\nSetup effort: minimal\nReliability: moderate"]
+        ZS_WHEN["Use when: quick win needed\nno annotation budget"]
+    end
+
+    subgraph FewShotCoT["Few-Shot CoT"]
+        FS_PROMPT["Prompt: examples with\nexplicit reasoning chains\n+ new question"]
+        FS_OUTPUT["Output: reasoning in demonstrated style + answer"]
+        FS_COST["Cost: +30-200% output tokens\n+example annotation effort\nReliability: high"]
+        FS_WHEN["Use when: complex domain\nannotation budget available"]
+    end
+
+    subgraph StructuredCoT["Structured CoT"]
+        SC_PROMPT["Prompt: examples with\nreasoning in explicit format\ne.g. numbered steps or XML tags"]
+        SC_OUTPUT["Reasoning in scratchpad\nFinal answer separately parseable"]
+        SC_COST["Cost: +30-200% output tokens\n+parsing infrastructure\nReliability: highest"]
+        SC_WHEN["Use when: reasoning trace\nneeded for debugging or\ndistillation to smaller model"]
+    end
+```
+
 ## Instruction-Following vs RLHF-Tuned vs Chat-Tuned Models
 
 The same prompt produces materially different results on different model types. Understanding which model type you are targeting is a prerequisite for effective prompt design:
@@ -105,6 +141,25 @@ A prompt that "worked in development" and has no regression tests will eventuall
 **Scoring.** For open-ended outputs: LLM-as-judge with a consistent rubric. For structured outputs: schema validation (pass/fail) supplemented by semantic quality. For classification/extraction: exact-match or precision/recall. Never rely solely on the prompt author's manual review.
 
 **Regression threshold.** Before any prompt change ships, it must clear a quality bar on the eval set at least as good as the current production version, per rubric dimension. A change that improves average quality by 5% but regresses hard-case performance by 20% should not ship.
+
+```mermaid
+flowchart TD
+    WRITE["Author writes new\nprompt version"]
+    TEST["Run against eval set\n50-200 representative cases\nscored by rubric or LLM-judge"]
+    COMPARE["Compare vs baseline\ncurrent production version\nper rubric dimension"]
+    PASS{"Clears quality bar\non all dimensions?"}
+    SHIP["Ship: open PR with\ndiff + eval results\nreviewer sign-off"]
+    REVISE["Revise prompt\nidentify regressing dimensions\nadjust wording or examples"]
+    MONITOR["Monitor in production\ntrack eval score\non ongoing traffic sample"]
+    REGRESS{"Quality drift\ndetected in prod?"}
+    STABLE["Prompt in stable\nproduction state"]
+
+    WRITE --> TEST --> COMPARE --> PASS
+    PASS -->|Yes| SHIP --> MONITOR --> REGRESS
+    PASS -->|No| REVISE --> TEST
+    REGRESS -->|Yes| WRITE
+    REGRESS -->|No| STABLE
+```
 
 ## Tools and Ecosystem
 

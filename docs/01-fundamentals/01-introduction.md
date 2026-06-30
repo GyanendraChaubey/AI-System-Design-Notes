@@ -20,6 +20,15 @@ Every assumption a systems engineer carries from prior experience needs to be re
 
 Teams that import distributed-systems instincts wholesale, without re-deriving which ones hold, build systems that pass every conventional health check while silently producing wrong answers, blowing budgets on pathological inputs, or regressing in ways no dashboard was built to catch.
 
+```mermaid
+flowchart LR
+    A1["Retry gives\nthe same result"] -->|False| B1["Retried LLM call can produce\ndifferent facts, tool choices,\nor conclusions than the first"]
+    A2["Passing tests means\nfeature works"] -->|False| B2["Input space is unbounded language;\ntests miss long-tail hallucinations,\nrefusals, and edge cases"]
+    A3["Fixed compute\nper request"] -->|False| B3["Cost scales with output tokens\nemitted, which vary 10x\nby conversation length and depth"]
+    A4["Quality shipped once\nthen stays stable"] -->|False| B4["Provider model updates, refusal\nbehavior shifts, and input drift\nall degrade quality with no code change"]
+    A5["Unit tests catch\nall regressions"] -->|False| B5["No single correct string exists;\ncorrectness is graded on a spectrum;\neval suites replace assertEqual"]
+```
+
 ## How We Got Here: Three Paradigms
 
 Software systems acquired probabilistic components gradually, and each step changed less than the next one.
@@ -188,6 +197,24 @@ The reliability contract changes in one specific, consequential way: **"availabl
 
 A concrete illustration: a support-bot eval suite scoring 91% "resolved correctly" against a 500-case regression set is a meaningless number on its own without a live monitoring signal showing that score hasn't quietly drifted to 84% after a silent provider-side model update — a failure mode with literally no equivalent in classical ML serving, where the deployed artifact's weights don't change underneath you between your deploys. [Reliability Engineering](../23-staff-level-architecture/09-reliability-engineering.md) covers the full SLO design for this; the point here is narrower: the *category* of thing you monitor for reliability has grown by one axis (quality), and that axis didn't exist in either paradigm this discipline is built on top of.
 
+```mermaid
+flowchart TB
+    subgraph TradSys["Traditional System"]
+        T1["Reliable = responds within SLO\nSame input always gives same output\nFailure = exception or error code"]
+        T2["Measure: uptime, latency, error rate"]
+    end
+    subgraph ClassicML["Classical ML System"]
+        M1["Reliable = responds + accuracy stable\nFrozen artifact; weights unchanged\nbetween your deploys"]
+        M2["Measure: uptime/latency + static\noffline accuracy, rarely re-checked live"]
+    end
+    subgraph AISys["AI System"]
+        A1["Reliable = responds + quality in-band\nModel can change under you\nwith no deploy event on your side"]
+        A2["Measure: uptime/latency + quality SLO\ncontinuously sampled eval pass rate\nor judge score"]
+        A3["New risk: silent provider model update\ndegrades quality with no error,\nno latency spike, no alert on\nany conventional dashboard"]
+    end
+    TradSys --> ClassicML --> AISys
+```
+
 ## What Changes About Security
 
 The four new primitives are also four new attack surfaces with no equivalent in the paradigms this discipline builds on — covered fully in [AI Security](../21-ai-security/index.md), but worth naming here because they trace directly back to this chapter's vocabulary:
@@ -197,6 +224,18 @@ The four new primitives are also four new attack surfaces with no equivalent in 
 - **Tool calls** turn a successful prompt injection into a real-world action — sending data externally, modifying a record — which is a materially higher-severity outcome than a traditional injection attack confined to altering displayed text.
 
 None of this is exotic; it's the direct consequence of adding primitives that traditional and classical-ML systems never had to secure.
+
+```mermaid
+flowchart TB
+    subgraph Surfaces["Four New Primitives — Four New Attack Surfaces"]
+        P1["Prompt and Context\nTrust-boundary attack:\nuser input and retrieved docs share\nthe same channel as developer instructions\nmaking indirect injection possible"]
+        P2["Retrieval\nCorpus poisoning:\nattacker writes to a wiki, ticket, or DB\nthat the retrieval layer will pull\ninjected instructions ride in as data"]
+        P3["Tool Calls\nInjection-to-action:\na successful injection can trigger\na real email send, file write, or API call\nnot just altered display text"]
+        P4["Context Window\nExfiltration via output:\nmodel prompted to reveal\nsensitive context or system prompt\nin the response to the user"]
+    end
+    P1 --> P2 --> P3 --> HARM["Higher blast radius than\nclassical injection attacks:\nreal side-effecting actions\nnot just changed rendered text"]
+    P1 --> P4 --> HARM
+```
 
 ## What Changes About Cost
 
@@ -214,6 +253,22 @@ Monitoring needs a new signal class layered on top of the conventional one, for 
 - **The new signal class is quality**: a continuously-sampled eval or judge score, a thumbs-up/down rate, a correction/escalation rate — without this, a model behaving differently after a silent provider update produces zero alerts on every conventional dashboard while users quietly get worse answers.
 - **Token-level cost monitoring** becomes a first-class metric rather than a monthly invoice surprise, given how much marginal cost varies per request (see [Cost & Token Monitoring](../20-observability/03-cost-and-token-monitoring.md)).
 - The practical takeaway for a team new to this discipline: if your dashboard only has the conventional three (latency, errors, uptime), you have a classical-systems dashboard bolted onto an AI system, and it will stay green through a real quality regression.
+
+```mermaid
+flowchart TB
+    subgraph Old["Conventional Signals — Unchanged, Still Required"]
+        O1["Latency: p50/p95/p99"]
+        O2["Error rate"]
+        O3["Uptime and availability"]
+    end
+    subgraph New["New Signal Class — AI-System-Specific"]
+        N1["Quality signal\neval pass rate, LLM-as-judge score,\nthumbs-up/down rate\nsampled continuously from production"]
+        N2["Token cost per request\ninput and output tracked separately\nalerts before the monthly invoice"]
+        N3["Online vs offline eval divergence\nflags silent provider model update\nwhere quality changed with\nno code deploy and no error code"]
+    end
+    Old --> GAP["Dashboard stays green\nthrough a real quality regression\ndetected only by user complaints\nif the new layer is missing"]
+    New --> FIX["Complete signal set:\nevery failure class has a\nvisible alert including those\nwith no latency or error signal"]
+```
 
 ## Production Best Practices
 
@@ -254,6 +309,19 @@ A classical ML model is frozen at deploy time — given the same feature vector,
 
 **Q: A team wants to add an LLM-based "smart summarize" feature to an existing product. Walk through which of the four new primitives it actually needs, and in what order you'd add them.**
 Start by asking whether it needs more than Stage 1 (prompt only): if it's summarizing the current page's content, that content can likely be passed directly as part of the prompt with no retrieval needed — Stage 1-2 (prompt plus light context budgeting for the input length) may fully solve it. Only add retrieval if the summary needs to incorporate information beyond what's directly provided (e.g., related historical documents) — and only add tool calls if the feature needs to *do* something with the summary (file it, email it) rather than just display it. The mistake to avoid is reaching for a full retrieval-plus-agent architecture by default; each primitive is a real cost and complexity addition that should be justified by a concrete requirement, not added preemptively.
+
+```mermaid
+flowchart TD
+    FEAT["New Feature: Smart Summarize"] --> Q1{"Is the content\nbeing summarized\nalready in the request?"}
+    Q1 -->|Yes — summarizing the current page| STAGE12["Stage 1-2 sufficient\nPrompt + context budgeting\nNo retrieval needed"]
+    Q1 -->|No — needs related docs| STAGE3["Add Stage 3: Retrieval\njustified by need for\nexternal grounding"]
+    STAGE12 --> Q2{"Does the feature\nneed to act on\nthe summary?"}
+    STAGE3 --> Q2
+    Q2 -->|No — just display it| STOP["Stop here\nNo tool calls needed\nDo not add them preemptively"]
+    Q2 -->|Yes — file it or email it| STAGE4["Add Stage 4: Tool calls\njustified by the\nconcrete action requirement"]
+    STOP --> WARN["Key principle: each primitive\nadds real latency and infrastructure cost\nJustify each with a specific requirement\nnot a hypothetical future need"]
+    STAGE4 --> WARN
+```
 
 **Q: How would you explain to a engineering leader, who's used to classical ML system reliability numbers, why a 99.9% uptime AI system can still be failing users badly?**
 Uptime measures whether the system responded, not whether the response was correct — and unlike a classical ML model (frozen, deterministic at serving time), a generative model's output quality can degrade through provider-side model updates, input distribution drift, or simply un-covered edge cases in the eval set, none of which trip an uptime or error-rate alert. The fix is showing them a quality metric (eval pass rate or sampled judge score) tracked over the same time window as uptime — the gap between "always up" and "still degrading" becomes visible only once that second axis is monitored.

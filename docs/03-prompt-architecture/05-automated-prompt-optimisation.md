@@ -54,6 +54,22 @@ APE (Automatic Prompt Engineering, Zhou et al. 2022) is a gradient-free approach
 
 **Limitations:** The search is shallow — the meta-LLM proposes variants within its own prior about what prompts look like. It rarely discovers non-intuitive structural changes (reordering sections, changing the output format entirely). Works best for instruction phrasing improvements, not deep structural changes.
 
+```mermaid
+flowchart TD
+    START["Start: task examples\n+ initial instruction or none"]
+    META_PROPOSE["Meta-LLM generates\nN candidate prompt variants\ne.g. 10-20 phrasings of the same instruction"]
+    EVAL_EACH["Evaluate each candidate\non dev set using task metric\ne.g. accuracy, format compliance"]
+    SCORE["Score all candidates\nrank by metric"]
+    TOP_K["Select top-K candidates\ne.g. top 3 of 20"]
+    REFINE{"Refine iteration?\nBudget remaining?"}
+    REFINE_PROMPT["Meta-LLM refines:\nHere are top candidates and scores\nGenerate improved variants"]
+    DEPLOY["Deploy highest-scoring\ncandidate as optimised prompt"]
+
+    START --> META_PROPOSE --> EVAL_EACH --> SCORE --> TOP_K --> REFINE
+    REFINE -->|Yes| REFINE_PROMPT --> META_PROPOSE
+    REFINE -->|No, budget exhausted| DEPLOY
+```
+
 ## RIME: Instruction Induction from Examples
 
 RIME (Recursive Instruction Mutation with Evaluation, Ye et al. 2023) focuses on **inducing instructions from examples** rather than iteratively improving a starting instruction. Given a set of (input, output) pairs with no initial instruction, RIME asks a strong LLM to infer what instruction would produce those outputs from those inputs.
@@ -93,11 +109,47 @@ flowchart LR
 | Few training examples available (under 20) | Low — APO needs enough examples to evaluate reliably; overfits otherwise |
 | Prompt is a deep structural design (multi-stage) | Low — APO optimises wording within structure; structural design still requires human judgment |
 
+```mermaid
+quadrantChart
+    title Where APO dominates vs where manual prompting is better
+    x-axis "Low Input Diversity" --> "High Input Diversity"
+    y-axis "Low Scenario Complexity" --> "High Scenario Complexity"
+    quadrant-1 "APO dominates:\nhigh complexity + high diversity\nmanual exploration too slow"
+    quadrant-2 "Hybrid: APO for phrasing\nmanual for structure\nhigh complexity, uniform input"
+    quadrant-3 "Manual: quick single case\nlow stakes, uniform input\nAPO overhead not worth it"
+    quadrant-4 "APO useful:\ndiverse inputs, simple task\nAPO catches edge cases"
+    Simple FAQ bot: [0.15, 0.15]
+    Code generation: [0.55, 0.72]
+    Multilingual extraction: [0.82, 0.55]
+    Multi-hop legal reasoning: [0.68, 0.88]
+    Single format conversion: [0.2, 0.3]
+```
+
 ## Integrating Automated Optimisation into the Prompt Lifecycle
 
 APO is not a one-shot process; it should be part of the ongoing prompt lifecycle:
 
 **Model version upgrades.** When a provider updates a model, run APO on your existing prompts against the new model version using your established eval sets. The optimal instruction phrasing frequently differs between model versions. This converts a multi-week manual re-tuning exercise into a scheduled automated job.
+
+```mermaid
+flowchart TD
+    DETECT["Detect model version change\nprovider releases new model\nor existing model updated silently"]
+    BASELINE["Run current prompts\nagainst new model version\nusing existing eval sets\nestablish baseline delta"]
+    REGRESSED{"Any prompts\nregressed vs old model?"}
+    RUN_APO["Run APO on regressed prompts\nusing same training and dev sets\ntargeting new model version"]
+    COMPARE["Compare optimised prompts\nvs baseline on old model\nvs current on new model"]
+    SHADOW["Shadow deploy:\nnew optimised prompts on new model\nvs current prompts on old model"]
+    CUTOVER{"Quality parity\nor improvement?"}
+    DEPLOY_NEW["Canary then full cutover\nto new model + new prompts"]
+    INVESTIGATE["Investigate: is quality gap\nfundamental to new model\nor fixable with more APO iterations?"]
+
+    DETECT --> BASELINE --> REGRESSED
+    REGRESSED -->|No regression| SHADOW
+    REGRESSED -->|Yes| RUN_APO --> COMPARE --> SHADOW
+    SHADOW --> CUTOVER
+    CUTOVER -->|Yes| DEPLOY_NEW
+    CUTOVER -->|No| INVESTIGATE
+```
 
 **Continuous prompt refinement.** When production feedback (thumbs-down rates, correction events) identifies a prompt performing below threshold on a specific slice of inputs, add those cases to the training set and rerun APO. The optimiser finds the prompt variant that fixes the regressing slice without degrading the rest.
 

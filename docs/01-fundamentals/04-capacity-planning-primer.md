@@ -154,6 +154,16 @@ The takeaway: a 20% routing fraction to a reasoning model can dominate total tok
 3. **Account for rate-limit tier differences.** Reasoning model endpoints carry lower tokens-per-minute ceilings than standard endpoints. A tier that handles standard traffic comfortably can be undersized for a reasoning path running at the same apparent QPS.
 4. **Model budget-capped vs uncapped thinking separately.** If you set `max_thinking_tokens`, cap your sizing at that ceiling. If you don't, use observed p95 as a conservative ceiling.
 
+```mermaid
+flowchart TB
+    MIXED["Mixed Workload: 277 QPS peak\n80 percent standard, 20 percent reasoning"] --> STD["Standard path\n277 x 0.8 = 222 QPS\n222 x 850 tokens = 188,700 tokens/sec\n600 input + 250 output per request"]
+    MIXED --> REASON["Reasoning path\n277 x 0.2 = 55 QPS\n55 x 5,100 tokens = 280,500 tokens/sec\n600 input + 4,200 thinking + 300 output"]
+    STD --> COMPARE["Standard path:\n188,700 tokens/sec"]
+    REASON --> COMPARE
+    COMPARE --> INSIGHT["Insight: 20 percent of requests generate MORE\ntokens/sec than the other 80 percent combined\nBlending both into one average\nproduces a badly wrong forecast"]
+    INSIGHT --> FIX["Fix: size each path separately\nSeparate GPU pools or API rate-limit tiers\nUse p95 thinking tokens, not the mean\nAccount for lower TPM ceilings\non reasoning model endpoints"]
+```
+
 ## Tradeoffs
 
 The fork itself — self-hosted vs. API-based — is the single biggest capacity-planning decision a team makes, and it should be made deliberately, with this chain's numbers in hand, rather than defaulted into.
@@ -256,6 +266,16 @@ It's the ratio between the busiest sustained period's traffic and the daily aver
 
 **Q: Walk through converting 200 average QPS into tokens/sec, given a workload averaging 600 input and 250 output tokens per request, and explain why you'd compute this before deciding GPU count or API budget.**
 Tokens/sec = 200 QPS × (600 + 250) tokens/request = 200 × 850 = 170,000 tokens/sec. This number is computed before the GPU-vs-API decision because it's identical inputs to both branches — the demand-side math (requests to tokens) doesn't depend on how you plan to serve that demand; only the final conversion (tokens/sec ÷ per-GPU throughput, or tokens/sec × price) differs.
+
+```mermaid
+flowchart LR
+    START["200 avg QPS\n600 in + 250 out tokens/request"] --> CALC["200 x 850 = 170,000 tokens/sec\nAt 4x peak factor:\n170,000 x 4 = 680,000 tokens/sec peak"]
+    CALC --> BRANCH{"Serving\napproach?"}
+    BRANCH -->|Self-hosted| GPU["680,000 tokens/sec\ndivide by achievable\ntokens/sec per GPU\n= GPU count needed"]
+    BRANCH -->|API-based| APIB["680,000 tokens/sec\nx blended price per token\n= dollar budget estimate\n680,000 x 60 sec = 40.8M tokens/min\nrate-limit tier required"]
+    GPU --> KEY["Demand-side math is IDENTICAL\nfor both branches\nOnly the final conversion differs\nCompute tokens/sec first, decide serving later"]
+    APIB --> KEY
+```
 
 **Q: A team is calling a third-party model API and says "we don't need to do capacity planning, the provider scales for us." What's wrong with that reasoning?**
 The provider scaling raw compute doesn't mean your cost or your availability are automatically handled. Cost still scales with your token volume and needs forecasting the same way a self-hosted fleet's cost does — an unforecast token distribution produces an unexpectedly large bill. Availability is bounded by your negotiated rate-limit tier (tokens or requests per minute); if real peak demand exceeds that tier, you get throttled exactly the way an under-provisioned GPU fleet gets overloaded, just with a different error code.

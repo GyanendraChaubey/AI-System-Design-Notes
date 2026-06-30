@@ -165,6 +165,25 @@ Models in the o1/o3/o4-mini, DeepSeek-R1, QwQ, and Gemini Thinking families gene
 
 **Selection rule:** Measure before routing. Run a standard model on a representative sample of the task; if it clears the quality bar, reasoning models add cost and latency for no measured benefit. If the standard model genuinely fails on a class of inputs, route exactly those inputs to the reasoning model, quantify the quality uplift, and track the fraction of real traffic hitting that routing path — it directly sets your reasoning-path cost line.
 
+```mermaid
+flowchart LR
+    subgraph StandardModel["Standard Model"]
+        SM_PROMPT["User prompt\n~200 input tokens"]
+        SM_THINK["No hidden thinking phase\nDirect generation starts immediately"]
+        SM_OUT["~500 output tokens\nTime-to-first-token: fast\n~1-3 seconds typical"]
+        SM_TOTAL["Total tokens: ~700\nCost: baseline"]
+        SM_PROMPT --> SM_THINK --> SM_OUT --> SM_TOTAL
+    end
+
+    subgraph ReasoningModel["Reasoning Model (same task)"]
+        RM_PROMPT["Same user prompt\n~200 input tokens"]
+        RM_THINK["Hidden thinking phase\n5,000 to 30,000 thinking tokens\nTime-to-first-visible-token: 30-300 seconds"]
+        RM_OUT["~500 visible output tokens\nsame user-visible answer"]
+        RM_TOTAL["Total tokens: 5,700 to 30,700\nCost: 10-100x baseline\nJustified only when standard model fails"]
+        RM_PROMPT --> RM_THINK --> RM_OUT --> RM_TOTAL
+    end
+```
+
 ## Vision-Language and Multimodal Model Families
 
 Vision-language models (VLMs) combine a text transformer with a vision encoder, processing images and text in a unified context window. This is no longer a niche capability: GPT-4o, Claude 3/3.5/3.7, Gemini 1.5/2.0, Llama 3.2 Vision, Qwen-VL, and LLaVA all ship multimodal architectures as their default — the purely text-only frontier model is increasingly the exception.
@@ -228,6 +247,24 @@ flowchart TD
 | Customization (fine-tuning, architecture changes) is fully available | Customization is limited to whatever the provider's API exposes (fine-tuning endpoints, system prompts) |
 
 ## Scalability
+
+Different model tiers occupy distinct positions on the quality-versus-cost plane. Mapping your product's actual requirements onto this quadrant clarifies which tier is appropriate — and reveals when you are over-spending for quality you don't need or under-spending for quality you do.
+
+```mermaid
+quadrantChart
+    title Quality vs Cost positioning of model tiers
+    x-axis "Low Cost per Token" --> "High Cost per Token"
+    y-axis "Lower Quality Ceiling" --> "Higher Quality Ceiling"
+    quadrant-1 "Premium: reasoning tasks\nmulti-step math, hard code"
+    quadrant-2 "Avoid: overpaying\nfor limited capability"
+    quadrant-3 "Default: most tasks\nchat, summarization\nsimple extraction"
+    quadrant-4 "Sweet spot: balance\ntier or mid-size open model"
+    Small open-weight: [0.1, 0.25]
+    Mid-tier API: [0.35, 0.55]
+    Large frontier API: [0.65, 0.82]
+    Reasoning model: [0.85, 0.95]
+    Self-hosted large: [0.45, 0.72]
+```
 
 - **The open-vs-closed cost crossover is a real, measurable volume threshold**, not a permanent philosophical stance — exactly the same crossover-volume reasoning [Capacity Planning Primer](../01-fundamentals/04-capacity-planning-primer.md#tradeoffs) develops for the self-hosted-vs-API fork generally, applied here specifically to model selection.
 - **MoE's memory-footprint cost scales with total parameters regardless of traffic volume**, while its compute cost scales with active parameters and traffic — meaning an MoE model's hardware *floor* (you must fit every expert in memory before serving a single request) doesn't shrink with low volume the way a dense model's effective serving footprint can, via smaller batch sizes — a relevant consideration for a team evaluating MoE at modest scale.
@@ -300,6 +337,27 @@ The base model architecture (dense vs MoE, parameter count) determines capabilit
 - Fine-tuning on top of an instruction-tuned model produces more stable results than fine-tuning on top of a base model, because the instruction-following behavior is already learned.
 - When building classification or structured-extraction tasks, RLHF-tuned models may resist following the output schema due to safety training; SFT-only or lightly-tuned models often comply more reliably.
 - For multi-turn agents, always use a chat-tuned model with the correct chat template — a base or SFT model used in a chat context will lose coherence across long tool-calling trajectories.
+
+```mermaid
+flowchart TB
+    subgraph BaseModel["Base / Pretrained Model"]
+        B_INPUT["Input format:\nRaw text completion\ne.g. The capital of France is"]
+        B_REFUSAL["Refusals: none\nCompletions regardless\nof content safety"]
+        B_BEHAVIOR["Behavior: text completion\nnot instruction following\nhighly prompt-sensitive"]
+    end
+
+    subgraph SFTModel["Instruction-Tuned (SFT)"]
+        S_INPUT["Input format:\nInstruction + response pairs\ne.g. Answer this question: ..."]
+        S_REFUSAL["Refusals: minimal\nMore compliant\nwith structured extraction"]
+        S_BEHAVIOR["Behavior: follows instructions\npredictable format compliance\nbest for fine-tuning base"]
+    end
+
+    subgraph RLHFModel["RLHF-Tuned (Chat)"]
+        R_INPUT["Input format:\nsystem/user/assistant turns\nwith role markers required"]
+        R_REFUSAL["Refusals: active safety training\nmay refuse legitimate edge cases\nrequires domain context to steer"]
+        R_BEHAVIOR["Behavior: helpful, harmless, honest\ncalibrated for human preference\nmore consistent multi-turn coherence"]
+    end
+```
 
 ## Tools and Ecosystem
 

@@ -280,6 +280,23 @@ The cost/latency/quality triangle reappears at every layer with a different shap
 | Guardrails | Guardrail service unavailable | Fail closed — block rather than ship unchecked content |
 | Memory | Memory store unavailable | Degrade to stateless single-turn behavior rather than failing the request |
 
+```mermaid
+flowchart TB
+    FAIL["Single Layer Failure"] --> G1{"Which layer?"}
+    G1 -->|Gateway| D1["Fail closed for writes\nCached permissions for reads\nEffect: requests blocked temporarily\nnot unsafe content shipped"]
+    G1 -->|Retrieval| D2["Fall back to parametric generation\nShow visible degraded signal\nEffect: lower quality answers\nnot a total outage"]
+    G1 -->|Model provider| D3["Fail over to secondary provider\nEffect: latency spike\nservice still available"]
+    G1 -->|Tool call timeout| D4["Retry idempotent tools only\nSurface action-not-completed\nEffect: one action fails\nnot the conversation"]
+    G1 -->|Guardrails| D5["Fail CLOSED\nBlock the response\nEffect: service paused\nnot unsafe content shipped"]
+    G1 -->|Memory| D6["Degrade to stateless single-turn\nEffect: no history in context\nnot a request failure"]
+    D1 --> KEY["Key principle:\nlose one capability per failure\nnot the entire request"]
+    D2 --> KEY
+    D3 --> KEY
+    D4 --> KEY
+    D5 --> KEY
+    D6 --> KEY
+```
+
 A well-layered system loses *a capability* (grounding, memory, one tool) under a single-layer failure; a poorly layered monolith loses *the entire request* under the same failure. Set SLOs per layer, not just end-to-end — an end-to-end p99 target gives no signal on which layer to fix when it's breached.
 
 ## Security
@@ -291,6 +308,19 @@ Each layer has a distinct threat model (see [AI Security](../21-ai-security/inde
 - **Guardrail availability as a safety dependency** — since the safe failure mode is fail-closed, the guardrail service's own uptime becomes a hard dependency for the system being usable at all, and needs the same reliability investment as the model layer.
 
 Permission enforcement (who can retrieve what, who can trigger which tool) must happen at the layer holding the access-control context — retrieval-time filtering for content, tool-layer scoping for actions — not as a single gateway check, since the gateway authenticates the user but doesn't know what that user is entitled to touch.
+
+```mermaid
+flowchart TB
+    subgraph LayerThreats["Threat Model — Each Layer Has a Distinct Attack Surface"]
+        L1["Retrieval and Context Layer\nIndirect prompt injection:\nattacker writes to a retrievable source\ncontent enters context as if trusted\nFix: explicit trust tagging and delimiting"]
+        L2["Tool-Calling Layer\nPrivilege escalation via injection:\nmodel holds tool permissions\na successful injection becomes a real action\nFix: policy gate validates all tool args"]
+        L3["Guardrails Layer\nAvailability as safety dependency:\nfail-closed makes guardrail uptime\na hard service dependency\nFix: high-availability guardrail design"]
+    end
+    L1 --> PERM["Permission enforcement must happen\nat the layer that holds the\naccess-control context\nnot only at the gateway"]
+    L2 --> PERM
+    L3 --> PERM
+    PERM --> NOTE["Gateway authenticates the user\nbut does not know what\nthat user is entitled to\nretrieve or trigger"]
+```
 
 ## Cost Optimization
 
@@ -367,6 +397,21 @@ At multiple layers simultaneously, since each catches a different kind of repeti
 
 **Q: A request's end-to-end p99 latency has regressed by 800ms. How do you find which layer is responsible without guessing?**
 You need per-layer latency instrumentation (p50/p95/p99 at every hop, per [Monitoring](#monitoring)) captured *before* the regression, so you can diff layer-by-layer instead of re-deriving a baseline after the fact. Without it, the fallback is selectively disabling layers on synthetic traffic or distributed tracing on a sample of real requests during the window — which is why instrumenting every layer boundary from day one is non-negotiable.
+
+```mermaid
+flowchart TB
+    REG["End-to-end p99\nregressed +800ms"] --> CHECK{"Per-layer p99\ninstrumentation\navailable?"}
+    CHECK -->|Yes| DIFF["Compare per-layer p99\nbefore vs after regression\nFind the specific layer\nthat shows the spike"]
+    CHECK -->|No| FALL["Fallback: disable layers\non synthetic traffic or\ntrace a sample of real requests\nduring the affected window"]
+    DIFF --> WHICH{"Which layer\nshows the spike?"}
+    WHICH -->|Retrieval| R1["Investigate: corpus grew\nreranker degraded or\nembedding service slowed"]
+    WHICH -->|Model call| M1["Investigate: queue depth\nprompt length increase or\nprovider-side latency change"]
+    WHICH -->|Tool call| T1["Investigate: downstream\nAPI latency increased\nor retry storm triggered"]
+    R1 --> FIX["Targeted fix on the\none layer that moved\nnot a blind stack-wide search"]
+    M1 --> FIX
+    T1 --> FIX
+    FALL --> NOTE["Why this is hard without\nper-layer instrumentation:\nno baseline to diff against\nmust add it before the next incident"]
+```
 
 **Q: How do you decide whether a given request needs to go through the full stack (retrieval + tools) versus a cheap direct-generation path?**
 This is an orchestration-layer routing decision, typically a lightweight classifier or small model call before the expensive path is engaged, checking signals like "does this reference something outside the conversation" (retrieval) or "does this ask for an action, not just information" (tools). That routing decision itself must be cheap relative to the paths it's choosing between, or the routing overhead eats the savings it was meant to capture.

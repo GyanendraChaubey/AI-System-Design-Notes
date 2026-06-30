@@ -152,6 +152,30 @@ Standard multi-head attention has two costly properties at serving time: it reco
 
 The KV cache formula `2 × layers × KV_heads × head_dim × bytes_per_value × sequence_length` is directly affected by which of these techniques the model uses. Check whether a model uses MHA (largest KV cache), GQA (4–8× smaller), or MLA (5–13× smaller) before sizing KV cache memory — the difference can change whether a model fits in single-GPU or requires tensor parallelism.
 
+```mermaid
+flowchart TB
+    subgraph MHA["MHA: Multi-Head Attention"]
+        MHA_Q["Q heads: N_heads"] 
+        MHA_K["K heads: N_heads\none per Q head"]
+        MHA_V["V heads: N_heads\none per Q head"]
+        MHA_CACHE["KV Cache size:\n2 x N_heads x head_dim\nper token per layer\nLargest cache"]
+    end
+
+    subgraph GQA["GQA: Grouped Query Attention"]
+        GQA_Q["Q heads: N_heads"]
+        GQA_K["K heads: N_heads / G\nshared across G query heads"]
+        GQA_V["V heads: N_heads / G\nshared across G query heads"]
+        GQA_CACHE["KV Cache size:\n2 x (N_heads/G) x head_dim\nper token per layer\n4-8x smaller than MHA"]
+    end
+
+    subgraph MLA["MLA: Multi-Head Latent Attention"]
+        MLA_Q["Q heads: N_heads"]
+        MLA_LATENT["Compressed latent vector\nlow-rank K,V representation\ncached instead of full K,V"]
+        MLA_DECOMP["Decompress on use\nadds compute at decode time"]
+        MLA_CACHE["KV Cache size:\nlatent_dim << N_heads x head_dim\n5-13x smaller than MHA"]
+    end
+```
+
 ## Alternative Architectures: State Space Models and Hybrids
 
 Transformers dominate production LLM deployments but are not the only architecture in active use. **State space models (SSMs)** — particularly the Mamba family — offer a different compute and memory profile that matters for specific serving scenarios.
@@ -169,6 +193,27 @@ Where a transformer maintains a KV cache that grows with sequence length (O(n) m
 **When to consider SSM or hybrid models:**
 
 For workloads where very long context (50K–1M tokens) must be handled concurrently at scale and KV cache memory is the binding constraint on serving concurrency, SSM-based models can serve significantly more users per GPU dollar. For workloads with heavy prompt caching (reusing KV entries across requests), transformers remain dominant.
+
+```mermaid
+flowchart LR
+    subgraph Transformer["Transformer Memory Profile"]
+        T1["Token 1 processed\nKV cache: 1 entry"]
+        T2["Token 100 processed\nKV cache: 100 entries"]
+        T3["Token 1K processed\nKV cache: 1K entries"]
+        T4["Token 32K processed\nKV cache: 32K entries\nmay exceed GPU memory"]
+        T1 --> T2 --> T3 --> T4
+        T_LABEL["KV cache grows linearly\nwith sequence length\nO(n) memory"]
+    end
+
+    subgraph SSM["SSM Memory Profile"]
+        S1["Token 1 processed\nFixed state: constant size"]
+        S2["Token 100 processed\nFixed state: same size"]
+        S3["Token 1K processed\nFixed state: same size"]
+        S4["Token 32K processed\nFixed state: same size\nno memory growth"]
+        S1 --> S2 --> S3 --> S4
+        S_LABEL["Recurrent state is fixed size\nregardless of sequence length\nO(1) memory"]
+    end
+```
 
 ## Tradeoffs
 
@@ -191,6 +236,28 @@ flowchart TD
 | Same architecture scales from small to frontier model sizes | Cost and latency degrade non-linearly with context length |
 
 ## Scalability
+
+The prefill/decode bottleneck does not stay fixed — it shifts depending on the workload's batch size and sequence length. At short context with small batches, the GPU may be underutilized; at large batches or long contexts, the binding constraint changes.
+
+```mermaid
+flowchart LR
+    subgraph BatchSmall["Small Batch, Short Sequence"]
+        BS_PREFILL["Prefill: compute-bound\nGPU matmul units busy\nfast time-to-first-token"]
+        BS_DECODE["Decode: bandwidth-bound\nsmall KV cache\nfast inter-token latency"]
+    end
+
+    subgraph BatchLarge["Large Batch, Short Sequence"]
+        BL_PREFILL["Prefill: strongly compute-bound\nmany requests in parallel\nhigh GPU utilization"]
+        BL_DECODE["Decode: bandwidth scales\nwith batch size\ncontinuous batching helps"]
+    end
+
+    subgraph LongCtx["Any Batch, Long Sequence"]
+        LC_PREFILL["Prefill: quadratic attention cost\ntime-to-first-token spikes\npotential head-of-line blocking"]
+        LC_DECODE["Decode: KV cache dominates\nmemory pressure limits concurrency\ninter-token latency grows"]
+        LC_OOM["Risk: KV cache OOM\nbefore compute is saturated"]
+        LC_DECODE --> LC_OOM
+    end
+```
 
 - **Sequence length is the primary axis that breaks naive serving.** Attention cost per layer grows roughly with the square of sequence length (doubling context roughly quadruples attention compute within that layer; FFN cost only doubles, so blended slowdown is sub-quadratic but still worse than linear). Under ~2K tokens, FFN cost dominates; past tens of thousands, attention and KV cache dominate.
 - **KV cache memory scales linearly per token, with a large constant.** Approximate size per token: `2 (K and V) × num_layers × num_KV_heads × head_dim × bytes_per_value`. For an illustrative ~70B-class dense model (80 layers, 8 KV heads under grouped-query attention, head dim 128, FP16 = 2 bytes): `2 × 80 × 8 × 128 × 2 ≈ 327 KB per token`. A single 32,000-token request needs on the order of **10 GB of KV cache alone** — often more than a meaningful chunk of the model's own weights (see [KV Cache Management](../15-model-serving/03-kv-cache-management.md)).

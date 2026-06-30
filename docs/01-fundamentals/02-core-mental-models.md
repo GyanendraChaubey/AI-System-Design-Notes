@@ -86,6 +86,18 @@ Token economics replaces "cost per request" with "cost per token," because token
 
 **At scale:** token cost differences that look like noise at low volume become the dominant budget line at 10M+ requests/month. A testing forecast built on average-case prompts systematically underestimates production cost once real long-tail usage patterns (longer conversations, more verbose outputs, heavier retrieval) show up. Re-derive from production token percentiles, not just the mean.
 
+```mermaid
+flowchart LR
+    REQ["Single Request"] --> IPART["Input tokens: 1,000\n@ $1 per million = $0.001\nPrefill phase: processed in parallel\nrelatively fast and cheap per token"]
+    REQ --> OPART["Output tokens: 300\n@ $5 per million = $0.0015\nDecode phase: generated sequentially\none forward pass per token\n5x pricier despite being fewer"]
+    IPART --> TOTAL["Total: $0.0025\nOutput cost exceeds input cost\ndespite being 30 percent of token count"]
+    OPART --> TOTAL
+    TOTAL --> CACHE["Caching lever:\n50-90 percent off repeated\nsystem instructions and examples"]
+    TOTAL --> TIER["Model tier lever:\n10-60x spread between\ncheapest and frontier models"]
+    CACHE --> OPT["Optimize output length\nbefore model tier:\noutput tokens are the expensive half"]
+    TIER --> OPT
+```
+
 ## Mental Model 3: The Probabilistic Correctness Bar
 
 The target for a generative system is a measured *rate* — "correct or acceptable on X% of a representative eval set, monitored continuously" — not a boolean guarantee. This distinction matters more than it seems:
@@ -98,6 +110,21 @@ The target for a generative system is a measured *rate* — "correct or acceptab
 | What breaks silently without the extra target | Nothing — a bug either shows up as an error or doesn't | Quality drift: every conventional dashboard stays green while users get worse answers |
 
 A team that ports the deterministic-system habit of "p50 latency is good, ship it" without an accompanying quality percentile target has a classical-systems dashboard bolted onto an AI system, and it will stay green through a real quality regression.
+
+```mermaid
+flowchart LR
+    subgraph Det["Deterministic System"]
+        D1["p50 latency under 200ms\nmeans: fast response\nAND guaranteed correct\nfor every completed request"]
+        D2["Correctness: assert expected output\npass or fail per assertion\nA bug is a bug, not a rate"]
+    end
+    subgraph Prob["AI System"]
+        P1["p50 latency under 200ms\nmeans: fast response only\nSays NOTHING about whether\nanswers were actually correct"]
+        P2["Correctness: graded quality score\nsampled across distribution\needs its own monitored SLO percentile"]
+        P3["Risk: dashboard stays green\nwhile eval pass rate quietly\ndrifts from 91 percent to 84 percent\ndetected only by user complaints"]
+    end
+    Det -->|importing this intuition| GAP["Classical-systems dashboard\nbolted onto an AI system\nstays green through\na real quality regression"]
+    Prob -->|requires adding| FIX["Quality SLO alongside\nlatency and uptime SLOs\nnot instead of them"]
+```
 
 **What the bar tells you:** what "good enough" means for this feature, expressed as a measurable, monitorable rate rather than an adjective.
 
@@ -214,6 +241,18 @@ Each mental model has a corresponding dashboard signal a team should track conti
 - **Probabilistic correctness bar**: quality score percentiles (not just an average) on rolling sampled production traffic, compared against the offline eval set's score, to catch online/offline divergence early (see [Offline vs Online Evaluation](../19-evaluation/02-offline-vs-online-evaluation.md)).
 - **Build vs. buy**: for bought components, vendor uptime and any contractual SLA against your own measured experience; for built components, the ongoing engineering cost (on-call load, feature backlog) against the original TCO estimate that justified building it.
 
+```mermaid
+flowchart TB
+    subgraph Dash["Monitoring Dashboard — One Signal Per Mental Model"]
+        T1["Cost/Latency/Quality Triangle\nTrack all three on the same time window\nAlert when two move in opposite directions\nCatches: latency improved but quality dropped"]
+        T2["Token Economics\nInput and output tokens split separately\n$ per request trended over time\nCatches: context bloat or\nverbosity regression before the bill"]
+        T3["Probabilistic Correctness Bar\nQuality score percentiles on sampled traffic\nCompared against offline eval baseline\nCatches: online/offline divergence\nfrom silent model behavior change"]
+        T4["Build vs Buy\nBought: vendor uptime vs your SLA\nBuilt: on-call incidents and feature backlog\nvs the TCO estimate that justified building"]
+    end
+    T3 --> DRIFT["Drift alert: online score drops\nwhile offline eval stays flat\nmeans model behavior changed\nin production without a deploy"]
+    T2 --> CREEP["Creep alert: tokens/request\nrising with no product change\nleading indicator of context\nor response-length discipline loss"]
+```
+
 ## Production Best Practices
 
 - **Name the dominant axis explicitly before designing**, in the feature spec itself — "this is a latency-dominant feature" or "this is quality-dominant" — so later optimization requests can be checked against a stated priority instead of re-argued from scratch.
@@ -248,6 +287,15 @@ In a traditional, deterministic system, a p50 latency target under some threshol
 
 **Q: A team wants to add retrieval to a chat feature to improve answer quality. Walk through how you'd use these mental models to evaluate that proposal.**
 First, the triangle: retrieval typically costs latency (the retrieval round trip) and cost (more input tokens) to buy quality — confirm quality is actually the dominant axis for this feature before paying that cost. Second, token economics: estimate the added input tokens from retrieved chunks and the resulting $ and latency delta concretely, not abstractly. Third, the correctness bar: define what quality improvement you expect and how you'll measure it (an eval set comparing with/without retrieval), so the decision is evidence-based rather than assumed. Fourth, build vs. buy: check whether existing retrieval infrastructure can be reused before treating this as a new build.
+
+```mermaid
+flowchart LR
+    PROP["Proposal: Add Retrieval\nto improve quality"] --> T["1 — Triangle check\nRetrieval costs latency and tokens\nto buy quality\nIs quality actually the dominant\naxis for this feature?"]
+    T --> TOK["2 — Token economics\nEstimate added input tokens\nfrom retrieved chunks\n$ and latency delta\nconcretely not abstractly"]
+    TOK --> BAR["3 — Correctness bar\nDefine expected quality gain\nand how to measure it\nwith vs without retrieval\neval set comparison"]
+    BAR --> BBU["4 — Build vs buy\nCan existing retrieval infra\nbe reused before treating\nthis as a new build?"]
+    BBU --> DEC["Evidence-based decision\nnot based on retrieval\nsounding useful in general"]
+```
 
 ### Senior
 
