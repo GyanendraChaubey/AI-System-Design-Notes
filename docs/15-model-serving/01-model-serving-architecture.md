@@ -165,6 +165,57 @@ This is continuous batching's defining workflow: the batch composition is fluid 
 5. **Disaggregated prefill/decode** — running prefill (compute-bound) and decode (bandwidth-bound) on physically separate accelerator pools tuned for each phase's profile, transferring the KV cache between them, to avoid one phase's traffic pattern degrading the other's; see [Disaggregated Prefill/Decode](../17-distributed-inference/02-disaggregated-prefill-decode.md).
 6. **Tiered/multi-model routing** — sending easy queries to a small, cheap model and hard queries to a large one behind a single logical endpoint; see [Multi-Model Serving & Routing](05-multi-model-serving-and-routing.md).
 
+## Multi-LoRA Serving: One Base, Many Adapters
+
+Fine-tuned LoRA adapters are small (50–500 MB) relative to their base model (10–70 GB). This size asymmetry enables **multi-LoRA serving**: one GPU replica holds the base model weights in GPU memory, and multiple adapters are loaded or swapped at request time, letting a single physical deployment serve hundreds of fine-tuned variants.
+
+**Why this matters for product architectures:**
+
+A common pattern in enterprise AI is per-customer or per-use-case fine-tuning — a legal AI platform might have 50 law-firm-specific adapters, each fine-tuned on that firm's documents and style. Without multi-LoRA, serving 50 variants means 50 GPU replicas, each holding a full copy of the base model. With multi-LoRA, you hold the base model once and hot-load adapters as requests arrive.
+
+**How it works:**
+
+1. The serving engine (vLLM, TGI, and purpose-built LoRA routers) keeps the base model weights in GPU HBM at all times.
+2. For each request, the adapter ID is resolved from a routing header or tenant identifier.
+3. The adapter's weight deltas (the LoRA matrices) are loaded into GPU memory and applied to the relevant base weight matrices during the forward pass.
+4. A small adapter cache (typically 10–50 adapters in GPU memory simultaneously, depending on adapter size and available HBM) keeps recently-used adapters warm; cold adapters are loaded from host memory or storage, typically in 10–100ms.
+
+**Sizing multi-LoRA deployments:**
+
+- GPU memory required = base model weights + active adapter cache + KV cache for current batch.
+- A 7B model at BF16 uses ~14 GB; 50 rank-16 LoRA adapters for common layers add perhaps 2–5 GB total. A single A100 80 GB can hold the base model and an adapter cache comfortably alongside KV cache for dozens of concurrent requests.
+- For very large adapter counts (thousands), add an adapter tier: store adapters on NVMe SSDs, pre-warm the top-N most-used adapters in GPU memory using recent traffic patterns, and pay a cold-load penalty only on cache misses.
+
+**Limitations:**
+
+Multi-LoRA requires all adapters to be trained against the same base model at the same precision. Mixing adapters from different base models or ranks on one replica is not supported.
+
+## Batch and Offline Inference
+
+The serving patterns above optimise for **online inference**: interactive, latency-sensitive requests where users wait for a response. A large category of AI workloads doesn't fit that model — they process large volumes of data in the background, where latency per item is unimportant and throughput is the only metric that matters.
+
+**When offline/batch inference is the right pattern:**
+
+- **Embedding generation pipelines** — embedding 10 million documents for a RAG corpus update; throughput matters, not latency.
+- **Bulk classification or scoring** — running a content-safety classifier over a week of uploaded images overnight.
+- **Pre-computing summaries or structured extractions** — processing a corpus of legal documents to extract structured data for downstream search.
+- **Eval suite execution** — running 2,000 golden-set examples through an LLM judge; this should not compete with user traffic for GPU capacity.
+
+**How offline inference differs architecturally:**
+
+| Dimension | Online serving | Offline batch |
+|---|---|---|
+| Latency target | p50/p95 SLO (100ms–3s) | None — throughput per hour |
+| KV cache strategy | Minimise resident time, rapid eviction | Large batches, no eviction pressure |
+| Batch size | Dynamically bounded by KV cache | Maximise to GPU memory limit |
+| Request ordering | FIFO with priority lanes | Sort by sequence length to minimise padding waste |
+| Infrastructure | Always-on replicas | Spot or preemptible instances, start/stop per job |
+| Cost target | p99 latency SLO | Cost per 1M tokens processed |
+
+**Practical guidance:**
+
+Do not run batch jobs on the same serving infrastructure as your real-time user traffic. Batch workloads use large KV cache allocations and long-running sequences that crowd out the short, latency-sensitive requests that arrive interactively. Use a separate GPU pool (or schedule batch jobs during off-peak hours on a pool with explicit admission limits) and optimise that pool independently for throughput: larger batch sizes, sorted-by-length batching to minimise padding, and no speculative decoding (which optimises for latency, not throughput).
+
 ## Tradeoffs
 
 ```mermaid

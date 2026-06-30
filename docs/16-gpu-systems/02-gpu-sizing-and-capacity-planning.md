@@ -151,6 +151,24 @@ Three recurring patterns, in increasing order of sophistication, show up in prod
 2. **Tiered sizing by request class** — separate the estimate by workload shape (short chat turns vs. long-document summarization vs. agentic tool-calling sessions), since a single blended "average tokens/request" number hides huge variance between request types and silently under-sizes the heaviest tier. See the agentic worked example below.
 3. **Continuous re-forecasting with load-test recalibration** — re-measure achievable tokens/sec per GPU every time the model, serving engine, or precision changes, and feed updated peak QPS from real traffic (not the original launch forecast) back into the model on a rolling basis. This is the pattern mature, high-scale serving teams converge on, because both sides of the conversion chain (demand and per-GPU throughput) drift continuously.
 
+## Reasoning Workload Sizing
+
+Standard GPU sizing assumes a token-per-request distribution measured from production traffic. **Extended reasoning models invalidate that assumption**: a single request can generate 32K thinking tokens before producing a 200-word final answer, consuming as much KV cache as 100 standard requests combined.
+
+**Where the sizing chain breaks:**
+
+The GPU count formula `tokens/sec ÷ tokens/sec-per-GPU` is still correct, but two inputs change significantly:
+
+- **Tokens/sec is dominated by the reasoning path.** If 20% of requests route to a reasoning model generating 10,000 tokens average vs 800 for standard, those requests contribute 12× more token-seconds than their QPS fraction implies. A 20% reasoning-path routing fraction can account for over 60% of total GPU demand.
+- **KV cache memory becomes the binding constraint before compute does.** A 32K thinking-token generation requires 32,000 KV cache entries per layer. At ~327 KB per token for a typical 70B-class model under FP16, that is roughly 10 GB of KV cache for one reasoning request. A GPU with 80 GB HBM can serve at most 4–6 such requests concurrently before KV cache is exhausted — regardless of remaining FLOP capacity. The standard memory feasibility check must be rerun separately for the reasoning workload, not blended with the standard workload numbers.
+
+**Practical sizing adjustments for reasoning workloads:**
+
+- **Separate GPU pools for reasoning and standard workloads.** Co-locating them causes reasoning requests' KV cache footprints to starve standard requests' slots, degrading latency for the high-volume path to accommodate the low-volume one.
+- **Run the memory feasibility check first, before the GPU count formula.** The formula may output 20 GPUs for a reasoning workload; the KV cache memory check at p99 thinking-token count may force tensor parallelism across all 20 rather than the 4-way sharding comfortable for standard serving.
+- **Budget-capping thinking tokens reduces tail variance.** Setting `max_thinking_tokens = 8192` makes p99 KV cache requirements calculable. Uncapped thinking creates unbounded tail events that can OOM a GPU mid-batch, evicting all in-flight requests from that slot.
+- **Thinking tokens shift the bottleneck from compute to memory bandwidth.** A reasoning model generating 20K thinking tokens spends most of its time in memory-bandwidth-bound decode (reading a growing KV cache), even though each individual decode step is short. Size the same way as very long-context standard inference: KV cache capacity first, compute utilisation second.
+
 ## Tradeoffs
 
 Once the GPU count comes out of the conversion chain, the next decision is *how* to close a capacity gap — and "buy more GPUs" is usually the most expensive of four real options.

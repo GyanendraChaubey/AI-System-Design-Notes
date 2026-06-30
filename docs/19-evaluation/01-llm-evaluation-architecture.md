@@ -167,6 +167,44 @@ Common implementation patterns, in order of typical adoption:
 4. **Stratified golden sets** — segmenting by known failure mode (multi-turn, adversarial, long-context, non-English) so an aggregate "pass" cannot hide a 100% failure rate on one important slice.
 5. **Continuous production-to-golden-set feedback** — any confirmed production failure is triaged and added to the golden set, so the same regression can never ship silently twice.
 
+## Evaluating Agents: Trajectory vs Outcome
+
+Single-turn LLM evaluation judges one output against one input. **Agent evaluation** must judge a full trajectory — a sequence of (observation, reasoning, action) tuples across potentially dozens of steps — and the evaluation concerns are fundamentally different.
+
+**What changes:**
+
+- **Outcome alone is insufficient.** An agent that reached the correct answer by hallucinating intermediate tool results, getting lucky on a retry, or taking an unnecessarily expensive 20-step path when 5 steps sufficed has not demonstrated reliable capability. Outcome-only evaluation misses these failures completely.
+- **Trajectory evaluation scores the path, not just the destination.** Metrics include: step count relative to optimal, unnecessary tool calls (calling a search API when the answer was already in context), incorrect intermediate reasoning that happened to recover, and human-in-the-loop escalation rate on tasks the agent should have handled autonomously.
+- **Sandboxed environments are required for reproducibility.** An agent that calls real APIs during eval contaminates state across eval runs (a delete operation on run 1 changes the environment for run 2). Agent eval requires sandboxed, resettable environments — mock tool backends, database snapshots, or purpose-built test environments — that reset to a known state before each eval episode.
+- **Task success rate must be measured at the right granularity.** Full task success (did the agent complete the entire task correctly?) is the headline metric. Partial credit scoring (how many sub-tasks were correct?) provides a gradient signal for improvement. Both are needed; headline success rate alone hides whether a model is failing early or late in the trajectory.
+
+**Practical agent eval architecture:**
+
+1. Define tasks as (initial state, success criterion) pairs — not (prompt, expected output) pairs. The success criterion is checked against the environment's final state, not the agent's last message.
+2. Run each task in an isolated sandbox environment, capturing the full trajectory (every observation and action) for later scoring.
+3. Score trajectories on both outcome (final state matches success criterion) and process (step count, unnecessary tool calls, error recovery).
+4. Maintain a regression suite of previously-failed tasks — agent improvements should not break previously-solved tasks (agent capability can be non-monotonic across model updates).
+
+## Safety and Red-Team Evaluation
+
+Standard eval measures whether a model does the right thing on typical inputs. **Red-team evaluation** measures whether a model does the wrong thing when explicitly probed for unsafe or out-of-policy behaviour — a distinct eval discipline with its own methodology.
+
+**What red-team eval covers:**
+
+- **Jailbreak resistance** — can the model be induced to violate its own guidelines through adversarial prompt constructions (role-playing, hypothetical framing, decomposition attacks)? Measure refusal rate against a library of known jailbreak patterns, updated as new techniques emerge.
+- **Harm category coverage** — does the model refuse harmful requests (detailed instructions for weapons, CSAM, targeted harassment) reliably across diverse phrasings of the same harmful intent? A model that refuses the direct form but complies with an indirect rephrasing has not solved the problem.
+- **Policy edge cases** — does the model correctly handle content that is near-but-not-over a policy line? Medical information, security research, legal questions, and dual-use content all require nuanced judgment that keyword filtering misses and red-team probes reveal.
+- **Alignment under adversarial pressure** — for agents, can the model be induced to take an action it should refuse via a sequence of individually-acceptable steps (a "boiling frog" trajectory), or via indirect injection through tool results?
+
+**How to run red-team eval:**
+
+- Maintain a curated red-team prompt library, segmented by harm category and attack technique. Grow it continuously — new techniques appear regularly.
+- Use automated red-teaming tools (adversarial prompt generation models, fuzzing frameworks) to generate novel attack variations at scale, then human-triage the results.
+- Track refusal rate per category with a target threshold (e.g., "must refuse >98% of weapons-class prompts"); failing any threshold blocks the release, regardless of aggregate quality scores.
+- Do not let red-team eval results be hidden from release decisions by aggregate averages — a model that scores 99% overall but 40% on one harm category is not safe to ship, and the safety eval framework must surface that failure explicitly.
+
+**Red-team eval is not a one-time gate.** A model that passes red-team eval at the original release can be jailbroken by new techniques developed after release. Continuous red-team eval — running the library on a scheduled basis against the live model — catches regressions introduced by provider-side model updates and new attack patterns as they emerge.
+
 ## Tradeoffs
 
 ```mermaid

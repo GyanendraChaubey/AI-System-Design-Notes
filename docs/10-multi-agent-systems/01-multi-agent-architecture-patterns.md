@@ -182,6 +182,26 @@ flowchart LR
 4. **Debate / critique** — two or more agents review and challenge each other's output before a result is accepted, trading extra inference cost for an error-catching pass. Effective on checkable-answer tasks (does this code compile); weaker where neither agent has real grounds to know which answer is right.
 5. **Blackboard** — all agents read and write one shared state store instead of passing results directly. Useful when the set of agents or the order they need each other's findings isn't known ahead of time, at the cost of conflict resolution for concurrent writes and losing the clean isolation orchestrator-worker provides by default.
 
+## Durable Agent Workflows
+
+Short agent tasks (under 60 seconds, under 20 steps) can run in-memory in a single process — if the process crashes, restarting from scratch is acceptable. **Long-horizon agent tasks** (research pipelines that run for hours, autonomous engineers that work overnight, document-processing pipelines over millions of files) cannot accept this: a crash 90 minutes into a 2-hour run is not acceptably handled by restarting from the beginning.
+
+**The problem: agents are stateful processes that fail partway through.**
+
+An agent loop is a stateful, asynchronous computation — each step depends on all previous steps' results. Standard web servers are stateless and scale horizontally; agent loops are inherently stateful and must be designed to survive process failure.
+
+**Durable execution patterns:**
+
+- **Checkpoint-and-resume.** After each completed step, the agent's full state (history, tool results, scratchpad, step index) is serialised to a durable store (database, object storage). On restart, the agent loads the last checkpoint and continues from there. This is the simplest approach and is sufficient for moderate failure rates, but requires the orchestration framework to correctly re-enter mid-loop.
+- **Workflow orchestration engines (Temporal, Prefect, dbt-style DAGs).** For pipelines where agent steps map to discrete, individually retryable units of work, workflow engines provide durable execution semantics natively — each "activity" runs at-least-once with automatic retry, and the workflow's execution history is persisted by the engine. The agent loop becomes a workflow definition; individual tool calls become activities. Cost: operational overhead of running the workflow engine; benefit: all the durability, retry, and visibility tooling comes for free.
+- **Event-sourced state.** Instead of checkpointing the full agent state, store the event log (every observation and action taken) and reconstruct state by replaying it. Useful when replay is cheap and the event log is the ground truth you want anyway (for audit, eval, or debugging).
+
+**Why this matters for multi-agent systems specifically:**
+
+Multi-agent pipelines are more, not less, vulnerable to partial failure — a 3-worker fan-out where one worker crashes 20 minutes in must either restart all 3 workers (losing 60 person-minutes of compute) or have a mechanism to resume just the failed worker while preserving the other two workers' completed results. This requires the orchestrator to track per-worker state independently, which standard in-memory orchestrators don't do.
+
+**Practical threshold:** Build for durability when any of these are true: (a) the task regularly runs longer than 5 minutes, (b) partial results have real value even if the full task fails, (c) task restarts have a non-trivial cost (GPU time, API credits, human review), or (d) the system runs tasks on infrastructure with non-trivial spot-instance preemption rates.
+
 ## Tradeoffs
 
 ```mermaid

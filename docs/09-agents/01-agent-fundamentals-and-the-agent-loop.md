@@ -145,6 +145,38 @@ Other patterns built on the same base loop:
 3. **Reflection / self-critique loops** — an extra step where the model reviews its own draft action or answer against the task before committing, at the cost of roughly doubling planner calls per useful action.
 4. **Single agent vs. multiple coordinating loops** — everything in this chapter describes one loop, one model "driving." When a task is large enough to split across specialized roles (a planner loop delegating to a coding loop and a testing loop, for instance), you move into [Multi-Agent Architecture Patterns](../10-multi-agent-systems/01-multi-agent-architecture-patterns.md) — multiple instances of this exact loop, coordinating, rather than a different primitive.
 
+## MCP: Standard Tool Integration
+
+The **Model Context Protocol (MCP)**, introduced by Anthropic in late 2024, is an open standard for exposing tools, data sources, and capabilities to any LLM-based agent through a common wire protocol. Before MCP, every agent framework defined its own tool schema format and integration protocol — integrating N tools with M agent frameworks required N×M bespoke connectors. MCP provides one server-side interface that any compliant agent can call.
+
+**What MCP defines:**
+
+- **MCP servers** expose three primitive types: *tools* (functions the model can invoke with arguments), *resources* (data the model can read, like files or database rows), and *prompts* (reusable prompt templates). Each is described with a JSON schema the model uses for selection and argument construction.
+- **MCP clients** are agent runtimes (Claude Desktop, Cursor, custom agent frameworks using the MCP SDK) that connect to one or more MCP servers and expose their capabilities to the model.
+- **Transport**: MCP uses JSON-RPC over stdio (local servers) or HTTP with SSE (remote servers).
+
+**Systems implications:**
+
+- **Security boundary shift.** MCP servers run as separate processes with their own permissions. A well-scoped MCP server that exposes only `read_file` and `search_code` cannot be exploited via prompt injection to delete files, because the underlying process literally doesn't have that capability. This is privilege separation at the OS level rather than at the LLM instruction level — a stronger boundary.
+- **Tool discovery at runtime.** An agent connected to an MCP server can query its available tools dynamically rather than having them hardcoded. This is the mechanism that enables tool libraries (Zapier MCP, GitHub MCP, Postgres MCP) to expose hundreds of capabilities without requiring the agent developer to enumerate them in advance.
+- **Composability across providers.** An agent built with Claude can use the same MCP tool server as one built with GPT-4o. This matters for enterprises that want a shared tool ecosystem across multiple model providers or agent frameworks.
+
+## Computer Use and UI Agents
+
+Standard agent tool calls invoke APIs — structured function calls with typed arguments and typed returns. **Computer use** extends the action space to direct UI manipulation: clicking, typing, scrolling, taking screenshots, and navigating arbitrary applications through their graphical interface rather than their API.
+
+**Why this is architecturally distinct:**
+
+- **The observation type changes.** Instead of receiving a JSON result from a tool call, the agent receives a screenshot (an image) of the current application state. This requires a vision-language model as the planner — a text-only model cannot reason about GUI state.
+- **The action space is effectively unbounded.** An API call has a schema; a GUI has no schema the agent can introspect. The model must infer action validity from visual inspection of the current screen state, which makes the action loop far more error-prone and the failure modes far harder to anticipate.
+- **Side effects are harder to sandbox.** An API call's blast radius is scoped to what the API exposes. A computer use agent can, in principle, interact with any application visible on screen — including ones the operator didn't intend to include. Sandboxing typically requires a dedicated virtual machine or container with restricted network and storage access.
+
+**Production patterns:**
+
+- **Use API integrations whenever available.** Computer use is an escape hatch for applications that have no API, not a general-purpose replacement for structured tool calls. Where both exist, the API integration is more reliable, faster, and cheaper (no screenshot overhead).
+- **Define explicit scope boundaries.** An agent authorised to fill in a form on website A should not be able to navigate to website B. Enforce navigation allowlists at the browser/container level, not only via prompt instructions.
+- **Plan for visual regression.** UI layouts change with software updates. An agent that correctly operates an application today may fail tomorrow after a UI refresh that moves a button. Visual agents need eval frameworks that include UI-state diversity and catch visual regressions, not just task-outcome metrics.
+
 ## Tradeoffs
 
 The decision of whether to use a loop at all — rather than a fixed pipeline or a single RAG-style call — should be made deliberately, not by default.

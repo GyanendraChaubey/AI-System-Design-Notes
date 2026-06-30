@@ -144,6 +144,25 @@ A mid-size SaaS company's support bot gives wrong answers on pricing and plan-li
 
 The bet resolves it: RAG drops the failure rate on those 50 tickets from 12% to 3%, confirming the constraint was fact gaps, not tone. The team ships RAG, skips the fine-tuning pipeline, and writes a decision record with a 3-month review date. (Compare against [Fine-Tuning vs. RAG](04-fine-tuning-vs-rag.md) for the general case.)
 
+## AI-Specific Decision Anti-Patterns
+
+The five-question framework is general. A separate list of recurring AI-specific bad decisions is worth naming explicitly — not because the framework wouldn't catch them, but because they are common enough and AI-specific enough to flag proactively.
+
+**Anti-pattern 1: Fine-tuning before validating that prompting fails.**
+Teams reach for fine-tuning early because it feels like "actually solving the problem" rather than "just prompting." In practice, well-crafted prompts with few-shot examples solve the majority of output-format, tone, and task-type problems without the training pipeline overhead. Fine-tuning's actual advantage is deep behavior change, domain shift, and latent-knowledge integration — not replicating what a good prompt already achieves. The smallest reversible bet is almost always "evaluate the best prompt first."
+
+**Anti-pattern 2: Selecting a model before establishing the quality bar.**
+Teams frequently pick GPT-4-tier models by default ("we want the best"), then discover the task clears the quality bar with a 10× cheaper model. The right order is: define the eval set and success threshold first, then run the size ladder from smallest to largest and stop at the first tier that clears the bar. Model selection before eval is a guess dressed as a decision.
+
+**Anti-pattern 3: Treating "the model is wrong" as a bug to fix rather than a distribution to shift.**
+When an LLM fails on a class of inputs, the instinct is to find the bug and patch it — add a rule, adjust the prompt for that case, add another condition. This produces brittle, growing patch stacks. The right framing is: this is a distributional failure (the model generalises wrong on this slice) requiring either eval-driven prompt revision that generalises, retrieval of missing context, or fine-tuning that shifts the distribution. Patches that address one failing example at a time don't fix distributions.
+
+**Anti-pattern 4: Building eval infrastructure after shipping.**
+Eval is treated as something you add when a quality incident forces the conversation. In practice, a team without an eval suite cannot tell whether a prompt change improved things or not — every change is a guess. The minimum viable eval suite (50–200 representative cases, a judging rubric, a CI check) should exist before the first production deploy, not after the first production incident.
+
+**Anti-pattern 5: Treating provider rate limits as infrastructure scalability.**
+A rate limit is not a provisioned ceiling you control — it is a shared resource that can change, be reduced, or be throttled without warning. Teams that size their product's peak traffic against a negotiated rate-limit tier and treat it as equivalent to owning the underlying compute discover this when the provider applies additional limits during their product's peak (major events, viral launches). The mitigation is the same as any external dependency: fallback providers, graceful degradation to a lower-cost model, and headroom above the negotiated tier.
+
 ## Tradeoffs
 
 The central tension in this kind of thinking is speed versus rigor — and the decision tree below is how a Staff engineer resolves it without defaulting to "always be rigorous," which is itself a mistake (it burns goodwill and calendar time on decisions that didn't need it).

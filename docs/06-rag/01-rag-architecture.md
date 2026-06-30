@@ -165,6 +165,35 @@ The pattern families seen in production, roughly in order of adoption:
 4. **Post-retrieval compression and reordering** — trim irrelevant sentences from chunks and place the most relevant chunk first/last (not buried in the middle) to counter attention decay.
 5. **Self-RAG / Corrective RAG** — the model critiques its own retrieved evidence before generating, and re-retrieves if evidence is insufficient or contradictory (this is the on-ramp to [Agentic RAG](../08-agentic-rag/01-agentic-rag-architecture.md)).
 
+## When Long Context Replaces Retrieval
+
+A common assumption in 2022–2023 was that RAG would always be necessary for grounding — the model's context window was too small to "just put everything in." That assumption has weakened. Models with 128K–2M token windows can now ingest entire codebases, full policy manuals, or complete contract sets in a single prompt. The question is no longer *whether* you can — it's *whether you should*.
+
+**Where long-context stuffing wins:**
+
+- **Small, stable corpora where you need complete coverage.** A 50-page legal agreement, a 200-page technical spec, a full codebase under 150K tokens — if the entire corpus fits in the window and the user's queries require understanding *any* part of it (not just a retrievable subset), stuffing the whole document is often simpler and more accurate than retrieval.
+- **Multi-hop reasoning across the full corpus.** Retrieval returns the most relevant chunks, but relevance is computed per-query. A question that requires reasoning across three non-adjacent sections ("does clause 12 contradict clause 47 in light of Exhibit B?") requires either very sophisticated retrieval or a complete view of the document. Long context gives the latter trivially.
+- **Exploratory or open-ended queries where the "right chunk" isn't predictable upfront.** Retrieval optimises for known-answer lookup. Exploratory analysis benefits from the model having the full picture.
+
+**Where RAG still wins:**
+
+- **Large or frequently-changing corpora.** A 10M-document knowledge base cannot fit in any context window; retrieval is required. For corpora that change daily, RAG's incremental indexing is far cheaper than re-encoding the entire corpus on every query.
+- **Cost at scale.** A 128K-token prompt at $15/M tokens costs $1.92 per query — before the model generates a single word of response. At 10K queries/day, that's $19,200/day in input tokens alone. RAG at 5K tokens of retrieved context costs $0.075/query — 25× cheaper for the same product surface.
+- **Latency.** Prefilling 128K tokens takes 2–10 seconds on most frontier model APIs. Retrieval + 5K-token context typically completes time-to-first-token in under 1 second.
+- **Attribution and citation.** RAG naturally produces citations (the retrieved chunks). Long-context stuffing requires the model to self-identify which parts of the full document it used — a harder, less reliable task.
+
+**The practical decision:**
+
+| Signal | Long-context stuffing | RAG |
+|---|---|---|
+| Corpus size | Under ~100K tokens and stable | Over 100K tokens or frequently updated |
+| Query type | Exploratory, multi-hop, full-coverage | Targeted lookup, known-answer retrieval |
+| Cost target | Acceptable up to $0.50–$2.00/query | Must be under $0.10/query at scale |
+| Latency target | Under 5s acceptable | Under 1s required |
+| Citation required | Not required, or model self-cites reliably | Required with traceable source links |
+
+The emerging best practice: **use long context for the document or session context already assembled in memory; use RAG for grounding against external, large, or dynamic corpora.** These are not competing architectures — they target different grounding problems within the same system.
+
 ## Tradeoffs
 
 ```mermaid

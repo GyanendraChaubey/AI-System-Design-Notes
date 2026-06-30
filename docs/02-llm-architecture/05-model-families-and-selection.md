@@ -141,6 +141,71 @@ flowchart LR
 3. **Tiered routing by request complexity.** Rather than one model for the entire product, route simple requests to a small/fast tier and complex or high-stakes requests to a larger tier, using a cheap classifier or heuristic ahead of the expensive model call (see [Multi-Model Serving & Routing](../15-model-serving/05-multi-model-serving-and-routing.md)).
 4. **Revisit architecture and provenance at inflection points**, not on a fixed schedule — a self-hosting decision that didn't make sense at low volume can make sense after 10x growth; a closed-API decision that made sense pre-compliance-requirement can become disqualified by a new data-residency rule (see [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md) and [Open Source vs Closed Models](../23-staff-level-architecture/03-open-source-vs-closed-models.md)).
 
+## Reasoning Models: A Fourth Dimension
+
+Dense versus MoE, and open-weight versus closed API, are orthogonal to a third axis that now shapes model selection in production: **whether the model uses inference-time compute scaling** — generating an extended internal reasoning trace before producing any visible output.
+
+| Selection axis | What it controls |
+|---|---|
+| Dense vs MoE | Per-token compute cost vs total-parameter memory footprint |
+| Open-weight vs closed API | Who operates serving infra, data control, customisation depth |
+| Size tier | Quality ceiling and per-token cost within a family |
+| Standard vs reasoning | Token volume and wall-clock time per user-visible response |
+
+**What reasoning models are and when they matter:**
+
+Models in the o1/o3/o4-mini, DeepSeek-R1, QwQ, and Gemini Thinking families generate a hidden scratchpad — hundreds to tens of thousands of tokens of intermediate chain-of-thought — before emitting a final answer. The thinking trace is usually not shown to the user but is priced and metered the same as output tokens. On complex multi-step tasks (hard math, adversarial logic, long-horizon code generation), reasoning models outperform standard models of the same parameter count by wide margins. On factual retrieval, summarisation, and conversational response, they typically match or only marginally exceed standard models, at 10–100× the token cost and 10–60× the latency.
+
+**Serving implications that distinguish reasoning models from standard models:**
+
+- **Unpredictable output length at the tail.** Standard models produce roughly bounded outputs for a given task type. Reasoning models can generate 500 or 30,000 thinking tokens for inputs that look identical from the outside, depending on problem difficulty. Sizing from averages is dangerous; p95/p99 thinking-token distributions from real traffic are required.
+- **Separate rate limits on reasoning endpoints.** Provider rate limits for reasoning models (e.g., `o3`, `deepseek-reasoner`) are almost always lower than for standard endpoints, reflecting higher per-request compute cost. Don't assume your existing tokens-per-minute ceiling applies.
+- **Time-to-first-visible-token is a UX constraint, not a serving optimisation.** A 60-second thinking phase before the first word appears is a product decision — some APIs stream thinking tokens as activity feedback without reducing actual compute time.
+- **Budget-capping limits tail variance.** Most reasoning APIs expose a `max_thinking_tokens` parameter. Setting an explicit budget converts an unbounded latency and cost tail into a predictable ceiling; without it, a single complex query can run minutes and dominate your GPU or API spend for that request slot.
+
+**Selection rule:** Measure before routing. Run a standard model on a representative sample of the task; if it clears the quality bar, reasoning models add cost and latency for no measured benefit. If the standard model genuinely fails on a class of inputs, route exactly those inputs to the reasoning model, quantify the quality uplift, and track the fraction of real traffic hitting that routing path — it directly sets your reasoning-path cost line.
+
+## Vision-Language and Multimodal Model Families
+
+Vision-language models (VLMs) combine a text transformer with a vision encoder, processing images and text in a unified context window. This is no longer a niche capability: GPT-4o, Claude 3/3.5/3.7, Gemini 1.5/2.0, Llama 3.2 Vision, Qwen-VL, and LLaVA all ship multimodal architectures as their default — the purely text-only frontier model is increasingly the exception.
+
+**What changes architecturally:**
+
+- **A vision encoder prefixes the transformer.** A ViT or convolutional backbone encodes each image into patch embeddings (typically 256–5,300 image tokens per image depending on resolution and tile strategy). These embeddings enter the transformer's input sequence alongside text tokens. The transformer itself is largely unchanged.
+- **Context window is shared across modalities.** Image tokens consume context budget the same as text tokens and are priced the same by most providers. A product that allows image uploads must account for image-token density in capacity planning (see [Multimodal Tokenization](02-tokenization-and-vocabulary.md)).
+- **Serving adds a vision-encoder step.** Every multimodal request runs a forward pass through the vision encoder before the main transformer prefill. This adds 50–300ms of latency and GPU compute — a non-trivial fraction of the time-to-first-token budget for latency-sensitive products.
+
+**Model selection implications:**
+
+- Do not select a multimodal model for a purely text task — the added vision encoder has a real inference cost even when no image is present in some implementations. Verify whether the vision encoder is bypassed on text-only inputs in your target model's serving engine.
+- Multimodal models have their own benchmark landscape (VQA, MMMU, DocVQA). Text-only eval sets miss their distinguishing capabilities entirely; eval your task mix separately.
+- For document-heavy workflows (PDFs with charts, tables, diagrams), multimodal models that process the raw image of a page often outperform pipeline approaches that extract text then feed it as tokens — but at higher image-token cost per page.
+
+## Model Customisation: Fine-Tuning and LoRA
+
+The open-vs-closed axis determines whether customisation is possible at all. But the *form* of customisation matters as much as its availability:
+
+**Fine-tuning (full or PEFT) changes what the model knows or how it behaves:**
+
+- **Full fine-tuning** updates all weights on a supervised dataset. Expensive to run (requires the same infrastructure as pre-training at reduced scale), produces a new set of weights that must be served independently, and risks forgetting behaviour the base model had. Justified when the task requires deep domain shift (medical jargon, legal reasoning in a specific jurisdiction, code in a proprietary DSL).
+- **LoRA (Low-Rank Adaptation)** adds small trainable rank-decomposition matrices to a subset of the model's weight matrices, leaving the base weights frozen. The adapter adds roughly 1–5% of the base model's parameter count. Training cost is ~10–50× lower than full fine-tuning. The adapter is a small file (typically 50–500 MB vs the base model's 10–70 GB); it can be hot-swapped on top of the base model at serving time, enabling **multi-LoRA serving** (one GPU holding the base weights, multiple adapters loaded as needed per request).
+- **QLoRA** combines LoRA with quantising the base model to 4-bit during training, enabling fine-tuning of 70B-parameter models on a single 80 GB GPU. Quality is slightly below full LoRA but the accessibility gain is large.
+
+**What fine-tuning is actually good at vs what it isn't:**
+
+| Use case | Fine-tuning helps | Fine-tuning doesn't help |
+|---|---|---|
+| Output style and format | Yes — format and persona are deeply learned | Keeping outputs up-to-date with fresh facts |
+| Domain vocabulary and jargon | Yes — improves fluency in specialised language | Injecting specific factual knowledge reliably |
+| Task-specific behaviour | Yes — instruction following for a narrow task type | Replacing retrieval for high-precision factual lookup |
+| Reducing refusals for legitimate use cases | Yes, with careful data | Hardening security properties |
+
+**Serving a fine-tuned model:**
+
+- A full fine-tuned model is served as an entirely new model — it needs its own serving replica, its own deployment pipeline, and its own eval suite. Treat it as a new model, not a configuration change.
+- A LoRA adapter is served on top of the base model; see [Multi-LoRA Serving](../15-model-serving/01-model-serving-architecture.md) for how production systems host many adapters efficiently.
+- Fine-tuning and retrieval (RAG) are not mutually exclusive: fine-tune for style and format, use RAG for fresh factual grounding. Most production systems that fine-tune eventually combine both.
+
 ## Tradeoffs
 
 The single most consequential, recurring decision in this chapter is open-weight versus closed — and like most build-vs-buy calls, the right answer depends on volume, data sensitivity, and team capability more than on either option's inherent merit.

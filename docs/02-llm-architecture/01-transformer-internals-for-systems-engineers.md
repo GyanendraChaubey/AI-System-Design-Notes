@@ -138,6 +138,38 @@ Pattern families seen in production:
 4. **Disaggregated prefill/decode** — run prefill and decode on separate GPU pools tuned to each phase's bottleneck, transferring the KV cache between them over a fast interconnect.
 5. **Prefix/prompt caching** — when requests share a common prefix (system prompt, few-shot template), cache and reuse its KV entries instead of recomputing per request — see [KV Cache Management](../15-model-serving/03-kv-cache-management.md).
 
+## Attention Efficiency: Flash Attention, GQA, and MLA
+
+Standard multi-head attention has two costly properties at serving time: it recomputes the full attention matrix on every forward pass (quadratic in sequence length in memory access), and each head maintains its own separate K and V projections in the KV cache, making the cache large. Three techniques — now standard in production models — address these directly:
+
+**Flash Attention** (Dao et al., 2022; Flash Attention 2 and 3 follow): Fused GPU kernel that computes attention in blocks, keeping intermediate activations in fast SRAM rather than writing them to slow HBM. The result is the same mathematical output as standard attention but with roughly 2–4× the memory efficiency and 2–8× the speed for the attention computation itself. Nearly every major serving engine (vLLM, TensorRT-LLM, SGLang) implements Flash Attention as its default attention kernel. From a systems perspective: Flash Attention does not change the KV cache's size or format — it only speeds up how the attention computation uses it.
+
+**Grouped Query Attention (GQA)** — used in Llama 3, Mistral, Gemma, and most post-2023 frontier models: Rather than one K and V head per Q head (standard multi-head attention), GQA groups multiple Q heads to share a single K and V head. A model with 32 Q heads and 8 KV heads (a common configuration in Llama 3) reduces KV cache size by 4×, directly reducing the memory pressure that limits serving concurrency. The quality impact is small (the shared KV heads still carry sufficient representational capacity) while the serving economics improve substantially: the same GPU can hold more concurrent requests in memory before KV cache becomes the binding constraint.
+
+**Multi-Head Latent Attention (MLA)** — introduced in DeepSeek-V2/V3: Instead of caching full K and V tensors, MLA compresses them into a low-rank latent representation before caching, then decompresses on use. This reduces KV cache size by 5–13× compared to standard multi-head attention at similar model sizes, at the cost of extra compute on decompression. For very long-context serving, MLA-equipped models can serve significantly more concurrent long-context requests per GPU than GQA or standard attention models of equivalent parameter count.
+
+**What to check when evaluating a model for serving:**
+
+The KV cache formula `2 × layers × KV_heads × head_dim × bytes_per_value × sequence_length` is directly affected by which of these techniques the model uses. Check whether a model uses MHA (largest KV cache), GQA (4–8× smaller), or MLA (5–13× smaller) before sizing KV cache memory — the difference can change whether a model fits in single-GPU or requires tensor parallelism.
+
+## Alternative Architectures: State Space Models and Hybrids
+
+Transformers dominate production LLM deployments but are not the only architecture in active use. **State space models (SSMs)** — particularly the Mamba family — offer a different compute and memory profile that matters for specific serving scenarios.
+
+**What SSMs do differently:**
+
+Where a transformer maintains a KV cache that grows with sequence length (O(n) memory, O(n) attention compute per step), an SSM compresses the entire context history into a fixed-size **recurrent state** — typically a few hundred to a few thousand floating-point values, regardless of how many tokens have been processed. At each decode step, the model updates this state with the new token and reads from it; no KV cache accumulates.
+
+**The serving implications:**
+
+- **KV cache memory drops to near-zero** for SSMs. A model that can process 100,000 tokens of context does so without the tens of gigabytes of KV cache a transformer of similar capability would require. This enables concurrent request counts that transformers can't match on the same hardware.
+- **Prefill is sequential, not parallel.** Transformers prefill the entire prompt in one batched pass (the "prefill is compute-bound" property). SSMs must process tokens one-by-one or in small windows during prefill, making long-prompt processing slower than a transformer's parallelisable prefill.
+- **Hybrid architectures** (Jamba, Zamba, some Mistral variants) interleave SSM layers with attention layers, attempting to get the constant-memory properties of SSMs for long-context decode while retaining the fast, parallelisable prefill from attention. These are in active production deployment and inherit partial versions of both profiles.
+
+**When to consider SSM or hybrid models:**
+
+For workloads where very long context (50K–1M tokens) must be handled concurrently at scale and KV cache memory is the binding constraint on serving concurrency, SSM-based models can serve significantly more users per GPU dollar. For workloads with heavy prompt caching (reusing KV entries across requests), transformers remain dominant.
+
 ## Tradeoffs
 
 The recurring architectural question: as required context length grows, at what point does a serving stack outgrow simple, co-located prefill+decode serving?

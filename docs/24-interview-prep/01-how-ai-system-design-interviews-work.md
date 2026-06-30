@@ -160,6 +160,22 @@ The recurring strong-answer pattern has four properties, each mapped to somethin
 3. **Every "what" comes with a "why."** "I'd use a vector DB" is weaker than "I'd use a vector DB because the knowledge base updates hourly and fine-tuning can't keep pace" — the second version survives a follow-up because the reasoning, not just the conclusion, is already on the table.
 4. **Gaps are surfaced before the interviewer has to ask.** "I haven't covered evaluation yet — here's how I'd know this system actually works" turns a rubric gap (breadth) into a proactive strength instead of waiting to be caught short.
 
+## Reasoning Model System Design: A Distinct Interview Track
+
+Designing a system that uses a reasoning model (o1, o3, DeepSeek-R1, Claude Extended Thinking) is increasingly a live interview question in 2025, and it surfaces design concerns that don't appear when the system uses a standard text-completion model. Candidates who treat reasoning models as "just a smarter model" miss the systems-level differences.
+
+**What interviewers probe specifically for reasoning model designs:**
+
+- **Latency contract.** A reasoning model can take 30–300 seconds before producing the first visible word. The candidate must explicitly redesign the latency contract: this changes from "fast synchronous response" to either (a) async job pattern with a status endpoint and result delivery via webhook or polling, or (b) streaming thinking tokens as activity feedback to hold the user while the model works. Which approach is chosen depends on the UX (can the user tolerate a spinner? does the product surface "thinking" as a feature or hide it?).
+- **Cost modelling.** A reasoning model at 10,000 thinking tokens + 500 response tokens at a typical reasoning-tier price is 10–50× the cost of the same task on a standard model. The candidate must model this explicitly — does the product's unit economics support it? What's the routing strategy (only route genuinely complex queries to the reasoning model)?
+- **Capacity planning with unpredictable token volume.** Standard capacity chains assume a roughly fixed token-per-request distribution. Reasoning models break this — thinking-token count varies by 10–100× across requests to the same endpoint. The candidate should separately size the reasoning and standard paths and use p95 thinking-token count, not the mean, to avoid under-capacity sizing.
+- **KV cache sizing.** A 32K-token thinking budget consumes enormous KV cache. The candidate should identify this as a constraint, discuss how it limits serving concurrency on shared GPU pools, and propose separating reasoning workloads onto dedicated GPU capacity.
+- **When NOT to use a reasoning model.** Strong candidates proactively argue against reasoning models for parts of the system that don't require them (retrieval, routing, summarization) and justify the cost only for the sub-task that genuinely requires multi-step reasoning. Candidates who propose reasoning models throughout the system without a cost rationale signal inexperience with production cost management.
+
+**A useful framing for the interview:**
+
+Treat the reasoning model like a very expensive human consultant you can call on for the hardest sub-tasks. You wouldn't use that consultant to answer simple factual questions or reformat text; you'd use a cheaper resource for those. The system design question is: which decisions in this architecture are hard enough to justify the consultant's fee, and how do you route requests to the right tier at the right time?
+
 ## Tradeoffs
 
 The candidate's hardest live decision is depth versus breadth allocation, remade every few minutes with an incomplete picture of how much time is left.

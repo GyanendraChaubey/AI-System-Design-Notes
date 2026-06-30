@@ -134,6 +134,64 @@ flowchart LR
 3. **Sampling with tuned temperature and top-p for conversational and creative surfaces** — the overwhelming majority of consumer-facing chat products use this pattern, with temperature as one of the few user-tunable "personality" knobs some products expose directly.
 4. **Speculative decoding layered underneath any of the above, transparently** — because it preserves the target model's output distribution exactly, it is a serving-infrastructure optimization that composes with whatever decoding strategy and parameters the product layer has chosen, not a separate, competing choice.
 
+## Constrained and Structured Generation
+
+Standard sampling selects from the full vocabulary at each step. **Constrained decoding** narrows the valid next-token set to only those tokens consistent with a target schema — a JSON object, a grammar, a fixed list of labels — guaranteeing structurally valid output without post-processing retries.
+
+**Why this matters at the systems level:**
+
+Unstructured LLM output that is then parsed downstream introduces a failure mode: the model generates text that looks like valid JSON but isn't (missing a closing brace, an extra comma, a truncated string), and the parser fails. Naive solutions — retry on parse failure, or use a "JSON fixer" model — add latency and cost. Constrained decoding eliminates the failure mode at the source.
+
+**How it works:**
+
+At each decode step, the decoding engine intersects the model's logit distribution with a **mask** of tokens that are currently valid according to the schema. Tokens that would produce an invalid partial structure (e.g., a non-numeric character when a number is expected) have their logits set to negative infinity before sampling, making them impossible to select. The mask is updated after each token, tracking position in the schema's parse state.
+
+Libraries implementing this: **Outlines** (most widely used, grammar-based), **LMFE** (structured output with Pydantic), **Guidance** (handlebars-style templates), **XGrammar** (efficient grammar-constrained decoding). Several serving engines (vLLM, llama.cpp) integrate grammar-based constrained decoding natively.
+
+**The tradeoff:** Constrained decoding imposes a small (~5–20%) throughput overhead per token — the mask computation runs on CPU alongside GPU decoding. For high-throughput batch workloads generating structured output at scale, this overhead is worth measuring explicitly.
+
+**When to use each approach:**
+
+| Output type | Recommended approach |
+|---|---|
+| JSON with known schema | Grammar-constrained decoding (Outlines, LMFE) or JSON mode API |
+| Function/tool call selection | Native function-calling API (provider-side constrained) |
+| Fixed label from a list | Constrained decoding to the label token set; or greedy at temp=0 with output validation |
+| Free text with structure hints | System-prompt engineering; constrained decoding adds overhead without benefit |
+| Deeply nested or recursive schemas | Grammar-based (context-free grammar); simple regex patterns miss recursive nesting |
+
+**Provider-side JSON mode vs client-side constrained decoding:**
+
+Most frontier model APIs now expose a `response_format: { type: "json_object" }` parameter (OpenAI, Anthropic) or function calling — these are provider-implemented constrained decoding with no client overhead. For self-hosted models, client-side libraries are required. The output quality is equivalent; prefer the native API option when available to avoid the serving-side overhead.
+
+## Inference-Time Compute Scaling: Extended Reasoning
+
+Standard decoding has a fixed compute budget per token — one forward pass, one token out. **Extended reasoning** breaks this: models like o1, o3, DeepSeek-R1, and Claude Extended Thinking generate thousands of internal "thinking" tokens before producing any visible output, spending compute on chain-of-thought exploration rather than emitting an answer immediately.
+
+```mermaid
+flowchart LR
+    subgraph Standard["Standard Decoding"]
+        SP[Prompt] --> SD["One forward pass per token\n~300 visible output tokens\nstreamed directly to user"]
+        SD --> SR[Response]
+    end
+    subgraph Extended["Extended Reasoning"]
+        EP[Prompt] --> ET["Phase 1 — Thinking\n1K to 32K+ hidden tokens\nnot shown to user\none forward pass each"]
+        ET --> ED["Phase 2 — Response\nstandard output tokens\nstreamed to user"]
+        ED --> ER[Response]
+    end
+```
+
+**The systems implications are material, not cosmetic:**
+
+- **Latency profile inverts.** In standard decoding, time-to-first-token is fast (one prefill pass) and the user sees tokens arriving immediately. In extended reasoning, there is a silent thinking phase running 30–300 seconds before the first visible word. Streaming thinking tokens — as some APIs now expose — improves perceived responsiveness but does not reduce wall-clock time.
+- **Token volume multiplies by 10–100×.** A response producing 500 output tokens in standard mode may require 8,000 thinking tokens + 500 response tokens in reasoning mode — a 17× token count for the same user-visible answer. At reasoning-model API pricing (typically 3–10× the base rate), the cost per query can be 30–1,000× more than the cheapest small model on the same task.
+- **KV cache pressure spikes.** Thinking tokens require KV cache entries exactly like any other tokens. A 32K-token thinking budget consumes roughly 32× the KV cache of a standard 1K-token response. A single reasoning request can saturate the KV cache that would otherwise serve 30+ standard requests concurrently.
+- **Thinking budget is a new capacity-planning input.** Most reasoning APIs expose a `max_thinking_tokens` parameter. Sizing without measuring actual thinking-token utilization from real traffic — not just the maximum budget — produces severely under-capacity estimates. Actual utilization commonly runs 30–60% of the budget ceiling on average, but p95 can hit the ceiling, and that's what drives your KV cache and GPU saturation events.
+
+**When extended reasoning is worth the cost:**
+
+Route tasks to a reasoning model only after measuring that a cheaper model's output on that task class is insufficient. Reasoning models dominate on multi-step math, complex code generation, and adversarial logical reasoning; they rarely improve factual lookup, summarization, or conversational response — and the cost premium is unjustifiable for those. The production pattern: run the standard model, route to the reasoning model only on inputs that trigger a measured confidence failure or complexity threshold, and track the fraction of real traffic that actually requires that routing, since it directly sets your reasoning-path cost line.
+
 ## Tradeoffs
 
 The core decision is rarely "which algorithm" in the abstract — it's "how much does this specific task need reproducibility versus variety, and how much compute is the quality gain actually worth."

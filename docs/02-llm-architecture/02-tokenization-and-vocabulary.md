@@ -146,6 +146,37 @@ flowchart LR
 3. **Vocabulary size as a separate, composable choice** — independent of the algorithm, model families have grown vocabulary size over generations (early models around 32K, many current frontier models 100K-256K) specifically to improve multilingual and code fertility, since a larger vocabulary can dedicate more entries to non-English subwords without sacrificing English efficiency.
 4. **Domain-specialized vocabularies** — code models frequently use vocabularies tuned with code-heavy training corpora, since whitespace-sensitive, symbol-dense code tokenizes poorly under a prose-trained vocabulary (e.g., four-space indentation or repeated punctuation can fragment into many single-character tokens otherwise).
 
+## Multimodal Tokenization: Images, Audio, and Video
+
+Text tokenisation converts bytes to integer IDs. Multimodal models need the equivalent for images, audio, and video — and the engineering problems that follow are analogous but different enough to handle separately.
+
+**Image tokenisation:**
+
+Vision-language models (GPT-4o, Claude 3, Gemini, LLaVA, Qwen-VL) convert images into sequences of patch embeddings before feeding them to the transformer. The most common approach:
+
+1. A convolutional or ViT-style **vision encoder** divides the image into fixed-size patches (typically 14×14 or 16×16 pixels).
+2. Each patch is embedded into a vector of the same dimensionality as a text token embedding.
+3. Patch embeddings are concatenated with text token embeddings and passed into the transformer as a single sequence.
+
+The systems consequence: a 1024×1024 image at 14-pixel patches produces roughly (1024/14)² ≈ **5,300 "image tokens"** — more than many text-only conversation turns. At standard frontier pricing, a single high-resolution image can cost as much as 5,000 input tokens. Some providers (OpenAI, Anthropic) use tiling strategies that split large images into multiple crops, each encoded separately, which multiplies the token count further. **Budget for image tokens the same way you budget for retrieved text**: they consume context window space and are priced per token.
+
+**Audio tokenisation:**
+
+Speech and audio models (Whisper, Gemini Audio, GPT-4o audio) typically convert audio to one of two representations:
+
+- **Mel spectrogram patches** (similar to image patches): the audio waveform is windowed into short frames, converted to a mel-frequency representation, and patch-embedded. Whisper processes 30-second chunks at 80 mel bins × fixed frame count.
+- **Discrete audio tokens** (EnCodec, SoundStream): a neural codec model compresses audio into a sequence of discrete codebook indices — effectively treating audio as a high-frequency token stream (typically 50–150 tokens per second of audio).
+
+The per-second token count for audio is much higher than text and highly codec-dependent. A 10-minute audio file at 50 tokens/sec produces 30,000 audio tokens — a full 32K context window just for the audio.
+
+**Video tokenisation:**
+
+Video combines spatial (image) and temporal (sequence) dimensions. Most current approaches sample frames at 1–8 fps and tokenise each frame with a vision encoder, producing token counts that grow with both resolution and clip length. A 1-minute video at 2 fps with 256 tokens/frame produces 30,720 tokens before any text is included. This makes video-native LLMs extremely context-hungry; most production systems either clip videos aggressively or retrieve relevant frames rather than encoding the full clip.
+
+**What this means for capacity planning and context engineering:**
+
+Multimodal inputs do not change the capacity chain's structure — tokens/sec is still the intermediate unit — but they change the token distribution dramatically. A "request" for a multimodal product may carry 5,000–30,000 tokens of visual or audio content before a single word of the user's text question. Segment your token distribution by modality, budget multimodal inputs explicitly in the context assembly layer, and measure p95 token counts from real traffic rather than estimating from text-only baselines.
+
 ## Tradeoffs
 
 Vocabulary size is the one tokenizer parameter a systems engineer can reason about as a clean tradeoff, since growing it has a direct, quantifiable cost on one side and a direct, quantifiable benefit on the other.

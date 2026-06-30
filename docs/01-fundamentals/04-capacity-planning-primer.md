@@ -131,6 +131,29 @@ Three recurring patterns, in increasing sophistication, show up in practice:
 2. **Tiered sizing by workload shape** — separate the estimate by request type (chat, RAG-grounded, summarization, agentic) rather than one blended token-per-request average, since a single average hides the heaviest tier's real demand; the agentic case is the most extreme version of this and gets a full worked treatment in [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#staff).
 3. **Continuous re-forecasting** — re-measure real token distributions and real peak factors from production traffic on a rolling basis, rather than freezing the launch-time estimate; both sides of the chain (demand and the per-unit conversion, whether throughput or price) drift over a product's life.
 
+## Sizing for Reasoning Workloads
+
+The four-link chain assumes a roughly stable token-per-request distribution. **Extended reasoning models break this assumption** by introducing a thinking-token component that can vary 10–100× across requests to the same endpoint — even requests that look identical from the outside — depending on problem difficulty.
+
+**Modifying the chain for reasoning workloads:**
+
+The chain gains one new, measured input: **thinking-token distribution** (separate from response-token distribution). This must be measured from real traffic, not assumed from the API's maximum budget ceiling.
+
+Worked example — extending the 500K-DAU support assistant from the earlier section, with 20% of requests routed to a reasoning model for complex queries:
+
+- **Standard path (80%):** 277 QPS peak × 850 tokens/request = ~235K tokens/sec (same as before).
+- **Reasoning path (20%):** 277 × 20% = 55 QPS peak. But average tokens/request is now 600 in + 4,200 thinking + 300 out = **5,100 tokens/request**.
+- **Reasoning tokens/sec:** 55 × 5,100 = **280K tokens/sec from 20% of requests** — more than the entire standard path combined.
+
+The takeaway: a 20% routing fraction to a reasoning model can dominate total token demand. Any sizing that blends standard and reasoning requests into one average produces a badly wrong number.
+
+**Sizing disciplines for mixed workloads:**
+
+1. **Separate the chains.** Size standard and reasoning request paths independently — separate token distributions, separate peak factors, separate provisioned capacity (different GPU pools or different API rate-limit tiers).
+2. **Use p95 thinking tokens, not the mean.** Mean thinking-token count is pulled down by simple queries that use few thinking tokens. P95 drives KV cache and GPU saturation events.
+3. **Account for rate-limit tier differences.** Reasoning model endpoints carry lower tokens-per-minute ceilings than standard endpoints. A tier that handles standard traffic comfortably can be undersized for a reasoning path running at the same apparent QPS.
+4. **Model budget-capped vs uncapped thinking separately.** If you set `max_thinking_tokens`, cap your sizing at that ceiling. If you don't, use observed p95 as a conservative ceiling.
+
 ## Tradeoffs
 
 The fork itself — self-hosted vs. API-based — is the single biggest capacity-planning decision a team makes, and it should be made deliberately, with this chain's numbers in hand, rather than defaulted into.

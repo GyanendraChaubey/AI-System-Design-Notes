@@ -155,6 +155,64 @@ Other recurring patterns:
 4. **Progressive summarization of history** — rather than evicting old turns outright, periodically collapse them into a running summary (see [Context Compression & Summarization](03-context-compression-and-summarization.md)), trading some fidelity for a small, stable cost.
 5. **Reservation-first budgeting** — reserve output and scratchpad headroom *before* allocating the rest, instead of discovering afterward there's no room left to answer.
 
+## Multimodal Context: Images, Files, and Audio
+
+Text-only context budgets count characters and tokens. **Multimodal context budgets must also account for image patches, audio frames, and structured file extractions** — each of which consumes context window space and inference cost through the same token-pricing model as text, but at very different densities.
+
+**Images in context:**
+
+A single image passed to a vision-language model consumes roughly 1,000–5,300 "image tokens" depending on resolution and the model's patch size. Some providers (OpenAI GPT-4o, Anthropic Claude) scale token count with image size using tiling — a 2048×2048 image can consume 8,000–16,000 tokens. This has direct context budget and cost implications:
+
+- A product that allows users to attach images must reserve image-token budget *before* allocating budget for system instructions, history, and retrieved knowledge. A single image at 5,000 tokens against a 32K window consumes 15% of the window before a word of text is processed.
+- Images cannot be meaningfully "compressed" the way text history can. The only levers are: resize before sending (reduce resolution), select relevant sub-crops rather than full images, or reject inputs that exceed a per-request image-token ceiling.
+- Track image tokens separately in monitoring — a cost spike from "more image-heavy conversations" is invisible if image and text tokens are blended into one average.
+
+**Files and documents:**
+
+PDFs, spreadsheets, and code files are not passed as binary — they are extracted to text (or image patches, for scanned PDFs) before entering the context window. The token density varies enormously:
+
+- A 10-page prose document: ~3,000–5,000 tokens.
+- A 10-page spreadsheet with numeric data: often 10,000–30,000 tokens after serialisation.
+- A scanned PDF with no text layer: must be processed through a vision encoder, typically 1,000–5,000 image tokens per page.
+
+The context engineering implication: **file-to-token conversion must be estimated before assembling the request**, not discovered after. A budget manager that doesn't know a file's post-extraction token count until after sending it will frequently exceed budget on the first request rather than the tenth.
+
+**Audio in context:**
+
+Audio-native models (Gemini Audio, GPT-4o audio) tokenise speech at roughly 25–50 audio tokens per second. A 2-minute voice message produces 3,000–6,000 audio tokens. This is uncommon in most products today but is the dominant modality in voice AI and meeting-assistant products; those products need a per-utterance token estimate as part of their context budget policy.
+
+**Practical multimodal budget policy:**
+
+```
+Total window = output reserve + system instructions + multimodal inputs + text retrieval + history
+```
+
+Reserve multimodal input budget *before* text retrieval and history, in the same way output headroom is reserved before any other allocation — because unlike text, multimodal inputs arrive at a fixed size and cannot be selectively compressed once received.
+
+## Prompt Caching as a Context Engineering Lever
+
+Most of the content assembled per request is not unique: the system prompt, few-shot examples, product instructions, shared documents, and tool schemas are typically identical across thousands or millions of requests. **Prompt caching** lets the serving infrastructure compute the KV cache for these static prefixes once and reuse it across all requests that share that prefix — turning repeated prefill compute into a cache read.
+
+**What it saves:**
+
+At a product with a 4,000-token system prompt, no caching means every request pays the full prefill cost of those 4,000 tokens before any unique content is processed. With prefix caching and a 90% hit rate, 90% of requests skip that compute entirely. At $1/M input tokens and 10M requests/day, that's a $36K/day saving from a single engineering decision about how the context is structured.
+
+Providers that expose prompt caching (as of mid-2025): Anthropic (breakpoint-based, explicit `cache_control` markers), OpenAI (automatic, for prompts above a minimum length), Google (explicit), most self-hosted engines via `prefix_caching=True`.
+
+**How to engineer context for maximum cache hit rate:**
+
+Cache hit rate depends on whether the shared prefix is an exact byte-for-byte match at the prefix position. A single character change — a dynamic timestamp, a request ID injected into the system prompt, a user name embedded in instructions — breaks the cache for that position and all content after it.
+
+The engineering discipline:
+1. **Freeze the static prefix.** Move everything that doesn't change per-request to the beginning of the context: system instructions, product rules, tool schemas, few-shot examples.
+2. **Append dynamic content at the end.** User message, retrieved documents, conversation history — put these after the static prefix so the cache covers as much of the context as possible.
+3. **Never inject dynamic values into static sections.** A current-date injection in the system prompt resets the cache every day at midnight. If the date is needed, put it in the user turn, not the system prompt.
+4. **Track cache hit rate as a cost metric.** A hit rate below 80% on a product with a large, stable system prompt is a signal that context assembly is not structured optimally.
+
+**Interaction with context engineering budgeting:**
+
+Prompt caching changes the *cost* of a source but not its *token count*. A 4,000-token static system prompt with 90% cache hit rate effectively costs 400 input tokens per request in billing terms. Model the cost budget and the token budget separately: the token budget governs what fits in the context window; the cost budget governs what you actually pay.
+
 ## Tradeoffs
 
 ```mermaid
