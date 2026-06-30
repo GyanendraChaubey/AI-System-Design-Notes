@@ -251,7 +251,7 @@ SECTIONS = [
             {
                 "file": "01-prompt-engineering-as-systems-design.md",
                 "title": "Prompt Engineering as Systems Design",
-                "flagship": False,
+                "flagship": True,
                 "synopsis": (
                     "Treating prompts as versioned, tested, owned software artifacts "
                     "rather than throwaway strings — the architectural shift that "
@@ -273,7 +273,7 @@ SECTIONS = [
             {
                 "file": "02-prompt-templates-and-versioning.md",
                 "title": "Prompt Templates & Versioning",
-                "flagship": False,
+                "flagship": True,
                 "synopsis": (
                     "How production teams template, parameterize, and version "
                     "prompts so that a prompt change is a reviewable, rollback-able "
@@ -289,7 +289,7 @@ SECTIONS = [
             {
                 "file": "03-structured-output-and-grammars.md",
                 "title": "Structured Output & Grammars",
-                "flagship": False,
+                "flagship": True,
                 "synopsis": (
                     "Forcing reliable, parseable output from a fundamentally "
                     "unstructured generator — JSON mode, function-calling schemas, "
@@ -305,7 +305,7 @@ SECTIONS = [
             {
                 "file": "04-prompt-injection-resilient-design.md",
                 "title": "Prompt-Injection-Resilient Design",
-                "flagship": False,
+                "flagship": True,
                 "synopsis": (
                     "Architectural patterns — not just filtering — that reduce blast "
                     "radius when untrusted content reaches the model: privilege "
@@ -321,7 +321,7 @@ SECTIONS = [
             {
                 "file": "05-automated-prompt-optimisation.md",
                 "title": "Automated Prompt Optimisation",
-                "flagship": False,
+                "flagship": True,
                 "template": "topic_specific",
                 "synopsis": (
                     "How to programmatically improve prompts rather than hand-tuning "

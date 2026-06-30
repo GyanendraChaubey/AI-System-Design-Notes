@@ -24,11 +24,11 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Prompt Architecture (`docs/03-prompt-architecture/`)
 
-- 📋 `01-prompt-engineering-as-systems-design.md` — Prompt Engineering as Systems Design
-- 📋 `02-prompt-templates-and-versioning.md` — Prompt Templates & Versioning
-- 📋 `03-structured-output-and-grammars.md` — Structured Output & Grammars
-- 📋 `04-prompt-injection-resilient-design.md` — Prompt-Injection-Resilient Design
-- 📋 `05-automated-prompt-optimisation.md` — Automated Prompt Optimisation *(topic-specific structure)*
+- ✅ `01-prompt-engineering-as-systems-design.md` — Prompt Engineering as Systems Design
+- ✅ `02-prompt-templates-and-versioning.md` — Prompt Templates & Versioning
+- ✅ `03-structured-output-and-grammars.md` — Structured Output & Grammars
+- ✅ `04-prompt-injection-resilient-design.md` — Prompt-Injection-Resilient Design
+- ✅ `05-automated-prompt-optimisation.md` — Automated Prompt Optimisation
 
 ## Context Engineering (`docs/04-context-engineering/`)
 
@@ -215,5 +215,5 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Totals
 
-- 25 flagship chapters/case studies complete
-- 106 stubs remaining
+- 30 flagship chapters/case studies complete
+- 101 stubs remaining
