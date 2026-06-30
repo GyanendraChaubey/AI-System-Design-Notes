@@ -37,7 +37,7 @@ Multi-agent architecture is the synthesis: keep each unit a full agent loop (so 
 - **Fan-out / fan-in** — dispatching a task to N parallel workers (fan-out) and collecting their N results back into one stream for synthesis (fan-in).
 - **Agent-as-tool** — from the orchestrator's perspective, invoking a sub-agent looks like any other tool call: a request goes out, a result comes back, the loop continues. This is why "one agent with many tools" and "multi-agent" are a continuum, not a hard boundary, as raised at the end of [Agent Fundamentals & the Agent Loop](../09-agents/01-agent-fundamentals-and-the-agent-loop.md).
 
-## Architecture
+## The Orchestrator-Worker Shape
 
 The canonical shape is orchestrator-worker: a lead agent decomposes the task, dispatches bounded sub-tasks to parallel workers, and synthesizes their results.
 
@@ -101,7 +101,7 @@ flowchart TB
 
 The orchestrator deliberately does not hold every worker's full trajectory — only their final results (and only the results that passed the quality gate) reach its context. This is the architectural choice that makes context isolation real rather than nominal; an orchestrator that quietly re-absorbs every worker's full reasoning trace has reproduced the context-dilution problem this pattern exists to avoid.
 
-## Request Lifecycle
+## A Research Task Across Three Parallel Agents
 
 The sequence below traces a research task — "compare the production architecture tradeoffs of three vector databases" — through an orchestrator dispatching three parallel workers, with an illustrative latency budget per hop.
 
@@ -137,7 +137,7 @@ sequenceDiagram
 
 Two details matter here. First, **total wall-clock time is bounded by the slowest worker plus synthesis, not the sum of all workers** — this is the entire point of fan-out, and it is also exactly where multi-agent systems lose if workers are not actually independent or one worker stalls. Second, **the orchestrator's own context never grows by three workers' worth of tool-call history** — it grows by three structured results, which is what keeps the orchestrator's synthesis step tractable regardless of how much exploration each worker did internally.
 
-## Design Patterns
+## Multi-Agent Topology Patterns
 
 The pattern families below cover most production multi-agent designs. They differ in topology (parallel vs. sequential), in how much agents see of each other, and in whether coordination happens through message-passing or shared state.
 

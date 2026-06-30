@@ -38,7 +38,7 @@ The architecture that emerged splits the problem into layers that each do what t
 - **Eval drift** — the golden set's slow divergence from the real, current production query distribution, which silently erodes how predictive offline scores are of online quality.
 - **Regression gate** — the CI-style checkpoint where an eval score must clear a threshold before a change can ship. See [Regression Testing for LLMs](05-regression-testing-for-llms.md).
 
-## Architecture
+## The Offline-Online Eval Pipeline
 
 ```mermaid
 flowchart TB
@@ -105,7 +105,7 @@ flowchart TB
 | Release gate / CI integration | Block or allow deploys based on aggregate eval scores vs. threshold | Deployment mechanics (canary/shadow rollout itself) |
 | Eval dashboard | Surface trends, regressions, and judge/human disagreement over time | Root-causing *why* a regression happened |
 
-## Request Lifecycle
+## A Prompt Change Through the Eval Pipeline
 
 The "request" through an evaluation architecture is not a user request — it is a **prompt-change candidate** moving through the eval gate before it is allowed to reach users.
 
@@ -139,7 +139,7 @@ sequenceDiagram
 
 A realistic latency budget: scoring 1,000 golden examples with an LLM-judge at moderate concurrency takes minutes, not seconds — which is exactly why golden sets stay in the hundreds-to-low-thousands rather than growing unbounded; a golden set that takes an hour to run stops being run before every change, defeating its purpose.
 
-## Design Patterns
+## Eval Gating and Feedback Patterns
 
 ```mermaid
 flowchart LR

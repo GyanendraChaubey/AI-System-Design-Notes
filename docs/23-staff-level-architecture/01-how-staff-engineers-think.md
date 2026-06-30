@@ -26,7 +26,7 @@ Senior engineers are trained, correctly, to optimize the system in front of them
 - **Decision debt** — the AI-era analog of technical debt: a decision made under time pressure with a known gap in its reasoning, revisited later at a higher cost than if done right the first time.
 - **Leverage** — the multiplier a Staff engineer applies to their time by influencing a decision many teams will inherit, versus doing equivalent individual implementation work.
 
-## Architecture
+## The Five-Question Decision Framework
 
 The decision framework itself has a structure, the same way a software system does. At the highest level, every Staff-level architecture decision routes through five questions, applied in order, regardless of whether the surface question is "build vs. buy," "fine-tune vs. RAG," or "one agent vs. many."
 
@@ -72,7 +72,7 @@ flowchart TB
     Q5 --> OUT[Written decision record]
 ```
 
-## Components
+## The Five Questions in Depth
 
 Each of the five questions is a distinct analytical step with its own failure mode if skipped.
 
@@ -112,7 +112,7 @@ sequenceDiagram
 
 Two details matter operationally. First, the "smallest reversible bet" step is time-boxed — typically one to three weeks, not an open-ended research project, since the point is to buy signal cheaply, not re-create the full build as a "prototype." Second, the loop doesn't end at sign-off: a 3-6 month review against the original rationale is the only mechanism that catches a decision that looked right and turned out wrong.
 
-## Design Patterns
+## The Recurring Pattern and Worked Example
 
 The same recurring decision pattern shows up under every surface-level question in this section. Recognizing it is what lets a Staff engineer answer "fine-tune or RAG," "single agent or multi-agent," and "build or buy" with the same muscle instead of starting from zero each time.
 

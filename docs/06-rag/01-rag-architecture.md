@@ -35,7 +35,7 @@ RAG, formalized by Lewis et al. (2020), reframed the problem: keep the model fro
 - **Augmentation** — assembling the retrieved chunks plus the user query into a single prompt for the generator.
 - **Grounding / faithfulness** — the degree to which the generated answer is actually supported by the retrieved evidence, as opposed to invented.
 
-## Architecture
+## Ingestion and Query Pipelines
 
 RAG has two distinct pipelines that are easy to conflate but operate on completely different cadences: an **offline ingestion pipeline** (runs on a schedule or on content change) and an **online query pipeline** (runs on every user request, latency-critical).
 
@@ -109,7 +109,7 @@ flowchart TB
 | Citation linker | Map generated claims back to source chunks | Retrieval |
 | Eval/feedback store | Capture labels and production signal for regression testing | Serving traffic |
 
-## Request Lifecycle
+## A RAG Query End to End
 
 ```mermaid
 sequenceDiagram
@@ -137,7 +137,7 @@ sequenceDiagram
 
 A typical chat-style RAG request budgets **1.5-3 seconds to first token** end-to-end at moderate corpus scale (tens of millions of chunks); the reranking step is usually the single largest controllable cost, which is why many systems make it conditionally skippable for low-stakes queries.
 
-## Design Patterns
+## Naive to Advanced RAG Patterns
 
 ```mermaid
 flowchart LR
@@ -262,7 +262,7 @@ Fine-tuning changes the model's weights and is suited to teaching style, format,
 Start from the query patterns: short fact-lookup queries favor smaller, tightly-scoped chunks (better precision, less noise per chunk); synthesis-style queries favor larger chunks or parent-document retrieval (a small "child" chunk used for matching, a larger "parent" chunk delivered to the generator) so the model has full surrounding context. In practice, this is tuned empirically against a labeled eval set, not chosen from a rule of thumb alone.
 
 **Q: Walk through what happens, end-to-end, when a user asks a RAG system a question.**
-(See the [Request Lifecycle](#request-lifecycle) sequence diagram above.) The key points to hit: query rewriting/expansion, embedding the query, hybrid retrieval against vector and lexical indexes, reranking the candidate set, assembling a context-budgeted prompt, generation, and citation linking — with a latency budget assigned to each hop.
+(See the [A RAG Query End to End](#a-rag-query-end-to-end) sequence diagram above.) The key points to hit: query rewriting/expansion, embedding the query, hybrid retrieval against vector and lexical indexes, reranking the candidate set, assembling a context-budgeted prompt, generation, and citation linking — with a latency budget assigned to each hop.
 
 ### Senior
 

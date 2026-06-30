@@ -36,7 +36,7 @@ The architecture that emerged is not "find the one fix" but the appsec-adjacent 
 - **Blast radius** — the maximum damage a single successful attack can cause, determined primarily by how much privilege the compromised component had, not by how the attack got in.
 - **Defense-in-depth** — layering independent, weaker controls so an attacker must defeat several mechanisms, not relying on any one layer being strong enough alone.
 
-## Architecture
+## Defense in Depth: Four Control Layers
 
 The high-level shape of an AI security architecture is four control layers wrapped around the model, each catching a different class of failure.
 
@@ -126,7 +126,7 @@ flowchart TB
 | Audit/observability layer | Log every prompt, tool call, and guardrail decision with enough detail to reconstruct an incident | Real-time blocking (it's a record, not a gate) |
 | Supply chain security | Verify model weights, fine-tunes, embeddings, and third-party plugins before they're trusted in the pipeline | Runtime input/output filtering |
 
-## Request Lifecycle
+## A Request With an Injection Attempt
 
 The sequence below traces a single request where a retrieved document contains an indirect prompt injection attempt, showing where each layer has a chance to catch it — and the realistic latency each check adds.
 
@@ -159,7 +159,7 @@ sequenceDiagram
 
 In this run, the injection partially worked — the model still attempted the malicious tool call — but the **tool authorization layer**, not the input classifier or the model's own judgment, is what actually stopped the exfiltration. This is the central architectural lesson: assume the injection sometimes reaches the model successfully, and make sure the layer that can cause real damage (tool execution) does not trust the model's intent alone (see [Data Exfiltration & Tool Abuse](../21-ai-security/03-data-exfiltration-and-tool-abuse.md) for the full catalog of tool-abuse patterns). Total added latency from the three security checks in this path is roughly 40-100ms — small relative to typical end-to-end LLM response times of 1-3+ seconds, which is why teams resist the temptation to skip them for "performance."
 
-## Design Patterns
+## Guardrail Implementation Patterns
 
 The guardrail decision flow is the recurring implementation pattern across input and output checks: classify, then route to allow, block, or escalate — never silently fall through to "allow" on uncertainty (see [Guardrails & Content Safety](../21-ai-security/04-guardrails-and-content-safety.md) for classifier design and threshold-tuning depth).
 
@@ -223,7 +223,7 @@ flowchart TD
 
 A useful SLO framing here: track **guardrail availability** as its own SLO, separate from model availability — a security layer down more often than the model it protects is a worse failure mode than the model being down, since requests may flow through ungated if the integration isn't fail-closed by design.
 
-## Security
+## Securing the Security Layer
 
 This section covers securing the security layer itself, since the guardrail stack is now a critical dependency with its own attack surface.
 

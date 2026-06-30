@@ -86,7 +86,7 @@ flowchart TB
 
 ## A Sizing Session End to End
 
-Capacity planning isn't a runtime request, but it follows the same kind of staged handoff a request does — each step has a concrete, falsifiable artifact rather than a verbal estimate, the same discipline [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#request-lifecycle) walks through for the self-hosted case.
+Capacity planning isn't a runtime request, but it follows the same kind of staged handoff a request does — each step has a concrete, falsifiable artifact rather than a verbal estimate, the same discipline [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#a-sizing-session-end-to-end) walks through for the self-hosted case.
 
 ```mermaid
 sequenceDiagram
@@ -108,7 +108,7 @@ sequenceDiagram
 
 ## Worked Example and Recurring Patterns
 
-The worked example below walks the chain top to bottom for a single, concrete product, deliberately smaller in scale than the flagship example in [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#design-patterns), and run through *both* branches of the fork so the same numbers can be compared side by side.
+The worked example below walks the chain top to bottom for a single, concrete product, deliberately smaller in scale than the flagship example in [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#worked-example-and-sizing-patterns), and run through *both* branches of the fork so the same numbers can be compared side by side.
 
 **Worked example: a 500K-DAU AI support assistant, 3 sessions/day, 4 turns/session, 600 input + 250 output tokens/turn, peak factor 4x.**
 

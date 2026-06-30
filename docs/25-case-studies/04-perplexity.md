@@ -221,7 +221,7 @@ This is the core of the product, and it differs from a textbook RAG pipeline (se
 | Social/Reddit | Forum/social search API | Minutes |
 | Writing | Minimal/no retrieval — closer to pure generation | N/A |
 
-This is the same multi-query-fan-out pattern described generically as "multi-query/RAG-fusion" in [RAG Architecture](../06-rag/01-rag-architecture.md#design-patterns), applied across heterogeneous external indexes rather than across reformulations of one internal index.
+This is the same multi-query-fan-out pattern described generically as "multi-query/RAG-fusion" in [RAG Architecture](../06-rag/01-rag-architecture.md#naive-to-advanced-rag-patterns), applied across heterogeneous external indexes rather than across reformulations of one internal index.
 
 **Citation-to-source mapping.** The defining engineering requirement of this product is that every generated sentence must be traceable to a source, which means the citation map has to survive every transformation in the pipeline intact:
 

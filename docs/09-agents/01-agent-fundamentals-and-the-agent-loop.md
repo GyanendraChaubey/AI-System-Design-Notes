@@ -36,7 +36,7 @@ The agent loop architecture, popularized by the ReAct paper (Yao et al., 2022) a
 - **Scratchpad / reasoning trace** — intermediate reasoning the model produces between actions, kept in context to inform later steps (formalized further in [ReAct & Reasoning Patterns](02-react-and-reasoning-patterns.md)).
 - **Trajectory** — the full sequence of (observation, action, result) tuples for one completed task, used for debugging, evaluation, and sometimes training.
 
-## Architecture
+## The Agent Loop
 
 At the highest level, an agent loop has exactly four stages, and the loop only exits through the termination check.
 
@@ -87,7 +87,7 @@ The planner is a model call like any other — it has no special runtime privile
 
 The termination checker deserves emphasis: it is a separate, non-LLM piece of logic. Relying solely on the model to "know when to stop" is the single most common design mistake in naive agent implementations, covered in depth below.
 
-## Request Lifecycle
+## A Task Through the Agent Loop
 
 The sequence below traces a concrete 5-step task — "find which of our three services is causing elevated error rates and tell me the likely cause" — through the loop, with an illustrative latency budget per hop.
 
@@ -123,7 +123,7 @@ sequenceDiagram
 
 Two details matter here. First, **every step resends the full accumulated history** — by step 5 the model is re-reading roughly 1,700 tokens of context that grew from the previous four steps, not just the newest tool result; this is the context-budget tension explored under Tradeoffs and in [What Is Context Engineering?](../04-context-engineering/01-what-is-context-engineering.md). Second, model call latency (800ms-1.5s per step here) dominates total wall-clock time far more than the tool execution itself (150ms here) — a 5-step loop spends roughly 4-7.5 seconds in model thinking time versus well under a second in tool execution, so step count is the primary latency lever, not tool speed.
 
-## Design Patterns
+## Loop Patterns: ReAct, Plan-Execute, Reflection
 
 The most common loop-internals pattern is ReAct-style interleaving: the model is prompted to produce an explicit reasoning step ("Thought") before each action, rather than jumping straight to a tool call. This is covered fully in [ReAct & Reasoning Patterns](02-react-and-reasoning-patterns.md); the workflow shape is shown here because it's the canonical implementation of "think" inside the generic loop above.
 

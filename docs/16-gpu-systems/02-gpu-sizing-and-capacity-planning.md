@@ -39,7 +39,7 @@ The industry's answer was to insert an explicit **tokens/sec** unit between "bus
 - **Headroom** — capacity provisioned above the bare peak estimate, to absorb forecast error, failover, and redundancy (N+1).
 - **Memory-bound sizing** — a separate axis from throughput sizing: does the model (plus KV cache at target concurrency and context length) physically fit in the memory of the GPU(s) you're planning to use, independent of whether you have "enough" compute.
 
-## Architecture
+## The GPU Sizing Pipeline
 
 The sizing pipeline is a strict pipeline of unit conversions: business metric in, accelerator count out. Each arrow is one multiplication or division, and each box's output is the next box's input.
 
@@ -104,7 +104,7 @@ flowchart TB
 | Memory sizing check | Whether model + KV cache fits per-GPU or requires sharding | Throughput sizing (a model can fit in memory and still need more GPUs for throughput, or vice versa) |
 | Autoscaling / fleet management | Translating the planned baseline into live instance counts, reacting to real-time signal | The original capacity estimate (autoscaling reacts within the provisioned ceiling; it doesn't replace planning for that ceiling) |
 
-## Request Lifecycle
+## A Sizing Session End to End
 
 Sizing isn't a "request," but it has the same kind of lifecycle as any cross-functional planning process — a sequence of handoffs with a defined output at each step. Modeling it as a sequence diagram makes the actual cadence (who produces what, who consumes it) explicit, the same way a request sequence diagram does for a runtime system.
 
@@ -130,7 +130,7 @@ sequenceDiagram
 
 Each hop has a concrete artifact, the same way a runtime request has a latency budget per hop: the analytics handoff produces a measured number (not a guess), the load-test handoff produces a measured number (not a spec-sheet number), and the finance handoff is where the GPU count becomes a dollar figure someone has to approve.
 
-## Design Patterns
+## Worked Example and Sizing Patterns
 
 The worked example below is the canonical pattern: walk the conversion chain top to bottom, multiplying or dividing at each step, never skipping the tokens/sec intermediate unit.
 

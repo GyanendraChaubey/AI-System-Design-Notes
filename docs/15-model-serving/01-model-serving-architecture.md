@@ -36,7 +36,7 @@ A second pressure point pushed the architecture further: even with perfect batch
 - **Throughput vs. latency tension** — larger batches raise aggregate tokens/sec (more requests sharing the same weight-read cost per step) but raise TPOT for every request in the batch (more total memory traffic per step), until the batch's KV cache exceeds available memory — the hard ceiling on how far batching alone can go.
 - **Cold start / model loading latency** — the time to load weights into accelerator memory and warm up the execution graph (e.g., CUDA graph capture, kernel autotuning) before a replica can serve its first request; tens of seconds to minutes for large models, which makes autoscaling a slower lever than it is for stateless web services.
 
-## Architecture
+## The Serving Stack
 
 ```mermaid
 flowchart TB
@@ -95,7 +95,7 @@ flowchart TB
 | Load balancer | Distributes traffic across replicas, ideally cache- or load-aware | Per-replica scheduling |
 | Autoscaler | Adds/removes replicas based on queue depth and utilization signals | Per-request latency guarantees during scale-up |
 
-## Request Lifecycle
+## Continuous Batching in Action
 
 ```mermaid
 sequenceDiagram
@@ -130,7 +130,7 @@ sequenceDiagram
 
 The critical property this diagram is making concrete: Request C's first token does not wait for Request A or B to complete, and Request A's completion does not stall B or C. That decoupling — only possible because scheduling happens per-token, not per-batch — is the entire reason continuous batching replaced static batching in every serious serving engine.
 
-## Design Patterns
+## Serving Engine Patterns
 
 ```mermaid
 flowchart LR

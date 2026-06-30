@@ -33,7 +33,7 @@ The discipline that emerged treats the window the way a systems engineer treats 
 - **Compression vs. truncation vs. retrieval reduction** — compression rewrites content denser (e.g., summarizing history); truncation drops content outright (oldest-first, lowest-relevance-first); retrieval reduction asks the retriever to return less in the first place rather than fixing it downstream.
 - **Headroom** — budget reserved for the model's output (and, for agents, its reasoning), planned for before generation starts, not discovered as an overflow error after assembly.
 
-## Architecture
+## Context Assembly Pipeline
 
 Context engineering sits as a deliberate assembly stage between every upstream content producer and the model call. Nothing reaches the model without passing through it.
 
@@ -101,7 +101,7 @@ flowchart TB
 
 Each component owns a narrow decision; the budget manager alone sees the whole picture. A retriever deciding independently how many chunks to return, oblivious to how much room history already consumed, is the exact failure this layer prevents.
 
-## Request Lifecycle
+## Assembling Context for a Request
 
 ```mermaid
 sequenceDiagram
@@ -128,7 +128,7 @@ sequenceDiagram
 
 The budget computation step looks trivial but is where most production incidents originate: it must run on *every* request, with current numbers, before a single token reaches the model. A stale token counter, a retriever ignoring its cap, or a memory fetch returning full history instead of a windowed slice will blow the budget downstream in ways that are expensive to debug, since the symptom — a degraded or truncated answer — appears far from the cause.
 
-## Design Patterns
+## Budget Allocation Patterns
 
 The most consequential pattern in production context engineering is allocating budget dynamically based on what the request actually needs, rather than applying one fixed split to every request type.
 

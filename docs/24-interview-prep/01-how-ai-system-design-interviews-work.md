@@ -27,13 +27,13 @@ Companies tried structured alternatives first and moved away from them. Take-hom
 ## Core Concepts
 
 - **Ambiguity by design** — the prompt is deliberately underspecified. An unambiguous prompt would only test execution, not judgment.
-- **The rubric, not the diagram** — interviewers grade a fixed set of dimensions (see [Components](#components)) applied to *how* the candidate reached their design, not a reference architecture compared box-for-box.
+- **The rubric, not the diagram** — interviewers grade a fixed set of dimensions (see [The Rubric Dimensions](#the-rubric-dimensions)) applied to *how* the candidate reached their design, not a reference architecture compared box-for-box.
 - **Signal vs. noise** — every clarifying question, assumption, and tradeoff statement is a data point the interviewer uses to place the candidate's level; silence or unjustified assertions are noise that defaults the interviewer toward a lower score.
 - **Pushback as a probe, not a verdict** — interviewers escalate scrutiny specifically on the parts of the design the candidate seemed most confident about, to test whether confidence was backed by reasoning.
 - **Calibration to seniority** — the same prompt goes to new-grad and Staff candidates; what changes is the bar for depth, proactivity, and judgment, not the prompt.
 - **Driving vs. responding** — at senior levels, the candidate is increasingly expected to set the agenda rather than purely answer whatever is asked next.
 
-## Architecture
+## The Interview's Structure
 
 Every AI system design interview is the same shape: a linear conversation divided into phases, with an interviewer-controlled fork into a deep dive based on what the candidate has shown the most or least confidence in so far.
 
@@ -88,7 +88,7 @@ flowchart TB
 
 The candidate-visible structure is five phases. The interviewer-visible structure is six rubric dimensions scored continuously across all five — a strong clarification question scores on dimension 1 *and* signals dimension 3 (depth) *and* sets up dimension 4 (tradeoffs) minutes later. Nothing is scored phase-by-phase in isolation.
 
-## Components
+## The Rubric Dimensions
 
 The rubric dimensions are the real "components" of this interview — each a distinct thing the interviewer independently tracks, with its own bar and failure mode.
 
@@ -103,7 +103,7 @@ The rubric dimensions are the real "components" of this interview — each a dis
 
 A candidate can be strong on five dimensions and still get a weak overall rating if the sixth — breadth — is missing entirely, since breadth most directly predicts whether someone can own a real production AI system end to end rather than one slice of it.
 
-## Request Lifecycle
+## The Five Interview Phases
 
 A single interview session moves through five time-boxed phases. The allocation below assumes a 45-minute slot (the most common length); a 60-minute slot stretches design and deep-dive, not clarification or estimation, which don't benefit from extra time past a point.
 
@@ -135,7 +135,7 @@ sequenceDiagram
 
 The full time-boxed framework — including recovering from a phase overrun — is in [The Whiteboarding Framework](02-the-whiteboarding-framework.md). The number worth internalizing now: a candidate still in clarification at minute 12 of a 45-minute interview has already lost the time needed for a credible deep dive, and an interviewer watching that happen will usually intervene — itself a negative time-management signal.
 
-## Design Patterns
+## How Strong Answers Navigate the Conversation
 
 The difference between a "good enough" and a Staff-level answer is rarely the final architecture — both groups often land on similar diagrams. The difference is the *process* that produced the design, and it follows a recognizable pattern.
 
@@ -231,7 +231,7 @@ The scarce resource here is not money — it's the 45-60 minutes themselves. Tim
 
 The closest a candidate gets to "monitoring" is structured self-assessment after a mock interview, since there's no live dashboard during the real thing. What correlates most with improvement is reviewing a recorded mock session against the same rubric dimensions a real interviewer uses, as data rather than vibes:
 
-- **Time-stamp each phase transition** against the budget in [Request Lifecycle](#request-lifecycle) — most candidates discover their clarification phase runs 2-3x longer than assumed until they actually time one.
+- **Time-stamp each phase transition** against the budget in [The Five Interview Phases](#the-five-interview-phases) — most candidates discover their clarification phase runs 2-3x longer than assumed until they actually time one.
 - **Count unprompted tradeoffs surfaced**, the same metric from [Scalability](#scalability), and track it across sessions — a flat count usually means tradeoffs are recited for familiar prompts rather than reasoned through live.
 - **Check breadth as a post-hoc checklist**: did generation/retrieval, data, evaluation, cost, security, and reliability each get at least one sentence? Skipping the same dimension repeatedly reveals the actual weak spot, not whichever felt weak in the moment.
 - **Get feedback on the reasoning trail**, not the final diagram — ask a reviewer where they had to fill in a skipped step, since that's what's actually graded.
