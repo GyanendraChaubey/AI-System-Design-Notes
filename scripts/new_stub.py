@@ -255,12 +255,18 @@ SECTIONS = [
                 "synopsis": (
                     "Treating prompts as versioned, tested, owned software artifacts "
                     "rather than throwaway strings — the architectural shift that "
-                    "separates prototype AI products from production ones."
+                    "separates prototype AI products from production ones. Covers the "
+                    "Berryman & Ziegler framework: preamble, examples, postscript "
+                    "anatomy; element positioning effects; few-shot as retrieval; "
+                    "chain-of-thought as a prompt discipline."
                 ),
                 "outline": [
-                    "Prompts as code: ownership, review, and testing",
-                    "System prompt vs developer prompt vs user prompt layering",
-                    "Few-shot example selection as a retrieval problem",
+                    "Anatomy of an effective prompt: preamble, examples, postscript pattern (Berryman & Ziegler)",
+                    "Prompt element positioning: why order and placement affect output quality",
+                    "Few-shot example selection as a retrieval problem — choosing examples that generalise",
+                    "Chain-of-thought prompting: when it helps, when it hurts, how to engineer it",
+                    "Instruction-following vs RLHF-tuned vs chat-tuned: what tuning method implies for prompt design",
+                    "Prompts as code: ownership, review, CI testing, and rollback",
                     "Where prompt architecture ends and context engineering begins",
                 ],
             },
@@ -310,6 +316,26 @@ SECTIONS = [
                     "Privilege separation between system instructions and untrusted content",
                     "Provenance tagging and trust boundaries in the context window",
                     "Where this connects to the full AI Security chapter",
+                ],
+            },
+            {
+                "file": "05-automated-prompt-optimisation.md",
+                "title": "Automated Prompt Optimisation",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How to programmatically improve prompts rather than hand-tuning "
+                    "them — DSPy-style compilation, APE (Automatic Prompt Engineering), "
+                    "RIME, and LLM-as-judge feedback loops that outperform manual "
+                    "iteration on most structured task types."
+                ),
+                "outline": [
+                    "The limits of manual prompt iteration at scale",
+                    "DSPy: compile prompts from task signature + training examples",
+                    "APE and gradient-free prompt search (LLM-as-proposer + scorer)",
+                    "RIME and instruction induction from examples",
+                    "LLM-as-judge feedback loops for continuous prompt refinement",
+                    "When automated optimisation beats manual: task types and data requirements",
                 ],
             },
         ],
@@ -433,15 +459,18 @@ SECTIONS = [
                 "title": "Vector Databases",
                 "flagship": False,
                 "synopsis": (
-                    "What a vector database actually has to do beyond \"store "
-                    "vectors\" — indexing, filtering, hybrid queries, multi-tenancy "
-                    "— and how to choose among the current generation of options."
+                    "What a vector database actually has to do beyond 'store "
+                    "vectors' — indexing, filtering, hybrid queries, consistent "
+                    "hashing for sharding, multi-tenancy, and cross-lingual "
+                    "support — and how to choose among the current generation."
                 ),
                 "outline": [
                     "Core requirements: ANN search, metadata filtering, hybrid queries",
                     "Managed vs self-hosted vs library-embedded (in-process) options",
                     "Multi-tenancy and namespace isolation",
-                    "Selection criteria by scale and query pattern",
+                    "Consistent hashing for sharding vector indexes across nodes",
+                    "Cross-lingual retrieval: multilingual embeddings vs sharded indexes",
+                    "Selection criteria by scale, query pattern, and language requirements",
                 ],
             },
             {
@@ -1834,6 +1863,26 @@ SECTIONS = [
                     "Data residency: per-tenant regional routing for compliance, not just latency",
                 ],
             },
+            {
+                "file": "06-bias-fairness-and-responsible-ai.md",
+                "title": "Bias, Fairness, and Responsible AI Systems",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How production AI systems introduce and amplify bias, how to "
+                    "measure fairness across demographic groups, and the architectural "
+                    "and operational controls that make AI systems responsibly "
+                    "deployable in regulated and high-stakes domains."
+                ),
+                "outline": [
+                    "Sources of bias in AI systems: training data, label bias, historical bias, feedback loops",
+                    "Fairness metrics: demographic parity, equalised odds, calibration — and when each applies",
+                    "Bias auditing architecture: sampling, labeling, and slice-based evaluation",
+                    "Debiasing techniques: pre-processing, in-processing, post-processing trade-offs",
+                    "Responsible AI in hiring, credit, healthcare, and content moderation",
+                    "Regulatory landscape: EU AI Act, EEOC guidelines, FTC guidance on AI",
+                ],
+            },
         ],
     },
     {
@@ -2053,18 +2102,24 @@ SECTIONS = [
                 "file": "03-estimation-and-capacity-planning-drills.md",
                 "title": "Estimation & Capacity Planning Drills",
                 "flagship": False,
-                "template": "decision_framework",
+                "template": "topic_specific",
                 "synopsis": (
                     "Worked practice problems for the back-of-envelope math "
-                    "interviewers expect — QPS, token throughput, GPU counts, "
-                    "storage — with the assumptions made explicit so you can "
-                    "defend your numbers."
+                    "interviewers expect — using Alex Xu's estimation framework "
+                    "adapted for AI systems: QPS, token throughput, GPU counts, "
+                    "storage, and cost-constrained design (e.g. '$500/month for "
+                    "10K users') — with every assumption named and defended."
                 ),
                 "outline": [
-                    "A library of worked estimation problems",
-                    "Common assumption values to memorize (tokens/word, GPU throughput ranges)",
-                    "How interviewers actually grade estimation (process over precision)",
-                    "Practice drills with answers",
+                    "The Alex Xu back-of-envelope framework: DAUs, QPS avg, QPS peak, storage, bandwidth",
+                    "AI-specific assumption anchors: tokens/word, tokens/request by workload type, GPU throughput ranges",
+                    "Worked drill 1: Conversational AI at 1M DAU — fleet size and API cost",
+                    "Worked drill 2: Enterprise RAG at 50K employees — index size, retrieval QPS, storage",
+                    "Worked drill 3: Coding assistant with real-time completion — sub-100ms budget breakdown",
+                    "Worked drill 4: Cost-constrained design — '$500/month, 10K users, build what you can'",
+                    "Worked drill 5: Reasoning model workload at 100K DAU — KV cache and token-volume sizing",
+                    "How interviewers grade estimation: process and defensibility over precision",
+                    "Numbers worth memorizing before an interview",
                 ],
             },
             {

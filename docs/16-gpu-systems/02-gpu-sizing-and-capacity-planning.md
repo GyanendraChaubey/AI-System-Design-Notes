@@ -256,6 +256,29 @@ The figures below are offered as illustrative, order-of-magnitude reasoning abou
 - **Claude-scale sizing.** Anthropic has publicly discussed serving Claude through its own API, Amazon Bedrock, and Google Cloud Vertex AI, and has disclosed large-scale compute commitments with AWS and Google Cloud, including custom-silicon (e.g., Trainium) usage. A hypothetical sizing conversation here adds a dimension the simple chat example doesn't capture: a meaningfully higher share of agentic and tool-calling traffic (coding agents, long-running tasks), which — as the worked example below shows — multiplies effective tokens per user-visible "request" well past a chat-only distribution, making the workload-tiering practice in Design Patterns load-bearing rather than optional polish.
 - **Perplexity-scale sizing.** Perplexity has publicly described its product as retrieval-augmented by design — every answer triggers live web retrieval before generation (see [RAG Architecture](../06-rag/01-rag-architecture.md)). A hypothetical capacity conversation here sizes two coupled systems, not one: the retrieval fan-out (its own QPS and latency budget) and the generation fan-out (sized by this chapter's chain) — and a single query can carry a much larger effective input-token count than the user's literal text, since retrieved passages are injected into context before generation, pushing the input-tokens-per-request assumption far higher than a simple chat product's.
 
+## GPU Memory Fragmentation and Utilisation
+
+Raw GPU count from the sizing chain gives you *capacity*. Real-world GPU utilisation is lower due to fragmentation — and understanding fragmentation is what separates a fleet that runs at 40% effective utilisation from one that runs at 75%.
+
+**Three fragmentation sources:**
+
+1. **KV cache fragmentation.** In serving engines without paged attention (or with poorly tuned page sizes), the KV cache for a 500-token request can occupy the same allocated block as a slot designed for 4,096 tokens, wasting 87% of that block's memory. vLLM's PagedAttention explicitly solves this by using variable-page KV cache allocation, recovering significant memory versus fixed-slot approaches. Always check whether your serving engine implements paged or fixed KV cache allocation before estimating effective capacity.
+
+2. **Model weight alignment requirements.** Some quantised formats (AWQ, GPTQ) require tensor alignment at 128-byte boundaries. Small tensors can waste 10–15% of memory to padding. This is rarely mentioned in serving documentation but is visible in `torch.cuda.memory_summary()` as "reserved but not allocated" memory.
+
+3. **Multi-tenant memory stacking.** When multiple requests or multiple adapters (multi-LoRA) share GPU memory, the effective usable memory is the total HBM minus: model weights + largest single request's KV cache peak + overhead for CUDA kernels and driver. The largest single request's KV peak is the binding constraint, not the average, because the GPU must be able to serve it without eviction.
+
+**Practical utilisation targets:**
+
+| Scenario | Realistic GPU memory utilisation |
+|---|---|
+| Single model, fixed request sizes | 75–85% |
+| Single model, variable-length requests (continuous batching) | 60–75% |
+| Multi-LoRA with adapter cache | 55–70% |
+| Mixed online + reasoning workloads | 40–60% |
+
+Size your fleet for the realistic utilisation ceiling in the second column, not for 100%. A fleet planned at 100% has no headroom for bursty KV cache demand and will evict requests under load.
+
 ## Tools and Ecosystem
 
 | Category | Tools | When to prefer |

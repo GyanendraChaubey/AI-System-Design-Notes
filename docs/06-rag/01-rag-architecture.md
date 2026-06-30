@@ -275,6 +275,22 @@ Illustrative cost shape for a mid-size deployment (10M chunks, 500K queries/mont
 - **Google** and **Anthropic** both expose "grounding"/citations-style APIs (e.g., search-grounded generation, citation-linked responses) that follow the same retrieve-then-generate-with-attribution pattern described in this chapter, packaged as a platform primitive rather than a single product.
 - **Cursor** applies the same architecture to a different corpus: the retrieval target is a codebase, combining embedding-based semantic search over code with lexical/symbol-aware signals, because code retrieval has exact-match requirements (identifiers, function names) that pure dense retrieval handles poorly on its own.
 
+## Cross-Lingual Retrieval
+
+Most RAG literature assumes a monolingual corpus and single-language queries. Production enterprise systems are rarely this clean: a global company's knowledge base spans English, German, Japanese, Spanish, and Portuguese documents, and users query in their native language.
+
+**The three design options:**
+
+1. **Translate everything to one language at ingestion time.** Translate all documents to English before chunking and embedding. Pros: single embedding model, simple retrieval. Cons: translation cost and latency at ingest, translation quality loss (especially for domain-specific terminology), original-language metadata lost. Acceptable for small-to-medium corpora where translation quality is high.
+
+2. **Use a multilingual embedding model.** Models like BGE-M3, multilingual-E5, and LaBSE produce embeddings where semantically equivalent content in different languages is close in embedding space. A query in German can retrieve relevant documents written in English without explicit translation. Pros: no translation cost, language agnostic at query time. Cons: multilingual models typically have lower performance on any single language than a monolingual model specialising in that language; vocabulary fertility for non-Latin-script languages can inflate token counts and embedding cost.
+
+3. **Language-sharded indexes.** Maintain a separate index per language, each with a language-specialised embedding model. Route each query to its language's index. Pros: best per-language retrieval quality. Cons: highest operational complexity (N indexes, N embedding models, query routing layer).
+
+**Hybrid approach (most common in production):** Use a multilingual embedding model for all languages, but maintain a language metadata field per document and apply a language filter (or a mild boost) to prefer documents in the user's detected language when multiple equally-relevant documents exist across languages. This gives 90% of the benefit of sharded indexes at much lower operational cost.
+
+**Query language detection** is a prerequisite for any language-aware retrieval. `langdetect`, `fasttext` language ID models, and cloud APIs (Google, AWS Comprehend) are common choices; the query is typically short enough that model-based detection is more reliable than character set heuristics.
+
 ## Tools and Ecosystem
 
 | Category | Tools | When to prefer |

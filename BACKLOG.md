@@ -28,6 +28,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `02-prompt-templates-and-versioning.md` — Prompt Templates & Versioning
 - 📋 `03-structured-output-and-grammars.md` — Structured Output & Grammars
 - 📋 `04-prompt-injection-resilient-design.md` — Prompt-Injection-Resilient Design
+- 📋 `05-automated-prompt-optimisation.md` — Automated Prompt Optimisation *(topic-specific structure)*
 
 ## Context Engineering (`docs/04-context-engineering/`)
 
@@ -166,6 +167,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `03-data-governance-and-compliance.md` — Data Governance & Compliance
 - 📋 `04-sso-permissions-and-rag-acl-enforcement.md` — SSO, Permissions & RAG ACL Enforcement
 - 📋 `05-pii-and-privacy-engineering.md` — PII and Privacy Engineering in AI Systems *(topic-specific structure)*
+- 📋 `06-bias-fairness-and-responsible-ai.md` — Bias, Fairness, and Responsible AI Systems *(topic-specific structure)*
 
 ## Staff-Level Architecture (`docs/23-staff-level-architecture/`)
 
@@ -184,7 +186,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 - ✅ `01-how-ai-system-design-interviews-work.md` — How AI System Design Interviews Work
 - 📋 `02-the-whiteboarding-framework.md` — The Whiteboarding Framework *(decision framework template)*
-- 📋 `03-estimation-and-capacity-planning-drills.md` — Estimation & Capacity Planning Drills *(decision framework template)*
+- 📋 `03-estimation-and-capacity-planning-drills.md` — Estimation & Capacity Planning Drills *(topic-specific structure)*
 - 📋 `04-company-specific-focus-areas.md` — Company-Specific Focus Areas *(decision framework template)*
 - 📋 `05-common-mistakes-and-red-flags.md` — Common Mistakes & Red Flags *(decision framework template)*
 
@@ -214,4 +216,4 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## Totals
 
 - 25 flagship chapters/case studies complete
-- 104 stubs remaining
+- 106 stubs remaining

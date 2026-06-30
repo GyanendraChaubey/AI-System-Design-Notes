@@ -311,6 +311,16 @@ The exact internal serving architectures of frontier-model providers are not pub
 
 These open-source engines are useful, inspectable reference points precisely because they implement the same techniques publicly discussed as in use, in some form, at every major frontier-model provider — they differ mainly in implementation detail and hardware targeting, not fundamental architecture.
 
+## Cold-Start Latency and Warm Pool Management
+
+Cold-start latency — the delay between a model first being loaded onto a GPU and serving its first request — is a distinct problem from per-request latency and matters differently depending on serving pattern:
+
+- **What causes it.** Loading a 70B model from NVMe or network storage to GPU HBM takes 10–60 seconds at PCIe speeds. A cold GPU that receives a burst of requests during that window queues every request behind the load time, making a cold-start incident feel like an outage even when the system is otherwise healthy.
+- **Warm pools.** Keep at least one replica of each model already loaded at all times, even at zero traffic. The carrying cost is idle GPU memory; the benefit is eliminating cold-start latency for the first request of any traffic burst. For multi-model systems, warm pools must be sized per-model, not per-fleet.
+- **Speculative pre-warming.** When traffic patterns are predictable (evening peaks, marketing campaigns, predictable churn with seasonal usage), pre-warm additional replicas 5–15 minutes before the expected peak, rather than waiting for queue depth to trigger autoscaling after the peak has already arrived.
+- **Multi-LoRA cold-start.** In multi-LoRA deployments, the base model is always warm; only adapter loading is cold. Adapter load times are short (seconds, not minutes) and can be hidden behind the preceding request's decode time using background prefetch triggered by the routing layer.
+- **Serverless serving trade-off.** Platforms like Modal and Replicate scale to zero at low traffic, eliminating the cost of idle GPUs. The trade-off is cold-start latency on the first request after scale-to-zero. This is acceptable for async/batch workloads; it is not acceptable for real-time interactive products without a minimum-replica floor.
+
 ## Tools and Ecosystem
 
 | Category | Tools | When to prefer |

@@ -284,6 +284,23 @@ The following are illustrative, drawn from public model documentation and indust
 - **GitHub Copilot and similar coding assistants** are widely understood to use smaller, faster models for latency-critical inline completion while reserving larger models for chat-style, less latency-sensitive interactions within the same product — a public-facing instance of tiered routing by task type.
 - **Enterprises with strict data-residency requirements** (commonly cited in financial services and healthcare contexts) are a widely discussed real-world driver toward open-weight, self-hosted deployment specifically because closed-API data flows are disqualified by compliance requirements regardless of cost or quality comparison — illustrating the threshold-question framing in this chapter's [Security](#security) section directly.
 
+## Instruction-Following vs RLHF-Tuned vs Chat-Tuned: What the Tuning Method Implies for Systems
+
+The base model architecture (dense vs MoE, parameter count) determines capability ceiling. The *tuning method* determines how the model behaves given that ceiling — and tuning method has direct system design implications that model cards and benchmark numbers do not surface.
+
+**Base / pretrained models:** Trained on next-token prediction over web-scale text. They complete prompts rather than follow instructions. Using them for production applications requires extensive prompt engineering to elicit instruction-following behavior, and output quality is highly sensitive to exact prompt wording. Rarely appropriate for direct production use; usually the starting point for fine-tuning.
+
+**Instruction-tuned (SFT-only) models:** Fine-tuned on (instruction, response) pairs using supervised learning. They follow instructions reliably but may be sycophantic (agreeing with the user regardless of correctness), verbose, and inconsistent in refusal behavior. They tend to be more predictable under temperature=0 and are the preferred base for further fine-tuning.
+
+**RLHF-tuned models:** Instruction tuning followed by reinforcement learning from human feedback (or DPO/ORPO equivalents). These models are calibrated for human preference — they tend to be more helpful, harmless, and honest, with more consistent refusal on harmful content. They are less likely to hallucinate confidently. Trade-off: they can be harder to steer with prompts alone and may refuse legitimate requests more than SFT-only models.
+
+**Chat-tuned models (ChatML, instruction + multi-turn):** Specifically trained on multi-turn conversation data with explicit role markers. They understand `system` / `user` / `assistant` turns natively and maintain conversational coherence across turns. This is the format most production LLM APIs expect. Chat-tuned models behave poorly when their expected role-marker format is not followed — a common cause of quality degradation when developers strip out the chat template.
+
+**System design implications:**
+- Fine-tuning on top of an instruction-tuned model produces more stable results than fine-tuning on top of a base model, because the instruction-following behavior is already learned.
+- When building classification or structured-extraction tasks, RLHF-tuned models may resist following the output schema due to safety training; SFT-only or lightly-tuned models often comply more reliably.
+- For multi-turn agents, always use a chat-tuned model with the correct chat template — a base or SFT model used in a chat context will lose coherence across long tool-calling trajectories.
+
 ## Tools and Ecosystem
 
 | Category | Tools | When to prefer |

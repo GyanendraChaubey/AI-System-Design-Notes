@@ -276,6 +276,34 @@ The following is a heuristic based on each company's public product surface and 
 - **Cursor** — developer-tool surface suggests emphasis on code-specific retrieval, interactive-loop latency, and agentic tool use.
 - **Perplexity** — answer-engine product suggests emphasis on retrieval quality, citation/grounding, and real-time freshness.
 
+## Turning Vague Prompts into Scoped Systems
+
+A significant fraction of real AI system design interview prompts are deliberately vague: "make it smarter," "add AI to the checkout flow," "improve the search experience." The candidate who starts drawing boxes immediately has already failed the first rubric dimension. The first 5–8 minutes are a requirements clarification exercise, not a design exercise.
+
+**The clarification framework (apply before drawing anything):**
+
+*Questions about the problem:*
+- What specific user behavior or pain point is driving this? What are users currently doing that the AI should automate or improve?
+- What does "smarter/better/AI-powered" mean in this context — faster responses, more accurate results, personalized recommendations, reduced manual work? These map to completely different architectures.
+- How are users currently solving this problem? Is there a baseline to beat?
+
+*Questions about scale and constraints:*
+- How many users? What's the request volume and peak load?
+- What's the latency tolerance — is the user actively waiting, or is this a background/async operation?
+- What's the cost tolerance — is there a budget per query, per user, or a monthly cap?
+
+*Questions about data and quality:*
+- What data does the system have access to? Is it labeled? Is it fresh?
+- How do we measure success? Is there a baseline quality metric to beat?
+- What's the error tolerance — if the AI is wrong 5% of the time, is that acceptable or catastrophic?
+
+*Questions about operational context:*
+- Is this greenfield or added to an existing product? What infrastructure already exists?
+- Are there compliance, privacy, or data residency requirements?
+- Who are the downstream consumers of this AI's output — users directly, or other systems?
+
+**Why this matters for scoring:** Getting concrete answers to these before writing a single component converts the design from "here is a generic RAG pipeline" (forgettable) to "here is a system specifically sized for 2M DAU, a $0.05/query budget, a 95th-percentile 2-second latency target, and German-language documents" (memorable and demonstrably engineered). The clarification phase recovers at least two rubric dimensions (requirements clarity, scoped thinking) before any technical content.
+
 ## Interview Questions
 
 ### Beginner
