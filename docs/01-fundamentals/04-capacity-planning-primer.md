@@ -33,7 +33,7 @@ The industry's fix — inserting **tokens/sec** as an explicit intermediate unit
 - **Provisioned capacity, two forms** — if self-hosting, tokens/sec converts to **GPU count** via achievable tokens/sec per accelerator (full treatment: [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md)); if calling a third-party API, tokens/sec converts to **a rate-limit tier** (tokens-per-minute or requests-per-minute ceiling the provider must support at your peak) and **a $ budget** (tokens/sec × price-per-token, integrated over time).
 - **Headroom** — capacity, budget, or rate-limit margin provisioned above the bare peak estimate, to absorb forecast error, redundancy, and growth — the same concept whether the resource being padded is a GPU fleet or a monthly API spend cap.
 
-## Architecture
+## The Capacity Chain
 
 The chain is identical in its first three links regardless of how the system is served; it forks only at the last step, into a self-hosted branch and an API-based branch.
 
@@ -73,7 +73,7 @@ flowchart TB
     PRICE --> HEAD2[+ budget margin,\nrate-limit headroom]
 ```
 
-## Components
+## Planning Inputs and Who Owns Them
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -84,7 +84,7 @@ flowchart TB
 | API-based branch | Tokens/sec → $ budget via provider pricing; peak tokens/sec → required rate-limit tier | Hardware, model serving internals |
 | Headroom policy | Margin on top of the bare peak estimate — GPUs, budget, or rate-limit tier, whichever branch applies | Day-to-day autoscaling or runtime rate-limit handling (a separate, operational concern) |
 
-## Request Lifecycle
+## A Sizing Session End to End
 
 Capacity planning isn't a runtime request, but it follows the same kind of staged handoff a request does — each step has a concrete, falsifiable artifact rather than a verbal estimate, the same discipline [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#request-lifecycle) walks through for the self-hosted case.
 
@@ -106,7 +106,7 @@ sequenceDiagram
     PM-->>ENG: Budget approved, or scope adjusted
 ```
 
-## Design Patterns
+## Worked Example and Recurring Patterns
 
 The worked example below walks the chain top to bottom for a single, concrete product, deliberately smaller in scale than the flagship example in [GPU Sizing & Capacity Planning](../16-gpu-systems/02-gpu-sizing-and-capacity-planning.md#design-patterns), and run through *both* branches of the fork so the same numbers can be compared side by side.
 
@@ -153,7 +153,7 @@ flowchart TD
 | Scaling past provisioned capacity means a real, multi-week lead time (procurement, deployment) | Scaling past a rate-limit tier means a support request to the provider — faster, but outside your direct control |
 | Headroom is GPUs sitting idle some of the time — a real, visible cost | Headroom is budget margin and a rate-limit ceiling above forecast peak — a real but less visible cost (until the bill arrives) |
 
-## Scalability
+## How the Chain Behaves at Scale
 
 - **The chain's first three links don't care which branch you take, and that's the point** — a team can build the demand forecast and workload characterization before deciding self-hosted vs. API, and re-use the same tokens/sec number regardless of which way that decision goes, including if it changes later (a common path: launch on an API, move to self-hosted once volume justifies the fixed cost — see the decision tree above).
 - **Peak factor accuracy degrades at the extremes of scale**, the same way it does in the self-hosted case: under roughly 100 QPS, a single large customer or an unexpected bot spike can dominate what "average" even means; at tens of thousands of QPS, small per-unit errors (a slightly wrong price, a slightly wrong per-GPU throughput) compound into seven- or eight-figure swings.
@@ -171,16 +171,16 @@ flowchart TD
 
 The reliability framing is identical across both branches: a system can be "not yet overloaded" by a coarse metric (GPU utilization, or total monthly spend) while already past a finer-grained ceiling (sustained peak tokens/sec against a rate-limit tier, or peak-window GPU saturation) — track the peak-window number, not just the average, in either case.
 
-## Security
+## Financial and Credential Risks
 
 - **Forecasts as sensitive data, in both branches.** A detailed DAU-by-region growth forecast or a dollar-spend-by-feature breakdown reveals real business performance and cost structure; treat capacity forecasts with the access discipline of financial data, not routine engineering documentation.
 - **Denial-of-wallet is the API-based branch's sharpest version of the GPU branch's denial-of-service risk.** A system with no per-request or per-tenant token ceiling, sized only to an average-case forecast, can have its monthly budget consumed by a small number of pathological long-context or high-output-length requests well before the rate-limit ceiling is even reached — per-tenant quotas, sized against this chapter's chain rather than set arbitrarily, are the mitigating control in either branch.
 - **Rate-limit credentials are a real secret.** An API key with a high negotiated tokens-per-minute tier is, functionally, a budget-sized blast radius if leaked — the access control around it should be commensurate with the dollar exposure the chain's math reveals, not treated as a routine config value.
 
-## Cost Optimization
+## Cost Levers and Crossover Analysis
 
 - **The fork decision itself is the largest cost lever, and it has a crossover volume.** Below a certain sustained tokens/sec, API pricing's lack of fixed cost wins outright; above it, self-hosting's marginal cost per token (once GPUs are bought or reserved) undercuts API pricing — the exact crossover point depends on your negotiated API price, your achievable per-GPU throughput, and your utilization, and is worth modeling explicitly with this chapter's numbers rather than assumed from someone else's blog post.
-- **In the API-based branch, output tokens dominate cost more than input tokens do at typical chat ratios** — at the worked example's 600 input / 250 output split, with illustrative pricing around $1/M input and $5/M output tokens, output cost (250 × $5/M ≈ $0.00125/request) exceeds input cost (600 × $1/M ≈ $0.0006/request) despite being well under half the token count — the same point [Core Mental Models](02-core-mental-models.md#cost-optimization) makes generally, now anchored to this chapter's worked numbers.
+- **In the API-based branch, output tokens dominate cost more than input tokens do at typical chat ratios** — at the worked example's 600 input / 250 output split, with illustrative pricing around $1/M input and $5/M output tokens, output cost (250 × $5/M ≈ $0.00125/request) exceeds input cost (600 × $1/M ≈ $0.0006/request) despite being well under half the token count — the same point [Core Mental Models](02-core-mental-models.md#mental-model-2-token-economics) makes generally, now anchored to this chapter's worked numbers.
 - **Reserved/committed pricing applies in both branches** — committed-use API pricing or pre-purchased token blocks function the same way reserved GPU capacity does: cheaper per-unit in exchange for committing to the *baseline* (the sustained floor your chain's math establishes), with on-demand pricing covering the peak-minus-baseline delta.
 - **Headroom has a real, quantifiable cost in either branch** — idle GPUs and unused rate-limit margin both cost something (capital/depreciation in one case, occasionally a minimum-commitment fee in the other); size headroom against an explicit risk tolerance, not a round-number habit like "add 50% just in case."
 

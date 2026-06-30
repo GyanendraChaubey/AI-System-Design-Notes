@@ -8,7 +8,7 @@ AI System Design is the discipline of architecting production systems whose core
 
 **AI System Design**, as used throughout these notes, is the practice of designing, scaling, and operating software systems in which a generative model call — typically an LLM, sometimes a multimodal model — sits on the critical path of the request, and in which the system's correctness, cost, and latency are all functions of that call's non-deterministic, token-priced, quality-graded output. This is distinct from two disciplines it sits on top of: **traditional distributed-systems design** (the study of services, queues, databases, and consensus, where a given input to a given code path produces the same output every time) and **classical ML system design** (the discipline Chip Huyen's *Designing Machine Learning Systems* covers well: training pipelines, feature stores, and a model artifact that, once frozen and deployed, is deterministic at inference time for a fixed version — a fraud score or a ranking is reproducible given the same input vector). AI system design keeps the first discipline's infrastructure concerns and the second discipline's "model as a component" framing, but removes the assumption both could previously make for free: that calling the same function twice gives you the same answer.
 
-## Problem Statement
+## What Your Prior Intuitions Get Wrong
 
 Every assumption a systems engineer carries from prior experience needs to be re-checked the moment a generative model call enters the request path, and several of them are simply false in this new setting:
 
@@ -20,7 +20,7 @@ Every assumption a systems engineer carries from prior experience needs to be re
 
 Teams that import distributed-systems instincts wholesale, without re-deriving which ones hold, build systems that pass every conventional health check while silently producing wrong answers, blowing budgets on pathological inputs, or regressing in ways no dashboard was built to catch.
 
-## Why This Discipline Exists
+## How We Got Here: Three Paradigms
 
 Software systems acquired probabilistic components gradually, and each step changed less than the next one.
 
@@ -40,7 +40,7 @@ Software systems acquired probabilistic components gradually, and each step chan
 - **The cost/latency/quality triangle** — a recurring constraint, introduced briefly here and given full treatment in [Core Mental Models](02-core-mental-models.md), where improving one of the three at a fixed model and architecture generally costs you one of the other two. It recurs in nearly every later chapter under a different name.
 - **Token economics** — the unit economics of an AI product: $ cost, latency, and quality are all functions of token count (input and output), in a way that has no equivalent unit in either traditional systems (where the unit is closer to "request") or classical ML systems (where the unit is closer to "inference call").
 
-## Architecture
+## Where AI Systems Fit
 
 At the highest level, the three paradigms share a client and a backend, but generative AI systems insert a genuinely new layer between "the request arrives" and "the answer is computed" — the four primitives above, assembled before any model call happens.
 
@@ -88,7 +88,7 @@ flowchart TB
     NOTE2[/Classical ML: feature vector to frozen model to score,\ndeterministic at serving time/]
 ```
 
-## Components
+## The Four New Primitives
 
 | Primitive | Responsibility | Does NOT own | First full treatment |
 |---|---|---|---|
@@ -99,7 +99,7 @@ flowchart TB
 
 None of these four rows exists in a classical ML system's serving path, and none of them exists in a traditional CRUD service either — a traditional service has request parsing and a database query, which look superficially similar to context and retrieval, but carry none of the token-budget, ranking-quality, or non-determinism concerns that make each of these primitives its own discipline here.
 
-## Request Lifecycle
+## Non-Determinism in Practice
 
 The clearest way to see non-determinism's practical consequence is to run the identical request twice and watch where the two runs diverge. Both runs share the same prompt, the same retrieved evidence, and the same tool — and still produce different output, because the divergence point is the model call itself, not anything upstream of it.
 
@@ -125,7 +125,7 @@ sequenceDiagram
 
 Everything before the model call — retrieval's ranking, context assembly's budgeting — is itself deterministic software and behaves exactly like the traditional systems you already know how to reason about. The non-determinism is isolated to one hop, the model call, which is precisely why the architecture in [Anatomy of an AI System](03-anatomy-of-an-ai-system.md) treats that hop as a distinctly-monitored, distinctly-evaluated component rather than spreading uncertainty across the whole request — a system designed this way can pin down "where did this answer's variability come from" to one layer, instead of debugging the entire stack.
 
-## Design Patterns
+## How AI Products Grow: Five Stages
 
 Production teams do not adopt all four new primitives at once; they accrete in a fairly consistent order as a product's requirements grow, and that order is also, not coincidentally, the order this book's curriculum is organized in (Prompt Architecture → Context Engineering → Retrieval/RAG → Tool Calling/Agents).
 
@@ -145,7 +145,7 @@ flowchart LR
 
 Skipping stages under deadline pressure — bolting on tool calls before context budgeting exists, for instance — is a common, expensive shortcut; each stage's primitive is usually a hard prerequisite for the next one to be reliable, not an independent feature you can add in any order.
 
-## Tradeoffs
+## When This Discipline Applies
 
 The first design decision in any new project is whether it needs AI system design discipline at all, or whether it's better served as a traditional or classical-ML system with no generative model on the critical path.
 
@@ -167,7 +167,7 @@ flowchart TD
 | The four primitives compose with the rest of distributed-systems knowledge you already have, rather than replacing it | Easy to over-apply: not every feature with an LLM call needs the full retrieval+tools+agent stack |
 | Vocabulary and patterns transfer across the rest of this book's curriculum | The discipline is younger and less standardized than either traditional or classical-ML systems — fewer battle-tested defaults to copy |
 
-## Scalability
+## What Changes About Scale
 
 Scalability in an AI system has a dimension neither traditional nor classical-ML systems carry: **the eval surface has to scale with the input distribution, not just request volume.**
 
@@ -176,7 +176,7 @@ Scalability in an AI system has a dimension neither traditional nor classical-ML
 - **AI systems** face a request distribution that is effectively unbounded natural language; an eval suite of 500 cases that covered 95% of last quarter's traffic patterns can silently lose coverage as users discover new ways to phrase requests, and nobody gets paged when that happens — there's no error code for "the eval suite stopped representing production." Mature teams treat eval-set growth (mining new production cases into the suite, typically a continuous, not one-time, ~hundreds-of-cases-per-quarter activity) as a first-class scaling concern alongside infrastructure capacity.
 - Each of the four new primitives also introduces its own classical scaling curve on top of this — retrieval scales with corpus size and query volume, tool calls scale with the rate limits of whatever external system they call — covered in depth in their respective chapters ([Retrieval Systems](../05-retrieval-systems/index.md), [Tool Calling](../13-tool-calling/index.md)).
 
-## Reliability
+## What Changes About Reliability
 
 The reliability contract changes in one specific, consequential way: **"available" stops being sufficient; "available and correct" becomes the target, and "correct" is now graded, not binary.**
 
@@ -188,7 +188,7 @@ The reliability contract changes in one specific, consequential way: **"availabl
 
 A concrete illustration: a support-bot eval suite scoring 91% "resolved correctly" against a 500-case regression set is a meaningless number on its own without a live monitoring signal showing that score hasn't quietly drifted to 84% after a silent provider-side model update — a failure mode with literally no equivalent in classical ML serving, where the deployed artifact's weights don't change underneath you between your deploys. [Reliability Engineering](../23-staff-level-architecture/09-reliability-engineering.md) covers the full SLO design for this; the point here is narrower: the *category* of thing you monitor for reliability has grown by one axis (quality), and that axis didn't exist in either paradigm this discipline is built on top of.
 
-## Security
+## What Changes About Security
 
 The four new primitives are also four new attack surfaces with no equivalent in the paradigms this discipline builds on — covered fully in [AI Security](../21-ai-security/index.md), but worth naming here because they trace directly back to this chapter's vocabulary:
 
@@ -198,7 +198,7 @@ The four new primitives are also four new attack surfaces with no equivalent in 
 
 None of this is exotic; it's the direct consequence of adding primitives that traditional and classical-ML systems never had to secure.
 
-## Cost Optimization
+## What Changes About Cost
 
 The unit economics are genuinely new. A traditional service's marginal cost per request is close to fixed (some CPU-seconds, a database round-trip); an AI system's marginal cost is a function of **token count**, which varies per request in a way that's hard to predict upfront:
 
@@ -206,7 +206,7 @@ The unit economics are genuinely new. A traditional service's marginal cost per 
 - A request that adds retrieval (typically several thousand tokens of evidence) or a multi-step tool-calling loop (each iteration re-sending growing context) can easily cost **3-10x more** than the same user-facing feature implemented as a single direct model call — which is exactly why [Anatomy of an AI System](03-anatomy-of-an-ai-system.md) treats "does this request need retrieval/tools at all" as the single biggest cost-and-latency lever in the whole architecture.
 - This is the first time most engineers encounter "cost per request" as a number that varies 10x+ across requests to the *same* endpoint depending on conversation length and output verbosity — a planning and budgeting problem [Core Mental Models](02-core-mental-models.md) and [Capacity Planning Primer](04-capacity-planning-primer.md) build the math for.
 
-## Monitoring
+## What Changes About Monitoring
 
 Monitoring needs a new signal class layered on top of the conventional one, for the same reason reliability does:
 
@@ -221,7 +221,7 @@ Monitoring needs a new signal class layered on top of the conventional one, for 
 - **Add the four primitives in order, as the product genuinely needs them** — prompt, then context budgeting, then retrieval, then tool calls — rather than reaching for an agent framework before a simple direct-generation version has been tried and measured (see [How Staff Engineers Think](../23-staff-level-architecture/01-how-staff-engineers-think.md) for the general version of this discipline).
 - **Set a quality SLO alongside your uptime SLO from day one** — a system that's "up" 99.9% of the time but silently answering 15% of questions wrong has a reliability problem your dashboards won't show you without one.
 - **Treat the model as a versioned, monitored external dependency**, even when it's your own self-hosted weights — pin versions deliberately, and alert on quality drift the same way you'd alert on a degraded upstream service.
-- **Read this book in curriculum order on a first pass.** Each chapter assumes the vocabulary of the ones before it: [Core Mental Models](02-core-mental-models.md) next for the recurring constraints (cost/latency/quality, token economics), then [Anatomy of an AI System](03-anatomy-of-an-ai-system.md) for the full reference architecture every later chapter points back to, then [Capacity Planning Primer](04-capacity-planning-primer.md) for the back-of-envelope math. After Fundamentals, the curriculum follows the same Stage 1-5 adoption order from [Design Patterns](#design-patterns) above: LLM Architecture and Prompt Architecture, then Context Engineering and Retrieval/RAG, then Agents and Tool Calling, then Infrastructure/Serving, then Operations/Evaluation/Security, then Staff-Level Architecture and Interview Prep. If you're prepping for an interview specifically, start at [How AI System Design Interviews Work](../24-interview-prep/01-how-ai-system-design-interviews-work.md) instead and pull individual chapters in as needed.
+- **Read this book in curriculum order on a first pass.** Each chapter assumes the vocabulary of the ones before it: [Core Mental Models](02-core-mental-models.md) next for the recurring constraints (cost/latency/quality, token economics), then [Anatomy of an AI System](03-anatomy-of-an-ai-system.md) for the full reference architecture every later chapter points back to, then [Capacity Planning Primer](04-capacity-planning-primer.md) for the back-of-envelope math. After Fundamentals, the curriculum follows the same Stage 1-5 adoption order from [How AI Products Grow](#how-ai-products-grow-five-stages) above: LLM Architecture and Prompt Architecture, then Context Engineering and Retrieval/RAG, then Agents and Tool Calling, then Infrastructure/Serving, then Operations/Evaluation/Security, then Staff-Level Architecture and Interview Prep. If you're prepping for an interview specifically, start at [How AI System Design Interviews Work](../24-interview-prep/01-how-ai-system-design-interviews-work.md) instead and pull individual chapters in as needed.
 
 ## Real World Examples
 

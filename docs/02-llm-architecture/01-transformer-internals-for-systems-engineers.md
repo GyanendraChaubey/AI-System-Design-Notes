@@ -36,7 +36,7 @@ Self-attention replaced that sequential dependency with a mechanism that compare
 - **Autoregressive decoding** — one token generated per forward pass through the full stack, appended to the input before the next pass.
 - **Causal masking** — during generation, a token can only attend to itself and earlier tokens, never future ones.
 
-## Architecture
+## The Computation Pipeline
 
 At the model level, a decoder-only transformer is a straight stack: embed the input, run it through N identical layers, project the final layer's output to a probability distribution over the vocabulary.
 
@@ -73,7 +73,7 @@ flowchart TB
 
 The cost signature: attention at step *t* still touches all *t* cached entries (cost per step grows with sequence length), but it reads them rather than recomputing them. That read is a memory-bandwidth operation, not a compute one — the seed of the prefill/decode distinction below.
 
-## Components
+## Layer Components and Responsibilities
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -84,7 +84,7 @@ The cost signature: attention at step *t* still touches all *t* cached entries (
 | Output/unembedding head | Project final hidden state to a vocabulary distribution | Sampling strategy (temperature, top-p — see [Decoding & Inference Strategies](04-decoding-and-inference-strategies.md)) |
 | Positional encoding | Inject sequence-order information, since attention alone is order-agnostic | Long-range information mixing (attention does that) |
 
-## Request Lifecycle
+## Prefill and Decode: A Request End to End
 
 A generation request passes through two phases with fundamentally different performance profiles: **prefill** (process the entire prompt) and **decode** (generate output tokens one at a time). This split is the single most important latency fact in LLM serving.
 
@@ -112,7 +112,7 @@ sequenceDiagram
 
 Prefill processes all prompt tokens in parallel in a single pass — **compute-bound**: GPU FLOPs are the limiting resource, and matrix-multiply units stay close to fully utilized. Decode generates one token per pass, and that pass must read the entire growing KV cache to compute attention while doing comparatively little new computation — **memory-bandwidth-bound and sequential**: token *t+1* cannot start until token *t*'s output exists. This is why time-to-first-token and per-token decode latency are tracked as separate SLOs, and why serving engines increasingly separate prefill and decode onto different hardware pools — see [Disaggregated Prefill/Decode](../17-distributed-inference/02-disaggregated-prefill-decode.md).
 
-## Design Patterns
+## Production Serving Patterns
 
 Every serving engine (vLLM, TensorRT-LLM, SGLang, and proprietary equivalents) implements some version of: batch prefill and decode for GPU efficiency, but schedule them as distinct classes so a long prefill doesn't stall in-flight decodes.
 

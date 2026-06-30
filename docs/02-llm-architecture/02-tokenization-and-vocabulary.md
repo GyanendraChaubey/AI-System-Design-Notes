@@ -38,7 +38,7 @@ Character-level tokenization (one ID per character) solved the out-of-vocabulary
 - **Special tokens** — reserved vocabulary entries with non-text meaning: beginning/end-of-sequence markers, padding, chat-role delimiters (`<|user|>`, `<|assistant|>`); a tokenizer/template mismatch here is a distinct, common production failure from the merge-rule mismatch above.
 - **Detokenization** — the inverse mapping, token IDs back to text; subtleties here (e.g., a partially-streamed multi-byte character) are a real, if narrow, source of production bugs in streaming responses.
 
-## Architecture
+## Training vs Inference Pipeline
 
 Tokenization has two distinct lifecycles that are easy to conflate: a one-time, offline **training** phase that produces the vocabulary and merge rules, and a per-request, online **encode/decode** phase that every production request runs through.
 
@@ -86,7 +86,7 @@ flowchart TB
     end
 ```
 
-## Components
+## Pipeline Stages and Responsibilities
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -97,7 +97,7 @@ flowchart TB
 | Decoder/detokenizer | Map token IDs back to text, including buffering partial multi-byte sequences during streaming | Encoding (a separate, not perfectly symmetric, operation in some edge cases) |
 | Chat template | Insert role-delimiting special tokens around system/user/assistant turns before encoding | The merge algorithm itself |
 
-## Request Lifecycle
+## A Chat Request Through the Tokenizer
 
 A single chat request's text passes through normalization, templating, and encoding before a single model FLOP is spent — and this entire path is CPU-bound, not GPU-bound, which makes it easy to under-monitor relative to the GPU-side latency budget.
 
@@ -128,7 +128,7 @@ sequenceDiagram
 
 Tokenization latency is rarely the bottleneck in absolute terms (single-digit to low double-digit milliseconds for typical request sizes), but it is the step that determines the *token count* every downstream cost and latency model in this book is built on — a tokenizer that represents a given request's text in 1,800 tokens versus 3,200 tokens, because the request happens to be in a less-efficiently-tokenized language, changes the prefill cost, the time-to-first-token, and the dollar cost by a comparable factor with zero change in the request's actual informational content.
 
-## Design Patterns
+## Tokenizer Algorithm Patterns
 
 Three tokenizer-algorithm choices recur across production model families, and the decision is made once, at training time, by the model's creators — a systems engineer's job is knowing which one a given model uses and what that implies, not picking one at request time.
 

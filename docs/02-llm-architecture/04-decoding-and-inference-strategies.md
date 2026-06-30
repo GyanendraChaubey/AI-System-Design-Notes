@@ -26,7 +26,7 @@ Early autoregressive language models faced an immediate design question the mome
 
 **Stochastic sampling** (temperature, top-k, top-p) took a different approach entirely: instead of trying to find one "best" sequence, deliberately introduce controlled randomness, drawing from the actual probability distribution rather than always taking the maximum. This produces the variety and naturalness that became essential once LLMs moved from narrow tasks (machine translation, where one broadly-correct answer suffices) to open-ended generation (chat, creative writing, brainstorming), where a single deterministic "best" answer isn't even a coherent product goal.
 
-**Speculative decoding** emerged from a completely different pressure: decode is sequential and memory-bandwidth-bound (see [Transformer Internals for Systems Engineers](01-transformer-internals-for-systems-engineers.md#request-lifecycle)), so generating each token one at a time wastes the GPU's compute capacity, which sits comparatively idle during decode's bandwidth-bound steps. Speculative decoding exploits this idle compute: a small, fast draft model proposes several tokens ahead, and the full model verifies all of them in a single, parallel, compute-bound pass — turning several sequential decode steps into one, without changing what gets generated, as long as verification rejects any speculative token the full model wouldn't have actually chosen.
+**Speculative decoding** emerged from a completely different pressure: decode is sequential and memory-bandwidth-bound (see [Transformer Internals for Systems Engineers](01-transformer-internals-for-systems-engineers.md#prefill-and-decode-a-request-end-to-end)), so generating each token one at a time wastes the GPU's compute capacity, which sits comparatively idle during decode's bandwidth-bound steps. Speculative decoding exploits this idle compute: a small, fast draft model proposes several tokens ahead, and the full model verifies all of them in a single, parallel, compute-bound pass — turning several sequential decode steps into one, without changing what gets generated, as long as verification rejects any speculative token the full model wouldn't have actually chosen.
 
 ## Core Concepts
 
@@ -39,7 +39,7 @@ Early autoregressive language models faced an immediate design question the mome
 - **Speculative decoding** — a smaller, faster "draft" model proposes several tokens ahead; the full "target" model verifies all proposed tokens in one parallel forward pass, accepting a correctly-predicted prefix and rejecting (and correcting) from the first divergence; output distribution matches what the target model alone would have produced, with materially fewer sequential full-model steps.
 - **Repetition / frequency penalties** — explicit downweighting of tokens (or n-grams) already present in the generated output, a complementary, narrower-purpose lever on top of the main decoding strategy, aimed specifically at the repetition-loop failure mode.
 
-## Architecture
+## The Decoding Pipeline
 
 Decoding sits at one specific, well-defined point in the request path: after the model produces logits for the current step, before the chosen token is appended and fed back in for the next step.
 
@@ -74,7 +74,7 @@ flowchart TB
     end
 ```
 
-## Components
+## The Decoding Knobs
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -85,7 +85,7 @@ flowchart TB
 | Target model (speculative decoding) | Verify proposed tokens in one parallel pass; accept a correct prefix, correct from the first divergence | Proposing tokens itself in this mode — that's the draft model's role |
 | Repetition penalty logic | Downweight already-generated tokens/n-grams as a targeted anti-repetition measure | Overall strategy choice — this is typically layered on top of greedy or sampling, not a strategy by itself |
 
-## Request Lifecycle
+## A Streamed Response Step by Step
 
 A single streamed response makes the decoding loop's per-token cadence directly visible — each iteration of this loop is one decode step, and the strategy chosen determines both what happens inside the loop and, for speculative decoding, how many tokens the loop actually advances by per full-model invocation.
 
@@ -114,7 +114,7 @@ sequenceDiagram
 
 The practical consequence: under standard sampling or greedy decoding, perceived streaming speed is bound by one full-model forward pass per token; under well-tuned speculative decoding with a good draft-acceptance rate, the same perceived stream can advance by several tokens per full-model pass, directly cutting wall-clock decode time without changing what's generated — the deeper mechanics and acceptance-rate economics are covered in [Speculative Decoding at Scale](../17-distributed-inference/03-speculative-decoding-at-scale.md).
 
-## Design Patterns
+## Task-Routed Decoding Configuration
 
 Production systems don't pick one decoding strategy globally — they route decoding configuration by task type, since the right choice is a function of what the output is for, not a fixed property of the model or the product.
 

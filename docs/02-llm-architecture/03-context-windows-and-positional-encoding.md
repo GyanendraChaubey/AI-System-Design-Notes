@@ -35,7 +35,7 @@ Both relative schemes still have a real-world wrinkle: a model trained at one co
 - **Effective vs. advertised context length** — the advertised number is what the architecture and any extension technique technically accept; the effective number is the length at which the model actually retrieves and reasons over content reliably, measured empirically (commonly via needle-in-a-haystack-style benchmarks), and is frequently shorter than the advertised figure, especially near the top of the advertised range.
 - **Lost in the middle** — the empirical pattern where model recall and reasoning accuracy is measurably worse for information placed in the middle of a long context than for information placed near the start or end, independent of whether the content technically fits within the context window.
 
-## Architecture
+## Positional Encoding Schemes and Extension Techniques
 
 Positional information enters the model once, near the input, but its consequences — how attention behaves at different relative distances — propagate through every layer's self-attention computation, which is why a scheme decided once at training time shapes behavior at every depth of the network.
 
@@ -74,7 +74,7 @@ flowchart TB
     EVAL -->|Yes, e.g. needle-in-haystack| TRUSTED[Effective length L'\nconfirmed for this regime]
 ```
 
-## Components
+## The Context Window Toolkit
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -84,7 +84,7 @@ flowchart TB
 | Evaluation/benchmarking (needle-in-a-haystack and similar) | Measure effective context length empirically, distinct from the advertised maximum | The extension technique itself |
 | Context engineering / chunk ordering ([Context Engineering](../04-context-engineering/index.md)) | Decide what content goes where within the available window, informed by positional behavior | The model's underlying positional architecture |
 
-## Request Lifecycle
+## Processing a Long-Context Request
 
 A single long-context request reveals where positional behavior actually bites: not at the token-budget check, but in the quality of attention over content depending on *where* it sits in the assembled sequence.
 
@@ -108,7 +108,7 @@ sequenceDiagram
 
 The practical consequence: two requests with identical token counts and identical retrieved content can produce different answer quality purely because of *where* the critical fact was placed during context assembly — a fact [Context Engineering](../04-context-engineering/index.md) treats as a design constraint, not a model bug to wait out.
 
-## Design Patterns
+## Managing the Effective Context Gap
 
 Production systems manage the gap between advertised and effective context length through a small set of recurring patterns, roughly in order of how much engineering effort they require.
 

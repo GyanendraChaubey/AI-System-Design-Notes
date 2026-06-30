@@ -8,6 +8,15 @@ This chapter is a toolbox, not a system. It catalogs the handful of mental model
 
 A **mental model**, in the sense used here, is a deliberately simplified framework that lets you reason about a class of decisions fast and consistently, at the cost of precision you'd get from a full quantitative analysis — useful exactly because most decisions don't warrant that full analysis, and a shared, named model lets a team skip re-arguing first principles every time a similar decision comes up. The four covered in this chapter are not independent trivia; they compose. A single feature decision ("which model tier, and is RAG worth the added cost") typically invokes the triangle to frame the tradeoff, token economics to put a number on it, the probabilistic correctness bar to decide what "good enough" means, and build vs. buy to decide whether you're solving this with your own code or someone else's.
 
+| Mental model | Answers the question | Does NOT answer | Full treatment |
+|---|---|---|---|
+| Cost/latency/quality triangle | Which axis am I trading away by optimizing this one? | What the actual $ or ms numbers are — that's a measurement, not a model | [Cost Engineering](../23-staff-level-architecture/07-cost-engineering.md), [Latency Engineering](../23-staff-level-architecture/08-latency-engineering.md) |
+| Token economics | What drives this feature's real marginal cost and latency? | Whether the feature is *worth* that cost — a separate product decision | [Capacity Planning Primer](04-capacity-planning-primer.md), [Cost & Token Monitoring](../20-observability/03-cost-and-token-monitoring.md) |
+| Probabilistic correctness bar | What does "good enough" mean for this feature, measured how? | How to build the eval harness itself | [LLM Evaluation Architecture](../19-evaluation/01-llm-evaluation-architecture.md) |
+| Build vs. buy | Should I build this component or adopt an existing one? | The full multi-factor TCO comparison for a specific decision | [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md) |
+
+Each model deliberately answers a narrow question fast; none of them is a substitute for the deeper chapter that does the full analysis — using a mental model past the point where the real numbers are cheap to get is itself one of this chapter's [Common Mistakes](#common-mistakes).
+
 ## Problem Statement
 
 Without a shared vocabulary for these tradeoffs, teams re-litigate the same arguments from first principles on every project, and worse, they optimize the wrong axis without realizing it:
@@ -19,7 +28,7 @@ Without a shared vocabulary for these tradeoffs, teams re-litigate the same argu
 
 Each of these is a failure to apply a mental model that, once named, takes minutes to apply correctly — which is the entire case for writing them down once rather than leaving every team to discover them independently, usually the expensive way.
 
-## Why These Models Exist
+## Why These Four Models
 
 Each of these four models exists because an early, intuitive approach to the same problem broke in a specific, recurring way once real products and real traffic arrived.
 
@@ -31,17 +40,7 @@ Each of these four models exists because an early, intuitive approach to the sam
 
 **Build vs. buy** exists, in this specific AI-systems form, because the build-it-yourself instinct that served well in traditional infrastructure (where commodity components were genuinely commodity, and differentiation came from your own code) stops being obviously correct once "build" might mean building and operating your own model-serving stack, your own eval harness, or your own vector database — each now a deep, fast-moving subfield in its own right, not a settled commodity.
 
-## Core Concepts
-
-- **The cost/latency/quality triangle** — at a fixed model and architecture, improving one of cost, latency, or quality generally costs you one of the other two; there is no free axis, only a chosen point on the tradeoff surface.
-- **Token economics** — the unit-cost model for an AI product, where $ cost, latency, and (loosely) quality are all functions of token count (input and output) rather than request count, the way a traditional service's cost is closer to a function of request count.
-- **Input/output token asymmetry** — output tokens are typically priced several times higher than input tokens and are generated sequentially (driving latency), while input tokens are processed in parallel (prefill) and are comparatively cheap and fast per token; the two halves of a request have genuinely different cost and latency profiles.
-- **The probabilistic correctness bar** — the target for a generative system is a measured rate ("correct or acceptable on X% of a representative eval set, monitored continuously"), not a boolean guarantee; see [Introduction to AI System Design](01-introduction.md#core-concepts) for the underlying non-determinism this follows from.
-- **A working p50 vs. a deterministic p50** — in a traditional system, p50 latency under 200ms with zero errors is an unambiguous bar: half of requests are fast, and "correct" is assumed for all of them. In an AI system, a p50 latency target says nothing about whether that p50 response was *right* — quality has its own distribution, measured separately, and a system can hit every latency percentile target while its quality percentiles silently degrade.
-- **Build vs. buy as a default lens** — before designing any new component (a vector database, an eval harness, an orchestration layer), default to asking whether buying or adopting an existing solution is viable before assuming building is the answer; the full decision framework is developed in [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md), and this chapter introduces only the lens, not the complete framework.
-- **Mental models compose, they don't replace measurement** — a mental model is a fast first-pass framing, not a substitute for the actual eval, the actual cost dashboard, or the actual latency profiling; its job is to tell you which number to go measure, not to stand in for measuring it.
-
-## Architecture
+## Mental Model 1: The Cost / Latency / Quality Triangle
 
 The triangle is best understood not as three independent levers but as a single tradeoff surface: a model and architecture choice fixes the surface, and every subsequent decision (model size, retrieval depth, guardrail thoroughness) moves you to a different point on it — never off it.
 
@@ -53,7 +52,76 @@ flowchart TB
     NOTE[/At a fixed model + architecture:\npick a point on this surface.\nMoving toward one corner moves you\naway from at least one other./]
 ```
 
-The detailed view shows where each of the four mental models actually gets invoked along a typical feature-design process — not a runtime request path, but the sequence of design decisions a team works through, with each model answering a different question at a different point.
+**What the triangle tells you:** which axis you are implicitly trading away by optimizing the one you're focused on, and whether that trade was a conscious decision or an unexamined default.
+
+**What it does not tell you:** what the actual $ or ms numbers are — those require measurement and token economics math (Model 2 below). The triangle frames the *direction* of a tradeoff; it does not quantify it.
+
+**At scale:** token economics dominates more as volume grows. At low request volume, a 2x token-cost difference between model tiers is noise in a budget; at 10M+ requests/month, the same 2x difference is the line item finance asks about, which is why cost-dominant pattern adoption tracks volume growth, not just product type.
+
+The design question is always: **which axis dominates for this specific use case?** — decided explicitly, not by default.
+
+- **Latency-dominant** (chat UIs, autocomplete, inline suggestions): resolve toward latency first, accepting a real quality and capability ceiling.
+- **Quality-dominant** (legal, medical, financial; anything where a wrong answer has real-world consequences): spend cost and latency freely to push quality.
+- **Cost-dominant** (high-volume background classification, bulk summarization, anything run over a large corpus): push toward the smallest model that clears a measured correctness bar.
+- **Not yet resolved**: most early-stage features haven't established which axis actually dominates — the correct move is a mid-tier model and real measurement before picking a corner.
+
+## Mental Model 2: Token Economics
+
+Token economics replaces "cost per request" with "cost per token," because token count — not request count — is what actually varies and drives both cost and latency in an AI system.
+
+**The unit-cost model:**
+- **Input tokens** are processed in parallel (the prefill phase) — comparatively fast and cheap per token.
+- **Output tokens** are generated sequentially, one per forward pass — slower per token, and typically priced several times higher than input tokens.
+- A request's cost is `(input_tokens × input_price) + (output_tokens × output_price)`, not a flat per-request fee.
+
+**Concrete anchors (mid-2025 pricing):**
+- Frontier-tier models: $0.25–$15 per million input tokens, $1–$15+ per million output tokens — a 10–60x spread between cheapest and most expensive tiers.
+- Output-heavy pricing example: 1,000 input tokens + 300 output tokens at $1/M input and $5/M output → $0.001 + $0.0015 = $0.0025 total, with output cost exceeding input cost despite being less than a third of the token count.
+- Prompt/context caching cuts 50–90% off the cost of the repeated, unchanged portion of a prompt (system instructions, few-shot examples) — a lever with no equivalent in a traditional request-costed system.
+- A 2x cheaper model that still clears the correctness bar is a 2x cost win with zero quality cost — worth checking explicitly before assuming the largest available model is required.
+
+**What token economics tells you:** what drives this feature's real marginal cost and latency, and what a realistic bill looks like before you incur it.
+
+**What it does not tell you:** whether the feature is *worth* that cost — that's a separate product decision.
+
+**At scale:** token cost differences that look like noise at low volume become the dominant budget line at 10M+ requests/month. A testing forecast built on average-case prompts systematically underestimates production cost once real long-tail usage patterns (longer conversations, more verbose outputs, heavier retrieval) show up. Re-derive from production token percentiles, not just the mean.
+
+## Mental Model 3: The Probabilistic Correctness Bar
+
+The target for a generative system is a measured *rate* — "correct or acceptable on X% of a representative eval set, monitored continuously" — not a boolean guarantee. This distinction matters more than it seems:
+
+| | Deterministic system | AI system |
+|---|---|---|
+| What p50 latency tells you | Half of requests completed in under X ms, and (assuming no bug) all of them were correct | Half of requests completed in under X ms — says nothing about whether they were *right* |
+| What "correct" means | Binary: matches the expected output, or a bug exists | Graded: a measured quality score, sampled across a distribution, monitored as its own percentile |
+| The reliability target | Uptime + latency SLO is close to the whole story | Uptime + latency SLO **plus** a quality SLO (e.g., "p50 quality score ≥ 0.85, p10 ≥ 0.6, measured on rolling sampled traffic") |
+| What breaks silently without the extra target | Nothing — a bug either shows up as an error or doesn't | Quality drift: every conventional dashboard stays green while users get worse answers |
+
+A team that ports the deterministic-system habit of "p50 latency is good, ship it" without an accompanying quality percentile target has a classical-systems dashboard bolted onto an AI system, and it will stay green through a real quality regression.
+
+**What the bar tells you:** what "good enough" means for this feature, expressed as a measurable, monitorable rate rather than an adjective.
+
+**What it does not tell you:** how to build the eval harness that measures it — that's the subject of [LLM Evaluation Architecture](../19-evaluation/01-llm-evaluation-architecture.md).
+
+**At scale:** the correctness bar gets harder to hold as the input distribution widens. An eval set that represented 95% of traffic at 1,000 requests/day can lose representativeness at 100,000 requests/day, once user populations and request phrasing diversify — the eval set itself needs to grow with traffic, not stay fixed.
+
+## Mental Model 4: Build vs. Buy
+
+Before designing any new component — a vector database, an eval harness, an orchestration layer — default to asking whether buying or adopting an existing solution is viable before assuming building is the answer. The full decision framework is developed in [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md); this chapter introduces only the lens, not the complete framework.
+
+**The AI-specific case for this lens:** the build-it-yourself instinct that served well in traditional infrastructure stops being obviously correct once "build" might mean building and operating your own model-serving stack — a deep, fast-moving subfield with its own hiring market, its own on-call burden, and its own gap between "works in testing" and "runs at production load."
+
+**Security implication:** buying shifts a real portion of your trust boundary to a vendor (their model weights, their data handling, their uptime) in exchange for not operating that component yourself — neither choice is more secure in the abstract, but they have different threat models, and the decision should name which one you're accepting, not default into it. An attacker who can trigger expensive generations without rate limiting also has a cost-based denial-of-service vector with no equivalent in a traditional fixed-cost-per-request service — see [AI Security](../21-ai-security/index.md) for the full treatment.
+
+**What build vs. buy tells you:** for any new component, whether the default assumption should be "build" or "adopt" — shifting the burden of proof onto the less-common choice.
+
+**What it does not tell you:** the full multi-factor TCO comparison for a specific decision at a specific scale — that's [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md).
+
+**At scale:** build-vs-buy crossover points shift with volume. A managed vector database that's clearly the right buy decision at 100K documents can become a genuine build case at billions of vectors and extreme query rates, where a specialized, owned index pays for its operational cost — the decision is volume-dependent, not fixed for all time once made.
+
+## How the Four Models Interact
+
+The four models compose in a consistent order in practice — frame the tradeoff, price it, set the quality bar, then decide what infrastructure it requires. Reversing that order is a common source of wasted design cycles (e.g., picking a model before knowing which axis matters, or building infrastructure before the quality bar reveals you didn't need it).
 
 ```mermaid
 flowchart TB
@@ -70,20 +138,7 @@ flowchart TB
     D4 -.->|informs| D5
 ```
 
-## Components
-
-| Mental model | Answers the question | Does NOT answer | Full treatment |
-|---|---|---|---|
-| Cost/latency/quality triangle | Which axis am I trading away by optimizing this one? | What the actual $ or ms numbers are — that's a measurement, not a model | [Cost Engineering](../23-staff-level-architecture/07-cost-engineering.md), [Latency Engineering](../23-staff-level-architecture/08-latency-engineering.md) |
-| Token economics | What drives this feature's real marginal cost and latency? | Whether the feature is *worth* that cost — a separate product decision | [Capacity Planning Primer](04-capacity-planning-primer.md), [Cost & Token Monitoring](../20-observability/03-cost-and-token-monitoring.md) |
-| Probabilistic correctness bar | What does "good enough" mean for this feature, measured how? | How to build the eval harness itself | [LLM Evaluation Architecture](../19-evaluation/01-llm-evaluation-architecture.md) |
-| Build vs. buy | Should I build this component or adopt an existing one? | The full multi-factor TCO comparison for a specific decision | [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md) |
-
-Each model deliberately answers a narrow question fast; none of them is a substitute for the deeper chapter that does the full analysis — using a mental model past the point where the real numbers are cheap to get is itself one of this chapter's [Common Mistakes](#common-mistakes).
-
-## Decision Walkthrough: Applying the Models to a Real Feature
-
-A single, concrete feature decision shows all four models invoked in sequence, the order they're typically needed in practice, and where one model's output becomes the next model's input.
+**Worked example — "Add an AI summary to every support ticket, real-time":**
 
 ```mermaid
 sequenceDiagram
@@ -106,9 +161,9 @@ sequenceDiagram
     Eng->>PM: Design: small/fast model, no retrieval,\n90% eval bar, ~$0.0003/request, ~400ms p50
 ```
 
-The walkthrough's real value is the order: framing the tradeoff (triangle) before pricing it (tokens) before setting a quality target (correctness bar) before deciding what infrastructure the choice requires (build vs. buy) — reversing this order is a common, avoidable source of wasted design cycles, e.g. picking a model before knowing which axis matters, or building infrastructure before the quality bar reveals you didn't need it.
+The walkthrough's real value is the order: the triangle identifies which axis matters (latency) *before* the team reaches for a model, which keeps them from speccing a quality-maximizing (expensive, slow) model for a latency-dominant task.
 
-## Design Patterns
+## Common Patterns
 
 These models recur in a small number of recognizable usage patterns across very different feature types.
 
@@ -123,9 +178,9 @@ flowchart LR
     Pattern3 -->|No| P4[Default: mid-tier model,\nmeasure before optimizing further]
 ```
 
-1. **Latency-dominant pattern** (chat UIs, autocomplete, inline suggestions): the triangle is resolved toward latency first, accepting a real quality and capability ceiling — see [GitHub Copilot](../25-case-studies/06-github-copilot.md) staying close to a small, fast, context-only architecture deliberately rather than adding retrieval that would cost latency it can't spend.
-2. **Quality-dominant pattern** (legal, medical, financial outputs; anything with real-world consequence for being wrong): cost and latency are spent freely to push quality, often via a larger model plus retrieval plus a verification step, because the cost of a wrong answer dwarfs the cost of the extra tokens and milliseconds.
-3. **Cost-dominant pattern** (high-volume background classification, bulk summarization, anything run over a large corpus): token economics drives the decision toward the smallest model that clears a measured correctness bar, because at sufficient volume even a small per-token cost difference compounds into the dominant cost line.
+1. **Latency-dominant** (chat UIs, autocomplete, inline suggestions): the triangle is resolved toward latency first, accepting a real quality and capability ceiling — see [GitHub Copilot](../25-case-studies/06-github-copilot.md) staying close to a small, fast, context-only architecture deliberately rather than adding retrieval that would cost latency it can't spend.
+2. **Quality-dominant** (legal, medical, financial outputs; anything with real-world consequence for being wrong): cost and latency are spent freely to push quality, often via a larger model plus retrieval plus a verification step, because the cost of a wrong answer dwarfs the cost of the extra tokens and milliseconds.
+3. **Cost-dominant** (high-volume background classification, bulk summarization, anything run over a large corpus): token economics drives the decision toward the smallest model that clears a measured correctness bar, because at sufficient volume even a small per-token cost difference compounds into the dominant cost line.
 4. **The default, unresolved pattern**: most early-stage features haven't established which axis actually dominates yet — the correct move is a mid-tier model and real measurement, not guessing which corner of the triangle to optimize toward before you have the data to know.
 
 ## Tradeoffs
@@ -150,44 +205,9 @@ flowchart TD
 | Token economics catches cost surprises before they hit a monthly bill, not after | Models trained on rough, order-of-magnitude numbers can mislead if treated as precise |
 | Build vs. buy as a default lens reduces reflexive over-building | Can bias toward buying even when building is genuinely the right call for a differentiating capability |
 
-## Scalability
+## Monitoring: A Dashboard Per Model
 
-How these mental models apply changes with scale, in ways worth naming explicitly:
-
-- **Token economics dominates more as volume grows.** At low request volume, a 2x token-cost difference between model tiers is noise in a budget; at 10M+ requests/month, the same 2x difference is the line item finance asks about, which is why cost-dominant pattern adoption (above) tracks volume growth, not just product type.
-- **The correctness bar gets harder to hold as the input distribution widens.** An eval set that represented 95% of traffic at 1,000 requests/day can lose representativeness at 100,000 requests/day, once user populations and request phrasing diversify — see [Scalability](01-introduction.md#scalability) in the Introduction chapter for the same point applied to eval coverage generally.
-- **Latency budgets get less forgiving, not more, at scale.** Counter to a traditional systems intuition where more replicas absorb more load, an AI system's per-request latency (time-to-first-token, decode speed) is largely set by the model and architecture, not by horizontal scaling — scaling adds capacity to serve more *concurrent* requests at the same per-request latency, it does not make each individual request faster.
-- **Build vs. buy crossover points shift with scale.** A managed vector database that's clearly the right buy decision at 100K documents and modest query volume can become a genuine build case at billions of vectors and extreme query rates, where a specialized, owned index pays for its operational cost — the decision is volume-dependent, not fixed for all time once made (see [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md)).
-
-## Reliability
-
-The deepest reliability consequence of these models is the distinction between a working p50 and a deterministic p50, worth stating precisely:
-
-| | Deterministic system | AI system |
-|---|---|---|
-| What p50 latency tells you | Half of requests completed in under X ms, and (assuming no bug) all of them were correct | Half of requests completed in under X ms — says nothing about whether they were *right* |
-| What "correct" means | Binary: matches the expected output, or a bug exists | Graded: a measured quality score, sampled across a distribution, monitored as its own percentile |
-| The reliability target | Uptime + latency SLO is close to the whole story | Uptime + latency SLO **plus** a quality SLO (e.g., "p50 quality score ≥ 0.85, p10 ≥ 0.6, measured on rolling sampled traffic") |
-| What breaks silently without the extra target | Nothing — a bug either shows up as an error/wrong output or doesn't | Quality drift: every conventional dashboard stays green while users get worse answers |
-
-A team that ports the deterministic-system habit of "p50 latency is good, ship it" without an accompanying quality percentile target is the single most common reliability gap this chapter's models are meant to close — [Reliability Engineering](../23-staff-level-architecture/09-reliability-engineering.md) builds the full SLO design on top of this distinction.
-
-## Security
-
-Build vs. buy is the model with the most direct security consequence: buying shifts a real portion of your trust boundary to a vendor (their model weights, their data handling, their uptime) in exchange for not operating that component yourself — neither choice is more secure in the abstract, but they have different threat models, and the decision should name which one you're accepting, not default into it. Token economics also has a security angle worth naming briefly: an attacker who can trigger expensive generations (long outputs, retries, large retrieved contexts) without rate limiting has a cost-based denial-of-service vector with no equivalent in a traditional fixed-cost-per-request service — see [AI Security](../21-ai-security/index.md) for the full treatment.
-
-## Cost Optimization
-
-Token economics is, practically, the chapter's most immediately actionable model, and a few concrete numbers anchor it:
-
-- **Frontier-tier model pricing commonly spans $0.25-$15 per million input tokens and roughly $1-$15+ per million output tokens** as of mid-2025 — a 10-60x spread between the cheapest "fast/small" tier and the most expensive "frontier/large" tier, making the single model-tier decision the largest cost lever available before any other optimization.
-- **Output tokens are the more expensive half of the bill in most chat-style products.** A request with 1,000 input tokens and 300 output tokens, at $1/M input and $5/M output, costs roughly $0.001 input + $0.0015 output — output cost exceeds input cost despite being less than a third of the token count, which is why response-length discipline (capping verbosity, not just trimming context) is an underused cost lever.
-- **Prompt/context caching commonly cuts 50-90% off the cost of the repeated, unchanged portion of a prompt** (system instructions, few-shot examples) — a lever with no equivalent in a traditional request-costed system, since there's no analog to "the same bytes were already billed once."
-- **A 2x cheaper model that still clears the correctness bar is a 2x cost win with zero quality cost** — the cost-dominant pattern's central move, and worth checking explicitly before assuming the largest available model is required.
-
-## Monitoring
-
-Each mental model has a corresponding dashboard a team should actually be looking at, not just a one-time analysis:
+Each mental model has a corresponding dashboard signal a team should track continuously, not just analyze once:
 
 - **Triangle**: cost, p50/p95 latency, and quality score tracked on the same dashboard, over the same time window — seeing all three together is what catches "we improved latency but quality silently dropped" before a user complaint does.
 - **Token economics**: tokens (input/output, split) per request, and $ per request, trended over time — a creeping rise with no product change is the leading indicator of context bloat or a regression in response-length discipline.
@@ -265,10 +285,10 @@ The mental models stay the same; the resolved point on the triangle differs by m
 
 - A mental model is a fast, named framework for a recurring tradeoff — useful for speed and shared vocabulary, not a substitute for the actual measurement it points you toward.
 - The cost/latency/quality triangle means improving one axis at a fixed model and architecture generally costs you one of the other two; the design question is always which axis dominates for a given feature, decided explicitly, not by default.
-- Token economics replaces "cost per request" with "cost per token," because token count — not request count — is what actually varies and drives cost and latency in an AI system; output tokens are typically the pricier half.
+- Token economics replaces "cost per request" with "cost per token," because token count — not request count — is what actually varies and drives cost and latency in an AI system; output tokens are typically the pricier half and the larger cost driver despite being fewer in number.
 - A working p50 in an AI system tells you about latency, not correctness — quality needs its own measured, monitored percentile (a quality SLO) alongside the conventional latency and uptime targets, or real degradation passes through every dashboard unnoticed.
 - Build vs. buy should be a default lens applied to every new component, not a one-time decision made once and never revisited as volume, requirements, or strategic differentiation shift.
-- These four models compose in a fairly consistent order in practice — frame the tradeoff (triangle), price it (tokens), set the bar (correctness target), then decide what infrastructure it requires (build vs. buy) — and reversing that order is a common source of wasted design cycles.
+- These four models compose in a consistent order in practice — frame the tradeoff (triangle), price it (tokens), set the bar (correctness target), then decide what infrastructure it requires (build vs. buy) — and reversing that order is a common source of wasted design cycles.
 - The deeper, fully quantitative versions of each model are covered later in this book: [Cost Engineering](../23-staff-level-architecture/07-cost-engineering.md) and [Latency Engineering](../23-staff-level-architecture/08-latency-engineering.md) for the triangle, [Capacity Planning Primer](04-capacity-planning-primer.md) for token economics math, [LLM Evaluation Architecture](../19-evaluation/01-llm-evaluation-architecture.md) for the correctness bar, and [Build vs. Buy](../23-staff-level-architecture/02-build-vs-buy.md) for the full decision framework — this chapter is the shared vocabulary all of those assume.
 
 ---

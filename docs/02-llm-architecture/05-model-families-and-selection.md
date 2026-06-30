@@ -35,7 +35,7 @@ The result is a selection space with enough genuine dimensions — architecture,
 - **Model-size ladder** — the range of sizes a single model family typically ships (e.g., a small/fast tier, a mid tier, and a large/frontier tier), letting a team test whether a cheaper, smaller tier clears the task's actual quality bar before committing to a larger, pricier one.
 - **Quality bar** — the task-specific, measured threshold a model must clear to be acceptable for a given product surface, established via an eval set (see [LLM Evaluation Architecture](../19-evaluation/01-llm-evaluation-architecture.md)) — the number every selection decision in this chapter should ultimately be checked against, rather than a subjective impression of "good enough."
 
-## Architecture
+## Dense vs MoE and the Selection Inputs
 
 Dense and MoE architectures diverge at exactly one point — how many of a layer's parameters are involved in processing a given token — and that single difference is the entire reason their serving economics diverge so sharply.
 
@@ -88,7 +88,7 @@ flowchart TB
     A3 --> DECISION
 ```
 
-## Components
+## What Drives the Selection Decision
 
 | Component | Responsibility | Does NOT own |
 |---|---|---|
@@ -98,7 +98,7 @@ flowchart TB
 | Provenance decision (open vs. closed) | Determine who operates serving infrastructure and where data flows | Model quality — both options span a wide quality range, this is a build-vs-buy axis, not a capability axis |
 | Capacity/cost modeling ([Capacity Planning Primer](../01-fundamentals/04-capacity-planning-primer.md)) | Translate a selected model and tier into concrete $ and infrastructure requirements | The selection decision — it validates a candidate choice, doesn't make it |
 
-## Request Lifecycle
+## The Model Selection Process
 
 Model selection isn't a runtime request, but the same staged, falsifiable-assumption discipline used elsewhere in this book applies directly — a sequence of decisions, each producing a concrete artifact the next step consumes.
 
@@ -124,7 +124,7 @@ sequenceDiagram
 
 The step worth never skipping is the size-ladder test before the architecture/provenance decision — testing whether a smaller tier clears the bar *before* deciding how to serve it avoids over-committing infrastructure or API spend to a size tier the task never actually needed.
 
-## Design Patterns
+## How Production Teams Apply This
 
 Three recurring patterns show up across how production teams actually apply this framework, in roughly the order of selection sophistication a team adopts as the product and its traffic mature.
 
