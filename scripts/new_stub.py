@@ -44,6 +44,19 @@ in this curriculum is a system with components to diagram:
   onto these produces filler sections (a fake "Architecture" diagram,
   a "Monitoring" section with nothing to monitor) instead of real
   content.
+
+- "topic_specific" (no fixed section list): The chapter is designed
+  from scratch with sections that fit the topic. The outline field
+  acts as the section plan rather than just bullet points inside a
+  fixed wrapper. Use this for chapters whose natural structure doesn't
+  map to either the system template or the X-vs-Y decision framework
+  — for example, a chapter that is fundamentally a pipeline of stages
+  (AI Data Pipelines), a playbook (AI Incident Response), or a
+  lifecycle (Knowledge Base Lifecycle Management) benefits from
+  sections named after those stages/phases rather than from generic
+  template headings. When writing a topic_specific flagship, let the
+  outline drive the section structure directly instead of inheriting
+  any default heading list.
 """
 import os
 
@@ -60,6 +73,17 @@ TEMPLATE_NOTE = {
         'Tradeoffs, Cost Implications, Common Mistakes, Real World '
         'Examples, Interview Questions, Google-Level Follow-Ups, Key '
         'Takeaways) rather than the full systems-architecture template.'
+    ),
+    "topic_specific": (
+        'This chapter will be designed from scratch with sections that '
+        'fit its specific topic rather than inheriting the generic '
+        'system-architecture template or the decision-framework template. '
+        'The outline above serves as the intended section plan. When '
+        'writing the flagship version, use those outline points as '
+        'top-level `## Section` headings and add subsections, diagrams, '
+        'and worked examples inside each one — no generic Architecture / '
+        'Components / Request Lifecycle / Scalability / Monitoring '
+        'scaffolding unless those titles genuinely fit the content.'
     ),
 }
 
@@ -91,11 +115,19 @@ def render_outline(items):
     return "\n".join(f"- {i}" for i in items)
 
 
+TEMPLATE_LABELS = {
+    "decision_framework": "Template: Decision Framework",
+    "topic_specific": "Template: Topic-Specific Structure",
+}
+
+
 def render_template_note(entry):
-    note = TEMPLATE_NOTE.get(entry.get("template", "system"), "")
+    template = entry.get("template", "system")
+    note = TEMPLATE_NOTE.get(template, "")
     if not note:
         return ""
-    return f'\n!!! note "Template: Decision Framework"\n    {note}\n'
+    label = TEMPLATE_LABELS.get(template, "Template Note")
+    return f'\n!!! note "{label}"\n    {note}\n'
 
 
 def render_index_rows(section):
@@ -461,6 +493,25 @@ SECTIONS = [
                     "Chunking failure modes that silently hurt RAG quality",
                 ],
             },
+            {
+                "file": "06-knowledge-base-lifecycle-management.md",
+                "title": "Knowledge Base Lifecycle Management",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How to operate a RAG corpus over months and years — document "
+                    "lifecycle in vector indexes, what happens when you upgrade the "
+                    "embedding model, managing index freshness, and preventing corpus "
+                    "quality decay before users notice it."
+                ),
+                "outline": [
+                    "Document lifecycle: soft-delete plus compaction vs full rebuild",
+                    "Embedding model migration: re-indexing strategy and rollback planning",
+                    "Index freshness policies: near-real-time vs scheduled batch rebuilds",
+                    "Corpus quality decay: identifying and removing stale content",
+                    "Multi-language and multi-modal corpus management",
+                ],
+            },
         ],
     },
     {
@@ -716,6 +767,25 @@ SECTIONS = [
                     "Goal drift over long trajectories",
                     "Cost/step budgets as a hard safety mechanism",
                     "Human-in-the-loop checkpoints for high-stakes actions",
+                ],
+            },
+            {
+                "file": "06-human-in-the-loop-architecture.md",
+                "title": "Human-in-the-Loop Architecture",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "The systematic design of when and how AI systems escalate to "
+                    "humans — routing decisions (confidence vs risk vs cost), review "
+                    "queue design, annotation workflows, and the feedback loop from "
+                    "human review back into eval and model improvement."
+                ),
+                "outline": [
+                    "Routing decisions: confidence-based vs risk-based vs cost-based escalation",
+                    "Review queue design: priority queuing, SLA enforcement, skill routing",
+                    "Annotation interface design for consistent inter-annotator agreement",
+                    "Active learning: which examples are worth sending to humans",
+                    "Feedback loop: how human labels flow back into golden sets and training",
                 ],
             },
         ],
@@ -1002,6 +1072,63 @@ SECTIONS = [
                     "Serving engine and hardware execution",
                 ],
             },
+            {
+                "file": "03-ai-data-pipelines.md",
+                "title": "AI Data Pipelines: Ingestion, Quality, and Freshness",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "The engineering pipeline that gets raw documents and data into "
+                    "production AI systems — parsing, quality filtering, deduplication, "
+                    "incremental update, and embedding refresh at scale — the layer "
+                    "that determines whether your RAG corpus is current and searchable."
+                ),
+                "outline": [
+                    "Document parsing at scale: PDFs, HTML, Office files, code, scanned docs",
+                    "Content quality filtering and near-duplicate deduplication",
+                    "Incremental corpus updates: insert/update/delete in vector indexes",
+                    "Embedding pipeline orchestration: fan-out, rate limiting, checkpoint/resume",
+                    "Data versioning for reproducibility and eval regression tracing",
+                ],
+            },
+            {
+                "file": "04-real-time-and-streaming-ai.md",
+                "title": "Real-Time and Streaming AI Architecture",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "The distinct architectural pattern for AI systems with sub-second "
+                    "latency requirements or event-driven activation — voice AI pipelines, "
+                    "real-time moderation, streaming data ingestion — where the standard "
+                    "synchronous request-response model breaks down."
+                ),
+                "outline": [
+                    "Voice AI pipeline: ASR to LLM to TTS with sub-500ms end-to-end budgets",
+                    "Barge-in and interruption handling in conversational AI",
+                    "Streaming data ingestion: keeping a RAG corpus fresh from live event streams",
+                    "Event-driven AI: AI triggered by Kafka/Kinesis rather than user requests",
+                    "Real-time moderation: classifying content as it streams token by token",
+                ],
+            },
+            {
+                "file": "05-ai-api-design.md",
+                "title": "AI API Design",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How to design the public-facing API surface of an AI product — "
+                    "streaming token APIs, async patterns for long-running tasks, tool "
+                    "schema design, and versioning when a model change can be a "
+                    "breaking behavioral change."
+                ),
+                "outline": [
+                    "Streaming API design: SSE vs WebSocket vs long-poll for token streams",
+                    "Async and webhook patterns for tasks that run minutes or hours",
+                    "Tool and function schema design for reliable model calling",
+                    "API versioning when a model update is a breaking behavioral change",
+                    "Rate limiting and quota design for multi-tenant AI APIs",
+                ],
+            },
         ],
     },
     {
@@ -1085,6 +1212,25 @@ SECTIONS = [
                     "Serving many fine-tuned variants efficiently (multi-LoRA)",
                     "Cold-start and model-loading latency",
                     "Fallback routing on provider/model failure",
+                ],
+            },
+            {
+                "file": "06-on-device-and-edge-inference.md",
+                "title": "On-Device and Edge Inference",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "The architecture for running AI models on device rather than "
+                    "in the cloud — when privacy, latency, or connectivity requirements "
+                    "demand it, how to choose and deploy models under hardware "
+                    "constraints, and hybrid device-cloud routing patterns."
+                ),
+                "outline": [
+                    "When edge inference is the right architecture: privacy, sub-100ms, offline",
+                    "Quantization for edge hardware: INT4/INT8 on NPUs and mobile GPUs",
+                    "Hybrid edge-cloud routing: device handles simple, cloud handles complex",
+                    "Model update distribution to millions of devices without CDN blowout",
+                    "Hardware diversity: CoreML, ONNX, ExecuTorch and per-device gaps",
                 ],
             },
         ],
@@ -1277,6 +1423,64 @@ SECTIONS = [
                     "Golden-set regression testing",
                     "Automated prompt-diff and impact estimation",
                     "Release gating criteria for AI changes vs code changes",
+                ],
+            },
+            {
+                "file": "05-the-fine-tuning-pipeline.md",
+                "title": "The Fine-Tuning Engineering Pipeline",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "The end-to-end engineering workflow for improving a model through "
+                    "fine-tuning — data collection and curation, PEFT/LoRA/QLoRA "
+                    "training infrastructure, the evaluation loop during training, "
+                    "DPO and RLHF pipelines, and the complete loop from production "
+                    "failure to deployed model improvement."
+                ),
+                "outline": [
+                    "Data collection and curation: sourcing, filtering, format normalisation",
+                    "PEFT techniques: LoRA, QLoRA, DoRA — trade-offs in serving cost and quality",
+                    "Training orchestration: FSDP vs DeepSpeed, gradient checkpointing",
+                    "DPO/ORPO/RLHF as engineering systems: preference data and policy optimisation",
+                    "The full improvement loop: prod failure to data to train to eval to deploy",
+                ],
+            },
+            {
+                "file": "06-ai-incident-response.md",
+                "title": "AI Incident Response",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "What to do when your AI system has a quality incident — the "
+                    "taxonomy of AI failure types, rollback decision frameworks, root "
+                    "cause analysis for non-deterministic systems, and post-mortem "
+                    "formats that capture what actually went wrong."
+                ),
+                "outline": [
+                    "AI incident taxonomy: quality regression, prompt regression, distribution shift",
+                    "Rollback decisions: when to roll back a prompt vs model vs serving config",
+                    "Root cause analysis in non-deterministic systems: replay, bisection, anchoring",
+                    "Incident communication: AI quality issues vs outages to users",
+                    "AI-specific post-mortem: what information is actually useful",
+                ],
+            },
+            {
+                "file": "07-continual-learning-and-model-freshness.md",
+                "title": "Continual Learning and Model Freshness",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How production AI systems stay current without full retraining — "
+                    "knowledge cutoff management, online learning patterns for "
+                    "personalisation, RLHF as a production feedback loop, and detecting "
+                    "when a model's world model has become stale."
+                ),
+                "outline": [
+                    "The knowledge cutoff problem: retrieval vs fine-tuning vs full retrain",
+                    "Online learning for personalisation: per-user adapters and preference vectors",
+                    "RLHF as a production loop: collecting preference data and deploying updates",
+                    "Concept drift detection: when AI outputs silently diverge from expectations",
+                    "Catastrophic forgetting mitigation when fine-tuning on new data",
                 ],
             },
         ],
@@ -1608,6 +1812,26 @@ SECTIONS = [
                     "Document-level ACL syncing from source systems",
                     "Permission-aware indexing vs post-retrieval filtering",
                     "Performance cost of ACL enforcement at retrieval scale",
+                ],
+            },
+            {
+                "file": "05-pii-and-privacy-engineering.md",
+                "title": "PII and Privacy Engineering in AI Systems",
+                "flagship": False,
+                "template": "topic_specific",
+                "synopsis": (
+                    "How to handle sensitive personal data in the AI request path — "
+                    "PII detection and redaction in prompts and context, logging and "
+                    "retention under compliance constraints, the GDPR right-to-delete "
+                    "problem for vector indexes and fine-tuned models, and data "
+                    "residency for multi-regional AI products."
+                ),
+                "outline": [
+                    "PII detection in prompts and context: NER, regex, learned classifiers",
+                    "Redaction and pseudonymisation before sending to external model APIs",
+                    "Logging policies: full-fidelity vs anonymised vs no-logging under compliance",
+                    "Right-to-delete: removing PII from vector indexes and fine-tuned weights",
+                    "Data residency: per-tenant regional routing for compliance, not just latency",
                 ],
             },
         ],
@@ -2211,7 +2435,11 @@ def main():
                 continue
             total_stub += 1
             template = e.get("template", "system")
-            tag = " *(decision framework template)*" if template == "decision_framework" else ""
+            tag = (
+                " *(decision framework template)*" if template == "decision_framework"
+                else " *(topic-specific structure)*" if template == "topic_specific"
+                else ""
+            )
             backlog.append(f"- 📋 `{e['file']}` — {e['title']}{tag}\n")
             with open(os.path.join(section_dir, e["file"]), "w") as sf:
                 sf.write(

@@ -9,3 +9,4 @@ The reasoning loop that turns an LLM from a text completion engine into a system
 | [Tool Use Architecture](03-tool-use-architecture.md) | 📋 Planned |
 | [Agent Evaluation](04-agent-evaluation.md) | 📋 Planned |
 | [Agent Failure Modes & Guardrails](05-agent-failure-modes-and-guardrails.md) | 📋 Planned |
+| [Human-in-the-Loop Architecture](06-human-in-the-loop-architecture.md) | 📋 Planned |

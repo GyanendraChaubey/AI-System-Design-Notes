@@ -44,6 +44,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `03-indexing-algorithms-ann.md` — Indexing Algorithms (ANN/HNSW/IVF)
 - 📋 `04-hybrid-search-and-reranking.md` — Hybrid Search & Reranking
 - 📋 `05-chunking-strategies.md` — Chunking Strategies
+- 📋 `06-knowledge-base-lifecycle-management.md` — Knowledge Base Lifecycle Management *(topic-specific structure)*
 
 ## RAG (`docs/06-rag/`)
 
@@ -70,6 +71,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `03-tool-use-architecture.md` — Tool Use Architecture
 - 📋 `04-agent-evaluation.md` — Agent Evaluation
 - 📋 `05-agent-failure-modes-and-guardrails.md` — Agent Failure Modes & Guardrails
+- 📋 `06-human-in-the-loop-architecture.md` — Human-in-the-Loop Architecture *(topic-specific structure)*
 
 ## Multi-Agent Systems (`docs/10-multi-agent-systems/`)
 
@@ -99,6 +101,9 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 - 📋 `01-ai-infrastructure-overview.md` — AI Infrastructure Overview
 - 📋 `02-the-inference-stack.md` — The Inference Stack
+- 📋 `03-ai-data-pipelines.md` — AI Data Pipelines: Ingestion, Quality, and Freshness *(topic-specific structure)*
+- 📋 `04-real-time-and-streaming-ai.md` — Real-Time and Streaming AI Architecture *(topic-specific structure)*
+- 📋 `05-ai-api-design.md` — AI API Design *(topic-specific structure)*
 
 ## Model Serving (`docs/15-model-serving/`)
 
@@ -107,6 +112,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `03-kv-cache-management.md` — KV Cache Management
 - 📋 `04-quantization-and-compression.md` — Quantization & Compression
 - 📋 `05-multi-model-serving-and-routing.md` — Multi-Model Serving & Routing
+- 📋 `06-on-device-and-edge-inference.md` — On-Device and Edge Inference *(topic-specific structure)*
 
 ## GPU Systems (`docs/16-gpu-systems/`)
 
@@ -126,6 +132,9 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `02-prompt-and-model-versioning.md` — Prompt & Model Versioning
 - 📋 `03-deployment-strategies-canary-shadow.md` — Deployment Strategies: Canary & Shadow
 - 📋 `04-ci-cd-for-ai-systems.md` — CI/CD for AI Systems
+- 📋 `05-the-fine-tuning-pipeline.md` — The Fine-Tuning Engineering Pipeline *(topic-specific structure)*
+- 📋 `06-ai-incident-response.md` — AI Incident Response *(topic-specific structure)*
+- 📋 `07-continual-learning-and-model-freshness.md` — Continual Learning and Model Freshness *(topic-specific structure)*
 
 ## Evaluation (`docs/19-evaluation/`)
 
@@ -156,6 +165,7 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 - 📋 `02-multi-tenancy-for-ai-platforms.md` — Multi-Tenancy for AI Platforms
 - 📋 `03-data-governance-and-compliance.md` — Data Governance & Compliance
 - 📋 `04-sso-permissions-and-rag-acl-enforcement.md` — SSO, Permissions & RAG ACL Enforcement
+- 📋 `05-pii-and-privacy-engineering.md` — PII and Privacy Engineering in AI Systems *(topic-specific structure)*
 
 ## Staff-Level Architecture (`docs/23-staff-level-architecture/`)
 
@@ -204,4 +214,4 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## Totals
 
 - 25 flagship chapters/case studies complete
-- 94 stubs remaining
+- 104 stubs remaining

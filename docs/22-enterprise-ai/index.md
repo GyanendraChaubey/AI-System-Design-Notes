@@ -8,3 +8,4 @@ What changes when your AI product has to satisfy enterprise buyers: multi-tenanc
 | [Multi-Tenancy for AI Platforms](02-multi-tenancy-for-ai-platforms.md) | 📋 Planned |
 | [Data Governance & Compliance](03-data-governance-and-compliance.md) | 📋 Planned |
 | [SSO, Permissions & RAG ACL Enforcement](04-sso-permissions-and-rag-acl-enforcement.md) | 📋 Planned |
+| [PII and Privacy Engineering in AI Systems](05-pii-and-privacy-engineering.md) | 📋 Planned |

@@ -9,3 +9,4 @@ The infrastructure that finds relevant information before generation happens: em
 | [Indexing Algorithms (ANN/HNSW/IVF)](03-indexing-algorithms-ann.md) | 📋 Planned |
 | [Hybrid Search & Reranking](04-hybrid-search-and-reranking.md) | 📋 Planned |
 | [Chunking Strategies](05-chunking-strategies.md) | 📋 Planned |
+| [Knowledge Base Lifecycle Management](06-knowledge-base-lifecycle-management.md) | 📋 Planned |
