@@ -232,6 +232,16 @@ These are illustrative, order-of-magnitude reasoning patterns, not confirmed int
 - **An early-stage startup building on a third-party model API** is the canonical case for the API-based branch: capacity planning here looks less like procurement and more like requesting a rate-limit tier increase ahead of a product launch or marketing push, and forecasting the resulting monthly bill with the same DAU-to-tokens/sec chain — a step many early teams skip entirely until an unexpectedly large bill or an unexpected 429 error forces the conversation retroactively.
 - **An enterprise RAG platform** (see [Enterprise RAG Platform](../25-case-studies/08-enterprise-rag-platform.md)) illustrates the token-distribution step's product-specificity directly: retrieved context routinely adds several thousand input tokens per query beyond the user's literal question, meaning a sizing model that uses a generic chat product's token distribution as a stand-in will under-forecast both cost and required throughput substantially.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Token counting and cost modelling** | `tiktoken`, LiteLLM cost tracking (`litellm.completion_cost()`), Helicone cost dashboard | tiktoken: pre-flight token counts before sending; LiteLLM cost tracking: multi-provider spend aggregation; Helicone: per-request cost attribution in production |
+| **Load testing / throughput benchmarking** | `vllm/benchmarks/benchmark_serving.py`, k6, Locust | vLLM benchmark: measures tokens/sec at varying concurrencies with your actual model; k6/Locust: simulates multi-user request patterns including peak bursts |
+| **Cloud GPU cost calculators** | AWS Pricing Calculator, GCP Pricing Calculator, CoreWeave pricing, Lambda Labs pricing | Use to model the self-hosted vs API cost crossover at your token volume — spreadsheet first, real load test to validate |
+| **API spend monitoring** | Helicone, Langfuse, OpenAI usage dashboard, Anthropic usage dashboard | Real-time token-per-request tracking; set budget alerts before the monthly invoice arrives |
+| **Rate-limit management** | LiteLLM (automatic retry + fallback), Portkey, custom token-bucket rate limiters | LiteLLM handles 429 retries and provider fallback automatically; critical for products approaching rate-limit ceilings |
+
 ## Interview Questions
 
 ### Beginner

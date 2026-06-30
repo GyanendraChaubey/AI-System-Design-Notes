@@ -284,6 +284,17 @@ The following are illustrative, drawn from public model documentation and indust
 - **GitHub Copilot and similar coding assistants** are widely understood to use smaller, faster models for latency-critical inline completion while reserving larger models for chat-style, less latency-sensitive interactions within the same product — a public-facing instance of tiered routing by task type.
 - **Enterprises with strict data-residency requirements** (commonly cited in financial services and healthcare contexts) are a widely discussed real-world driver toward open-weight, self-hosted deployment specifically because closed-API data flows are disqualified by compliance requirements regardless of cost or quality comparison — illustrating the threshold-question framing in this chapter's [Security](#security) section directly.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Model leaderboards** | LMSYS Chatbot Arena, HuggingFace Open LLM Leaderboard, HELM (Stanford) | Arena: best for human-preference ranking (real user votes); Open LLM Leaderboard: academic benchmarks on open models; HELM: multi-task, multi-metric coverage |
+| **Closed model APIs** | OpenAI (GPT-4o, o3), Anthropic (Claude 3.x/4.x), Google (Gemini), AWS Bedrock, Azure OpenAI | Bedrock/Vertex/Azure: enterprise compliance, data residency, existing cloud commitment; direct APIs: lowest latency, latest models first |
+| **Open model repos** | HuggingFace Hub, Ollama, LM Studio | HF Hub: production open models and tokenizers; Ollama: one-command local dev server; LM Studio: GUI for local evaluation before committing to a model |
+| **Multi-provider gateway** | LiteLLM, Portkey, OpenRouter | LiteLLM: open-source, self-hosted, 100+ provider translation; Portkey: enterprise features (caching, logging, fallback); OpenRouter: marketplace with automatic model routing |
+| **Model evaluation / comparison** | Promptfoo, Braintrust, RAGAS, lm-evaluation-harness | Promptfoo: side-by-side prompt evaluation across models; lm-eval: standardised benchmark reproduction; Braintrust: hosted CI eval with model versioning |
+| **LoRA / fine-tuning** | Unsloth, LLaMA-Factory, Axolotl, TRL (HuggingFace) | Unsloth: fastest QLoRA on consumer GPUs; LLaMA-Factory: widest model support with web UI; TRL: RLHF/DPO training, HF-native |
+
 ## Interview Questions
 
 ### Beginner

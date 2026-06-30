@@ -202,6 +202,16 @@ The following are drawn from public research, technical reports, and widely disc
 - **Anthropic's Claude models** have offered large context windows (200K tokens widely available, larger in some offerings) alongside published guidance on context engineering and prompt caching — framing the context window as something to budget and place content within deliberately, consistent with this chapter's design patterns rather than treating raw window size as the only relevant number.
 - **Mistral and other open-weight model providers** commonly document RoPE-based architectures explicitly, and the open-weight ecosystem's reproducible extension techniques (NTK-aware scaling, YaRN) are publicly described in research papers, making this one of the more transparent corners of LLM architecture for systems engineers to study directly rather than infer from API behavior alone.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Effective context measurement** | Needle-in-a-Haystack (NIAH) benchmarks, RULER (CMU), LongBench | NIAH: the de facto standard for verifying that a model actually attends to content at every position in its window; RULER: multi-task long-context benchmark; LongBench: multi-language long-context tasks |
+| **Context-length extension (open models)** | LongLoRA, YaRN fine-tuning scripts, LLaMA-Factory with RoPE scaling | Extending a base model's context window by fine-tuning with adjusted RoPE frequencies; LLaMA-Factory provides prebuilt recipes |
+| **Long-context serving** | vLLM (supports 200K+ contexts with chunked prefill), SGLang | Configure `--max-model-len` and `--enable-chunked-prefill` to serve long-context requests without blocking other users |
+| **Prompt/context caching** | Anthropic API (`cache_control`), OpenAI (automatic prefix caching), Google Vertex AI | Cache the static prefix of a long document to avoid re-paying its positional encoding compute on every query |
+| **Lost-in-the-middle mitigation** | LangChain's `compression_retriever`, reranking before assembly | Reorder retrieved chunks to place the most relevant content first and last; compress low-salience middle content |
+
 ## Interview Questions
 
 ### Beginner

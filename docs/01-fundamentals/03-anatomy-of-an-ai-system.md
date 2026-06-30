@@ -331,6 +331,20 @@ The following are illustrative, publicly observable patterns inferred from produ
 - **Glean** exemplifies the enterprise variant: retrieval fans out across many connectors with permission-aware filtering enforced at the retrieval layer itself, since showing a document the requesting user cannot see is the defining failure mode of enterprise retrieval.
 - **Cursor** layers a tool-calling and orchestration loop on top of code-aware retrieval: the model proposes edits or commands, a sandboxed tool layer executes them against the local filesystem/terminal, and results feed the next orchestration step — an agentic loop (see [Agents](../09-agents/index.md)) applied to a developer-tooling corpus.
 
+## Tools and Ecosystem
+
+The reference architecture spans many layers. This table maps each layer to production tooling.
+
+| Layer | Tools | When to prefer |
+|---|---|---|
+| **Orchestration / agent frameworks** | LangChain / LangGraph, LlamaIndex, DSPy, Semantic Kernel | LangGraph: stateful agent flows with explicit state machines; LlamaIndex: retrieval-heavy pipelines; DSPy: optimised prompt compilation; Semantic Kernel: .NET / Microsoft stack |
+| **LLM gateway / proxy** | LiteLLM, Portkey, OpenRouter, Kong AI Gateway | LiteLLM: open-source, self-hosted, 100+ provider support; Portkey: enterprise fallback + logging; Kong: existing API gateway with AI plugin |
+| **Vector / retrieval layer** | Pinecone, Weaviate, Qdrant, pgvector, Milvus | See [RAG Architecture](../06-rag/01-rag-architecture.md) tools section for full breakdown |
+| **Memory and state** | Redis, PostgreSQL, Zep, Mem0 | Redis: fast session state; Postgres: durable relational; Zep / Mem0: agent-specific episodic memory APIs |
+| **Guardrails / safety** | LlamaGuard (Meta), Guardrails AI, NeMo Guardrails (NVIDIA) | LlamaGuard: open-source, self-hosted classifier; Guardrails AI: schema + safety combined; NeMo: NVIDIA-optimised |
+| **Observability** | Langfuse, LangSmith, Helicone, Arize Phoenix | Langfuse: open-source, any framework; LangSmith: LangChain-native; Helicone: lightweight proxy; Phoenix: open-source with eval loop |
+| **Serving / deployment** | vLLM, TGI, AWS SageMaker, Modal, Kubernetes | vLLM / TGI: self-hosted inference; SageMaker: managed GPU; Modal: serverless for variable load |
+
 ## Interview Questions
 
 ### Beginner

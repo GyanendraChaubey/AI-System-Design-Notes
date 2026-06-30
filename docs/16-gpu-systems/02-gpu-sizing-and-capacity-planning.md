@@ -256,6 +256,17 @@ The figures below are offered as illustrative, order-of-magnitude reasoning abou
 - **Claude-scale sizing.** Anthropic has publicly discussed serving Claude through its own API, Amazon Bedrock, and Google Cloud Vertex AI, and has disclosed large-scale compute commitments with AWS and Google Cloud, including custom-silicon (e.g., Trainium) usage. A hypothetical sizing conversation here adds a dimension the simple chat example doesn't capture: a meaningfully higher share of agentic and tool-calling traffic (coding agents, long-running tasks), which — as the worked example below shows — multiplies effective tokens per user-visible "request" well past a chat-only distribution, making the workload-tiering practice in Design Patterns load-bearing rather than optional polish.
 - **Perplexity-scale sizing.** Perplexity has publicly described its product as retrieval-augmented by design — every answer triggers live web retrieval before generation (see [RAG Architecture](../06-rag/01-rag-architecture.md)). A hypothetical capacity conversation here sizes two coupled systems, not one: the retrieval fan-out (its own QPS and latency budget) and the generation fan-out (sized by this chapter's chain) — and a single query can carry a much larger effective input-token count than the user's literal text, since retrieved passages are injected into context before generation, pushing the input-tokens-per-request assumption far higher than a simple chat product's.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **GPU cloud providers** | AWS (p4d/p5, H100), GCP (A100/H100/TPU v5), Azure (ND H100), CoreWeave, Lambda Labs, Vast.ai | AWS/GCP/Azure: full cloud integration, compliance, managed k8s; CoreWeave: cheapest H100 at scale; Lambda Labs: competitive H100 spot pricing; Vast.ai: dev/experiment budget |
+| **GPU monitoring** | NVIDIA DCGM + Prometheus exporter, Grafana, `nvtop`, `nvidia-smi dmon` | DCGM: production-grade per-GPU metrics (utilisation, memory, temperature, errors); nvtop: interactive dev-time dashboard; `nvidia-smi dmon`: scriptable sampling |
+| **Memory and throughput profiling** | NVIDIA Nsight Systems, PyTorch Profiler, `torch.cuda.memory_summary()` | Nsight: kernel-level timeline, identifies KV cache vs weight memory breakdown; PyTorch Profiler: Python-level with TensorBoard integration |
+| **Throughput benchmarking** | `vllm/benchmarks/benchmark_serving.py`, TGI's `text-generation-benchmark`, GenAI Perf (NVIDIA) | Load-test your actual model on your actual hardware at your target concurrency before finalising GPU count — vendor benchmark numbers are best-case |
+| **Cluster orchestration** | Kubernetes + NVIDIA device plugin + DCGM exporter, Ray Serve, Slurm (HPC) | K8s: multi-tenant production; Ray Serve: Python-native horizontal scaling; Slurm: batch HPC workloads |
+| **Spot / preemptible GPU management** | SkyPilot, RunPod, Vast.ai | SkyPilot: abstracts across clouds and spot markets, auto-recovers from preemption; RunPod: GPU rental with persistent storage |
+
 ## Interview Questions
 
 ### Beginner

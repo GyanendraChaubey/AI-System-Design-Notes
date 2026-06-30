@@ -270,6 +270,17 @@ The following reflect publicly documented patterns and widely discussed industry
 - **Speculative decoding** has been publicly described in research from multiple major labs (including Google's and DeepMind's published work on the technique) and is implemented in open-source serving engines like vLLM and others discussed in [Speculative Decoding at Scale](../17-distributed-inference/03-speculative-decoding-at-scale.md) — it has moved from a research technique to a standard production serving-engine feature within a few years of its initial publication.
 - **Structured-output and function-calling features** across major providers are widely documented to recommend or default toward low-temperature decoding, since reproducibility and schema-validity matter more than phrasing variety for these use cases — a direct, publicly visible instance of task-routed decoding configuration.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Constrained / structured generation** | Outlines, XGrammar, LM Format Enforcer (LMFE), Guidance | Outlines: most widely adopted, grammar + regex + JSON schema; XGrammar: fastest token-mask computation; LMFE: Pydantic-native schema enforcement; Guidance: handlebars-style template-driven generation |
+| **Provider JSON / structured mode** | OpenAI `response_format: {type: "json_schema"}`, Anthropic tool use, Google `responseMimeType` | Prefer provider-side constrained decoding when available — zero client overhead and guaranteed valid output; use client-side libraries only for self-hosted models |
+| **Speculative decoding** | vLLM (native `--num-speculative-tokens`), llama.cpp (`--draft-model`), TRT-LLM | Use when a small, fast draft model (same family, 1/5–1/10 the size) is available; acceptance rate above ~70% gives meaningful latency gains |
+| **Serving engines (decoding config)** | vLLM, SGLang, TGI | All expose `temperature`, `top_p`, `top_k`, `repetition_penalty` per-request; vLLM and SGLang expose speculative decoding; TGI exposes watermarking |
+| **Reasoning model APIs** | OpenAI o3/o4-mini (`max_completion_tokens`), Anthropic (`thinking.budget_tokens`), DeepSeek API | Extended thinking requires separate budget parameter; set conservatively and measure actual thinking-token utilisation from production traffic before raising |
+| **Output sampling analysis** | `temperature_scaling` notebooks, token probability inspection via logprobs API | OpenAI and Anthropic both expose `logprobs` in completions — use for calibration analysis and to understand which tokens the model is uncertain about |
+
 ## Interview Questions
 
 ### Beginner

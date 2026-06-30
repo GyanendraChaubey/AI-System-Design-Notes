@@ -304,6 +304,17 @@ Public statements and product positioning reveal genuinely different philosophie
 - **Google/Gemini** has been the most aggressive publicly about raw window size (1M+ tokens in some tiers), while Google's own long-context evaluation research (needle-in-a-haystack benchmarks) is part of the public evidence base motivating the lost-in-the-middle concern this chapter describes.
 - **Cursor** illustrates context engineering applied to a codebase: a large repository cannot be stuffed into any window wholesale, so its publicly described approach combines codebase retrieval with explicit, user-visible context controls — pin, exclude, or reference specific files — making allocation partly a user-facing affordance, not just a backend policy.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Prompt / context caching** | Anthropic API (`cache_control` breakpoints), OpenAI automatic prefix caching, Google Vertex AI context caching | Anthropic: explicit control over what to cache, fine-grained; OpenAI: automatic for prompts over ~1024 tokens; Google: long-document caching with explicit TTL |
+| **Context compression** | LLMLingua / LongLLMLingua (Microsoft), Selective Context, reranker-based filtering | LLMLingua: perplexity-guided token-level compression, 2–5× reduction; Selective Context: sentence-level; use when input is too long and retrieval isn't sufficient |
+| **Semantic caching** | GPTCache, Zep, Redis with vector similarity | GPTCache: drop-in cache layer with configurable similarity threshold; Zep: session-aware with automatic decay; Redis: scales to high QPS with `redis-py` + `redis-search` |
+| **Token counting** | `tiktoken`, `transformers.AutoTokenizer.encode()` | Count before assembly — never after sending; `len(encoding.encode(text))` is cheap; do it for every source |
+| **Memory management** | Zep, Mem0, LangChain `ConversationSummaryMemory` | Zep / Mem0: managed long-term memory with automatic summarisation; LangChain memory: simple rolling-window or progressive-summary patterns |
+| **Context evaluation** | RULER (CMU), Needle-in-a-Haystack, LongBench | Measure how reliably a model retrieves facts placed at different positions in a long context before committing to a long-context strategy |
+
 ## Interview Questions
 
 ### Beginner

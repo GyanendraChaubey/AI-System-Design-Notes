@@ -273,6 +273,18 @@ The patterns below are described as publicly observable product behavior — how
 
 The common thread across all four: when a product can visibly take more than one "turn" of action before answering, and the number of turns clearly varies by task rather than being fixed, that is the external signature of an agent loop, regardless of what's actually running underneath.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Agent frameworks** | LangGraph, LlamaIndex Workflows, CrewAI, AutoGen (Microsoft), Pydantic AI | LangGraph: explicit state machines, best for production control and debugging; CrewAI: role-based multi-agent with crew abstraction; AutoGen: conversation-based multi-agent, Microsoft-backed; Pydantic AI: type-safe, structured agent design |
+| **MCP servers and clients** | Anthropic MCP SDK, Claude Desktop, Cursor, custom MCP servers | When building tool integrations that should work across multiple agent frameworks and model providers; MCP server = once-built, everywhere-available |
+| **Code execution / sandboxing** | E2B, Modal, Docker containers, Daytona | E2B: managed secure sandbox for code execution, 100ms cold start; Modal: serverless GPU/CPU execution; Docker: self-hosted full control |
+| **Tool registries** | MCP Hub (community), LangChain Tools, custom JSON schema registries | MCP Hub: community-contributed server implementations; LangChain Tools: 100+ pre-built integrations |
+| **Memory stores** | Zep, Mem0, Redis, ChromaDB | Zep / Mem0: agent-specific memory with automatic extraction and retrieval; Redis: fast session state; Chroma: simple vector memory for dev |
+| **Agent tracing / debugging** | LangSmith, Langfuse, Arize Phoenix, Honeycomb | LangSmith: LangGraph / LangChain-native, step-level tracing; Langfuse: open-source, any framework; Phoenix: free + eval integration; Honeycomb: general distributed tracing if not LLM-specific |
+| **Durable execution** | Temporal, Prefect, Modal (durable functions) | Temporal: production-grade durable workflows for long-horizon agents; Prefect: data-pipeline-style orchestration; Modal durable functions: serverless with checkpoint/resume |
+
 ## Interview Questions
 
 ### Beginner

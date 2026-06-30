@@ -287,6 +287,17 @@ Evaluation architecture has a narrower but real threat model. **Golden set poiso
 
 These are offered as illustrative, publicly-discussed patterns of how eval-gated releases plausibly work at this class of company, not as confirmed internal specifics of any organization's proprietary pipeline.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **LLM-as-judge / eval frameworks** | RAGAS, DeepEval, Braintrust, TruLens, Opik (Comet) | RAGAS: retrieval-specific metrics (faithfulness, answer relevance, context precision); DeepEval: modular metrics + CI assertion API; Braintrust: hosted CI eval with experiment tracking; TruLens: tracing + eval in one; Opik: experiment tracking with eval |
+| **Offline benchmark runners** | Eleuther AI `lm-evaluation-harness`, Promptfoo, BIG-Bench Lite | lm-eval-harness: standardised academic benchmarks reproducible locally; Promptfoo: side-by-side prompt regression testing across model versions |
+| **Red-team / adversarial eval** | Garak (NVIDIA), PyRIT (Microsoft), Promptbench | Garak: automated LLM vulnerability scanner, 100+ attack probes; PyRIT: Microsoft's structured red-team toolkit with threat model coverage |
+| **Human annotation platforms** | Scale AI, Labelbox, Argilla, Label Studio | Scale AI: enterprise SLA, fastest turnaround; Labelbox: data-centric AI workflows; Argilla / Label Studio: open-source self-hosted for budget-conscious teams or data-private setups |
+| **Online eval / production monitoring** | Langfuse, LangSmith, Helicone, Arize Phoenix, WhyLabs | Langfuse: open-source, any framework, LLM-judge integrated; LangSmith: LangChain-native; Helicone: lightweight proxy-based; Phoenix: open-source with drift detection; WhyLabs: ML monitoring with LLM extension |
+| **Agent eval environments** | E2B (sandboxed code execution), ToolBench, AgentBench, WebArena | E2B: sandboxed environment for agent action evaluation; WebArena / WebVoyager: web-browsing agent benchmarks |
+
 ## Interview Questions
 
 ### Beginner

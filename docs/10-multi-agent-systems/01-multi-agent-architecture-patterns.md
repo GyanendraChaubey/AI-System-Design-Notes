@@ -295,6 +295,17 @@ The patterns below are described as publicly documented or observable system sha
 - **The [Deep Research Agent](../25-case-studies/07-deep-research-agent.md) case study in these notes** works through a from-scratch design for this product category end to end — query decomposition, parallel source gathering, report synthesis — as an applied instance of these patterns, illustrative rather than a claim about any specific shipped product's internals.
 - **Coding agent products with planner/sub-task structure** show a related but distinct shape: a planning pass followed by execution against one shared codebase, which leans closer to sequential/pipeline coordination over a shared resource than to independent parallel fan-out, since file edits in a shared codebase are rarely as independent as research sub-questions.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Multi-agent frameworks** | LangGraph, AutoGen (Microsoft), CrewAI, Semantic Kernel, Swarm (OpenAI) | LangGraph: production-grade, explicit state machines, best debuggability; AutoGen: conversation-based orchestration, strong research backing; CrewAI: role + crew abstraction for human-readable agent definitions; Swarm: lightweight experimental patterns from OpenAI |
+| **Task queues / job scheduling** | Celery + Redis/RabbitMQ, Temporal, Prefect, Modal | Temporal: durable execution with built-in retry and visibility — best for long-running multi-agent jobs; Celery: mature, simpler setup; Prefect: data-pipeline-style with web UI; Modal: serverless with easy GPU/CPU mix |
+| **Shared state / blackboard** | Redis, PostgreSQL, Apache Kafka (event log as shared state) | Redis: fast in-memory blackboard for concurrent agent reads/writes; Postgres: durable with transactions for conflict resolution; Kafka: append-only event log when full replay is useful for debugging |
+| **Agent communication protocols** | Anthropic MCP (tool layer), Google A2A (Agent-to-Agent), LangGraph message passing | MCP: tool-integration standard between agents and external services; A2A: emerging agent-to-agent interop standard; LangGraph message passing: structured typed messages between graph nodes |
+| **Observability for multi-agent** | LangSmith (multi-agent traces), Langfuse (nested span tracing), OpenTelemetry | LangSmith: native LangGraph multi-agent trace visualisation; Langfuse: framework-agnostic nested spans; OpenTelemetry: if you already have a distributed tracing stack |
+| **Orchestration patterns** | LangGraph (stateful orchestrator-worker), AutoGen GroupChat, CrewAI Process | LangGraph for production; AutoGen GroupChat for conversational multi-agent debate patterns; CrewAI Sequential/Hierarchical Process for role-based pipelines |
+
 ## Interview Questions
 
 ### Beginner

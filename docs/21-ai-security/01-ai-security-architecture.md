@@ -282,6 +282,17 @@ The following are publicly discussed patterns, not confirmed internal specifics 
 - **Cursor and GitHub Copilot**-style coding agents publicly document permission models requiring explicit user approval before higher-risk actions (running shell commands, large multi-file edits, network calls) — a product-level instance of human-in-the-loop and least-privilege, gating exactly the irreversible, externally-visible actions this chapter flags for the heaviest controls.
 - **Browser-and-agent products** across multiple vendors have publicly called out indirect prompt injection via web page content as a live, unresolved risk for any agent that browses on a user's behalf, reinforcing that this is treated industry-wide as open, not solved.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Input / output classifiers** | LlamaGuard 3 (Meta), OpenAI Moderation API, Google SafeSearch / Perspective API, Jigsaw Perspective | LlamaGuard: open-source, self-hosted, configurable harm categories, fine-tunable; OpenAI Moderation: fast managed API, free; Perspective: toxicity and civil discourse focus |
+| **Guardrail frameworks** | Guardrails AI, NeMo Guardrails (NVIDIA), Rebuff | Guardrails AI: combines schema validation + safety checks + retry logic; NeMo Guardrails: NVIDIA-optimised, Colang-based conversation flow control; Rebuff: prompt-injection-specific detection |
+| **PII detection and redaction** | Microsoft Presidio, AWS Comprehend (PII), GLiNER, spaCy with custom NER | Presidio: open-source, self-hosted, 20+ entity types, highly customisable; AWS Comprehend: managed, tight AWS integration; GLiNER: modern NER for custom entity types |
+| **Red-team / adversarial testing** | Garak (NVIDIA), PyRIT (Microsoft), Promptbench, AI safety evals (Anthropic open-sourced) | Garak: automated probe suite for jailbreaks, prompt injection, data leakage; PyRIT: structured red-team with threat-model coverage; run both before any public deployment |
+| **Secret / credential scanning in prompts** | Detect-secrets, GitLeaks (adapted for prompt logs), custom regex classifiers | API keys, tokens, and connection strings regularly appear in user prompts — scan prompt logs with the same tools used for code scanning |
+| **Audit logging and SIEM** | Elastic SIEM, Splunk, Datadog (with LLM trace ingestion), custom log pipelines | Full-fidelity prompt/response logging with access control — treat these logs as sensitive data under the same policies as customer data |
+
 ## Interview Questions
 
 ### Beginner

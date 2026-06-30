@@ -311,6 +311,18 @@ The exact internal serving architectures of frontier-model providers are not pub
 
 These open-source engines are useful, inspectable reference points precisely because they implement the same techniques publicly discussed as in use, in some form, at every major frontier-model provider — they differ mainly in implementation detail and hardware targeting, not fundamental architecture.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Self-hosted serving engines** | vLLM, SGLang, TGI (HuggingFace), TensorRT-LLM (NVIDIA), llama.cpp | vLLM: widest model support, PagedAttention, best default; SGLang: RadixAttention for shared-prefix workloads, faster for agentic multi-turn; TGI: tight HF Hub integration; TRT-LLM: maximum throughput for fixed NVIDIA hardware + model; llama.cpp: CPU and edge |
+| **Managed inference (API)** | Together.ai, Fireworks AI, Groq, Anyscale, Modal, Replicate | Together / Fireworks: production-grade, cost-effective open-model APIs; Groq: lowest latency (LPU hardware); Modal: serverless with autoscale to zero; Replicate: easiest model deployment API |
+| **LLM gateway / multi-provider** | LiteLLM, Portkey, OpenRouter, Martian, Helicone | LiteLLM: open-source, self-hosted, OpenAI-compatible interface for 100+ providers; Portkey: enterprise caching + fallback + observability; OpenRouter: aggregated model marketplace; Martian: automatic model routing by cost/quality |
+| **Multi-LoRA serving** | vLLM (`--enable-lora`), TGI LoRA adapter support, S-LoRA | vLLM multi-LoRA: serve up to ~100 adapters on one base model replica; S-LoRA research: thousands of adapters via paged adapter cache |
+| **Load balancing** | vLLM's built-in load balancer, NGINX, Traefik, Kubernetes Ingress | vLLM can load-balance across replicas with cache-aware routing (routes requests with matching prefixes to the replica most likely to have them cached) |
+| **Benchmarking** | `vllm/benchmarks/benchmark_serving.py`, GenAI Perf (NVIDIA), Locust | Always load-test your actual model + hardware + concurrency before committing to a fleet size; synthetic benchmarks from vendors are best-case numbers |
+| **Quantisation tools** | bitsandbytes (4/8-bit), AutoAWQ, AutoGPTQ, llama.cpp quantise | bitsandbytes: easiest 4/8-bit; AWQ: better quality at 4-bit than GPTQ; GGUF + llama.cpp: CPU serving with Q4_K_M as a common sweet spot |
+
 ## Interview Questions
 
 ### Beginner

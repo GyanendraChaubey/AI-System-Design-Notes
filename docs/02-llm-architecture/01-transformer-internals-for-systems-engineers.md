@@ -253,6 +253,17 @@ The specifics below are drawn from public research papers, talks, and blog posts
 - **Meta's** publicly released Llama family documents grouped-query attention and long-context serving considerations directly in its model cards, treating the KV-cache-size-vs-context-length tradeoff as a first-class design decision.
 - **Anthropic** has publicly discussed long-context engineering (Claude models supporting context windows in the hundreds of thousands of tokens) and prompt/context caching as a product feature — the productized version of prefix caching, letting customers pay a reduced rate for cached, repeated context instead of full per-request recomputation.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Serving engines** | vLLM, SGLang, TensorRT-LLM, TGI (Hugging Face) | vLLM: best default — PagedAttention, multi-LoRA, widest model support; SGLang: RadixAttention for prefix-heavy workloads; TRT-LLM: maximum NVIDIA throughput for fixed model+hardware; TGI: tight HuggingFace Hub integration |
+| **GPU profiling** | NVIDIA Nsight Systems, PyTorch Profiler, `nvtop` | Nsight: timeline of prefill vs decode, kernel-level breakdown; PyTorch Profiler: Python-level; nvtop: quick live GPU utilisation check |
+| **Benchmarking throughput** | `vllm/benchmarks/benchmark_serving.py`, TGI's `text-generation-benchmark` | Load-test actual tokens/sec at your model size and concurrency before committing to a fleet size |
+| **KV cache analysis** | vLLM's built-in Prometheus metrics (`vllm:gpu_cache_usage_perc`), custom dashboards | Cache hit rate and eviction rate are the two metrics that determine whether continuous batching is bottlenecked by memory or compute |
+| **Flash Attention** | Flash Attention 2/3 (built into vLLM, TRT-LLM, SGLang as default kernel) | Already the default in every major engine; relevant when evaluating custom kernels or porting to new hardware |
+| **Model weight formats** | SafeTensors, GGUF (llama.cpp), AWQ, GPTQ | SafeTensors: safest, most portable; GGUF: CPU/edge inference via llama.cpp; AWQ/GPTQ: 4-bit quantised serving |
+
 ## Interview Questions
 
 ### Beginner

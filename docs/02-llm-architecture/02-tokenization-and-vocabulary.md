@@ -254,6 +254,17 @@ The following are drawn from public documentation and known, widely-discussed to
 - **Google's Gemini and earlier T5/PaLM lineage** has published on SentencePiece-based, Unigram-trained tokenization with deliberately multilingual training corpora, reflecting Google's broad non-English user base as a first-class tokenizer design input rather than an afterthought.
 - **Anthropic** has discussed Claude's context-window economics and prompt/context caching publicly without disclosing tokenizer internals in the same depth as OpenAI's open-sourced `tiktoken`; the broader industry pattern — token-based, not character-based, pricing and context limits — is the practical detail every API consumer of any provider needs to internalize regardless of the specific algorithm behind it.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Tokenizer libraries** | `tiktoken` (OpenAI), `sentencepiece` (Google/Meta), HuggingFace `tokenizers` | `tiktoken`: GPT-3.5/4/4o family — fast Rust implementation, closed-source vocab; `sentencepiece`: Llama, T5, Gemma, multilingual models; HF `tokenizers`: universal wrapper, auto-loads correct tokenizer for any HF model |
+| **Token counting** | `tiktoken.encoding_for_model()`, `transformers.AutoTokenizer.encode()` | Count before sending to catch truncation and budget overruns before the API call; never rely on character-count approximations |
+| **Chat template handling** | `tokenizer.apply_chat_template()` (HuggingFace Transformers) | Correct role-marker insertion for instruction-tuned models — getting this wrong silently degrades quality |
+| **Tokenizer debugging / visualisation** | HuggingFace Tokenizer Playground (web), `tiktokenizer.vercel.app` | Inspect exactly how a given string splits before committing to a context budget design |
+| **Multimodal token counting** | OpenAI image token calculator (in API docs), Anthropic token counting API | Images are priced per token; calculate image token cost before allowing user uploads |
+| **Vocabulary analysis** | `tokenizers` library `Tokenizer.get_vocab()`, HuggingFace model card tokenizer sections | Compare vocabulary fertility across languages/domains when selecting a model for a non-English or code-heavy product |
+
 ## Interview Questions
 
 ### Beginner

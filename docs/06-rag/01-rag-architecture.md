@@ -275,6 +275,20 @@ Illustrative cost shape for a mid-size deployment (10M chunks, 500K queries/mont
 - **Google** and **Anthropic** both expose "grounding"/citations-style APIs (e.g., search-grounded generation, citation-linked responses) that follow the same retrieve-then-generate-with-attribution pattern described in this chapter, packaged as a platform primitive rather than a single product.
 - **Cursor** applies the same architecture to a different corpus: the retrieval target is a codebase, combining embedding-based semantic search over code with lexical/symbol-aware signals, because code retrieval has exact-match requirements (identifiers, function names) that pure dense retrieval handles poorly on its own.
 
+## Tools and Ecosystem
+
+| Category | Tools | When to prefer |
+|---|---|---|
+| **Vector DB — managed** | Pinecone, Weaviate Cloud, Zilliz Cloud (managed Milvus) | Fastest to production — no infrastructure to run; Pinecone: simplest API; Weaviate Cloud: hybrid search built-in; Zilliz: scales to billions of vectors |
+| **Vector DB — self-hosted** | Qdrant, Milvus, Weaviate, Chroma | Data residency requirements; cost at scale; Qdrant: Rust-based, low memory overhead; Milvus: battle-tested at billion-vector scale; Chroma: easiest dev setup |
+| **Vector DB — in-database** | pgvector (PostgreSQL), SQLite-vec, OpenSearch | When data already lives in Postgres — avoids a separate service; pgvector + HNSW index is production-viable up to ~5M vectors per table |
+| **Embedding models — managed** | OpenAI `text-embedding-3-small/large`, Cohere `embed-v3`, Voyage AI | text-embedding-3-small: best price/performance for English; Cohere embed-v3: strong multilingual; Voyage: top-ranked on MTEB for many domains |
+| **Embedding models — self-hosted** | BGE-M3 (BAAI), E5-mistral, GTE-Qwen, Jina embeddings | BGE-M3: multilingual + multi-granularity, best open model; self-host when data cannot leave your infrastructure |
+| **Hybrid / lexical search** | Elasticsearch, OpenSearch, BM25s (Python) | Production hybrid search: dense retrieval for semantics + BM25 for exact match; Elasticsearch/OpenSearch ship both; BM25s for lightweight self-contained setup |
+| **Reranking** | Cohere Rerank, Jina Reranker, BGE-reranker, Voyage Rerank | Cross-encoder reranking consistently improves precision; Cohere/Voyage: managed API; BGE-reranker: self-hosted open model |
+| **RAG frameworks / orchestration** | LlamaIndex, LangChain, Haystack, DSPy | LlamaIndex: richest RAG primitives; LangChain: broadest ecosystem; Haystack: production pipeline design; DSPy: optimise retrieval pipeline automatically |
+| **RAG evaluation** | RAGAS, DeepEval, Braintrust, Arize Phoenix, TruLens | RAGAS: faithfulness + answer relevance + context precision; DeepEval: modular metrics, CI integration; TruLens: tracing + eval combined |
+
 ## Interview Questions
 
 ### Beginner
