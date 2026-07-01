@@ -109,6 +109,20 @@ Two ordering philosophies:
 
 Reservation-first is the production pattern — efficient fetching, predictable cost. Fill-then-trim is the prototype pattern — simple to wire up, but fetches content it will only discard, and creates unpredictable latency when compression triggers after a large fetch.
 
+```mermaid
+flowchart LR
+    subgraph RF["Reservation-First"]
+        RF1["Budget manager\ndeclares caps"] --> RF2["Each source fetches\nonly up to its cap"]
+        RF2 --> RF3["Assembly rarely\nneeds to trim"]
+        RF3 --> RF4["Predictable cost\nand latency"]
+    end
+    subgraph FT["Fill-Then-Trim"]
+        FT1["Sources fetch\nunlimited content"] --> FT2["Assembly measures\ntotal size"]
+        FT2 --> FT3["Trim or compress\nuntil it fits"]
+        FT3 --> FT4["Unpredictable latency\nwastes fetch cost"]
+    end
+```
+
 ## Token Counting
 
 Budget arithmetic is only as good as the token counter. Counts must use the actual serving tokenizer for the deployed model — not an estimate, not a character-count proxy, not a different model's tokenizer.
@@ -163,6 +177,15 @@ Enforcement at three levels:
 1. **Cap at fetch** — instruct the retriever, history store, and tool executor to respect a size ceiling when fetching, so content is never fetched that will only be discarded.
 2. **Enforce at assembly** — count tokens for each fetched section; compress or truncate any section that exceeds its cap even after fetch-time enforcement (a second line of defence).
 3. **Reject at pre-flight** — after assembly, count the total; if it exceeds `window_size − output_headroom`, that is a budget manager bug. Fail loudly and instrument.
+
+```mermaid
+flowchart LR
+    SRC["Source\nRetriever / History / Tool"] -->|"must respect cap at fetch"| FETCH["Level 1: Cap at Fetch\ncheapest enforcement\nno wasted network cost"]
+    FETCH -->|"what actually arrived"| ASSEMBLE["Level 2: Enforce at Assembly\ncount tokens per section\ncompress or truncate overages"]
+    ASSEMBLE -->|"fully assembled context"| PREFLIGHT["Level 3: Pre-flight Total Check\ntotal must be under window - headroom\nfailure here is a budget manager bug"]
+    PREFLIGHT -->|"passes"| SEND["Send to LLM"]
+    PREFLIGHT -->|"fails"| ALERT["Alert and log\ndo not send"]
+```
 
 ## Cost Model
 
@@ -259,6 +282,15 @@ Before the upgrade, sample a representative set of assembled prompts and record 
 
 **Q: Tool outputs are the largest source of budget overruns — how do you address this systematically?**
 At three levels: schema design, serialization, and assembly enforcement. Schema design: tool responses should return only what the model needs — IDs, key fields, status — not complete API payloads. Serialization: write a structured formatter for each tool's output, not a raw JSON paste. Assembly enforcement: apply a hard cap at the assembly layer; if the formatted output still exceeds the cap, truncate the least-relevant fields, log what was dropped, and never silently allow expansion.
+
+```mermaid
+flowchart TB
+    PROB["Tool output budget overrun"]
+    PROB --> L1["Level 1: Schema Design\nTool API returns only needed fields\nby default — no post-hoc trimming needed"]
+    PROB --> L2["Level 2: Serialization\nPer-tool formatter converts payload\nto structured summary — not raw JSON paste"]
+    PROB --> L3["Level 3: Assembly Cap\nBudget manager enforces ceiling\ntruncates lowest-priority fields\nlogs what was dropped"]
+    L1 & L2 & L3 --> FIX["Fix upstream not downstream:\nschema design beats serialization\nbeats assembly truncation"]
+```
 
 **Q: When would you choose dynamic allocation over static, and what is the cheapest way to implement the classifier?**
 Dynamic allocation is worth the complexity once production data shows request types have systematically different optimal allocations — visible as either chronic budget over-use on simple queries or cap breaches on complex ones. The cheapest classifier is a heuristic on observable signals: query length, presence of tool invocations in prior turns, or explicit instruction type ("summarize this document" needs more output room than "what's the capital of France"). A heuristic adds under 1ms; a second model call for routing adds 50–200ms and competes with the main call's latency target.

@@ -192,6 +192,17 @@ At high QPS, the compression step must not become a bottleneck:
 - **Use a fast, cheap compressor model** — the compression model's cost should be a small fraction of the main model's cost. A 50ms compression call on a fast-tier model is acceptable; a 400ms compression call on a frontier model that costs as much as the main call is not.
 - **Compress at session boundaries** — if a user returns to a session after a gap, trigger re-compression of the full prior history before the next turn rather than accumulating compression debt turn-by-turn.
 
+At high QPS, the pattern looks like this:
+
+```mermaid
+flowchart LR
+    TURN["User turn N completes\nhistory now at cap"] --> ANSWER["Answer returned\nusing current verbatim history"]
+    ANSWER --> TRIGGER["Background job triggered\nasync — not blocking"]
+    TRIGGER --> SUMM["Cheap model summarizes\noldest M turns"]
+    SUMM --> CACHE["Compressed summary cached\nby session ID and turn range"]
+    CACHE --> NEXT["Turn N+1 assembles:\nCached summary + recent verbatim\nwithin budget"]
+```
+
 ## Monitoring
 
 - **Compression trigger rate** — how often per session compression fires; a rising rate signals history is growing faster than the cap allows.

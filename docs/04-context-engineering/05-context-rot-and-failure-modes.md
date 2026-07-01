@@ -149,13 +149,25 @@ The lost-in-the-middle finding gives a positioning strategy: place the most impo
 | Recent conversation turns | End — natural recency position |
 | Background / optional reference material | Middle — least critical, most tolerable for attention dilution |
 
+```mermaid
+flowchart TB
+    subgraph CTX["Assembled Context Window — Bookended Layout"]
+        TOP["START — High Attention Zone\nSystem instructions and constraints\nCurrent task objective\nTop-1 retrieved chunk"]
+        MID["MIDDLE — Lower Attention Zone\nBackground reference material\nSupplementary knowledge\nOptional context"]
+        BOT["END — High Attention Zone\nRecent conversation turns\nLatest tool results\nCurrent user message"]
+        TOP --> MID --> BOT
+    end
+    TOP -. "never move these".- WARN1["Moving instructions to middle\ncauses instruction drift"]
+    BOT -. "always keep recent content here" .- WARN2["Recent turns naturally\nland in high-attention zone"]
+```
+
 ### 5. Quality Monitoring with Automated Alerts
 
 Detect context rot before users do:
 
 ```mermaid
 flowchart LR
-    SESS["Session approaching\nrotation threshold\ne.g. turn 20 or 60K tokens"] --> PROBE["Automated probe:\nask a factual question\nanswerablefrom early context"]
+    SESS["Session approaching\nrotation threshold\ne.g. turn 20 or 60K tokens"] --> PROBE["Automated probe:\nask a factual question\nanswerable from early context"]
     PROBE --> JUDGE["LLM-as-judge\nor exact-match check"]
     JUDGE -->|"Accuracy above threshold"| CONTINUE["Continue session\nnormal path"]
     JUDGE -->|"Accuracy below threshold"| ALERT["Trigger mitigation:\ncontext refresh or\ninstruction re-injection"]
@@ -242,6 +254,19 @@ Trigger the refresh asynchronously. At the end of a turn that crosses the refres
 
 **Q: You're building an agent that executes 50+ sequential tool calls over hours. Design the context management strategy.**
 At each major subtask boundary (roughly every 5–10 tool calls), extract the structured state: task goal, completed steps with outcomes, files modified, constraints still in effect, current blocking issue. Discard the raw tool call history for completed subtasks; keep it only for the most recent 3–5 calls. The assembled context at any step is: system prompt + task goal + structured state summary + recent 3-5 tool call records + current tool call setup. Set a mandatory refresh if total context exceeds two-thirds of the effective context length. Re-inject the task goal and key constraints at the end of each context refresh. Log every pruning and refresh event for post-hoc debugging.
+
+```mermaid
+flowchart TB
+    STEP["Tool call step N"] --> CHECK{"Subtask\nboundary?"}
+    CHECK -->|"No"| APPEND["Keep last 3-5 tool records verbatim\nDiscard older raw records"]
+    CHECK -->|"Yes — every 5-10 calls"| EXTRACT["Extract structured state:\ntask goal, completed steps,\nfiles modified, current blocker"]
+    EXTRACT --> DISCARD["Discard raw history\nfor completed subtasks"]
+    APPEND & DISCARD --> ASSEMBLE["Assembled context:\nSystem prompt\nTask goal\nStructured state summary\nRecent 3-5 tool records\nCurrent tool setup"]
+    ASSEMBLE --> LIMIT{"Context over\n2/3 of effective\ncontext length?"}
+    LIMIT -->|"No"| NEXT["Next tool call"]
+    LIMIT -->|"Yes"| REFRESH["Mandatory context refresh:\nSummarize full session state\nBuild fresh context\nRe-inject task goal and constraints"]
+    REFRESH --> NEXT
+```
 
 **Q: How do you set a context refresh threshold empirically rather than picking an arbitrary turn count?**
 Run the needle-in-a-haystack benchmark on the deployed model at increasing context sizes, using representative content from your domain (not random prose). Identify the context length at which accuracy drops below an acceptable threshold (e.g., 90%). That is your empirical effective context length. Set the refresh threshold at 70–80% of that figure — early enough to avoid reaching the degradation zone, with headroom for content added within a session after the last refresh. Re-run the benchmark after any model version change, since effective context length can change across versions.

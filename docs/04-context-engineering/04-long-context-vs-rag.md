@@ -81,6 +81,18 @@ Time-to-first-token (TTFT) scales with input context size. The attention computa
 
 For interactive products (chat, copilots, search), 5–40 seconds of TTFT before any streaming output begins is product-defining latency — most users experience this as a broken page load, not a slow response. RAG adds retrieval latency (50–200ms for embedding + ANN search + reranking) but keeps TTFT in the 100–400ms range by delivering a small, targeted context to the model.
 
+```mermaid
+flowchart LR
+    CTX4["4K tokens\n100-300ms TTFT\nInteractive"]
+    CTX32["32K tokens\n400-800ms TTFT\nInteractive"]
+    CTX128["128K tokens\n1-3s TTFT\nMarginal"]
+    CTX500["500K tokens\n5-15s TTFT\nBroken UX"]
+    CTX1M["1M tokens\n15-40s TTFT\nUnusable for chat"]
+    CTX4 --> CTX32 --> CTX128 --> CTX500 --> CTX1M
+    RAG["RAG path\n~8K context\n100-400ms TTFT\nIncludes retrieval latency"]
+    RAG -. compare .-> CTX32
+```
+
 ## The Lost-in-the-Middle Problem
 
 Large context windows give the model *room* to hold information, but they do not guarantee the model *reliably uses* everything in that room. Research (Liu et al. 2023, "Lost in the Middle") demonstrated that language model performance on retrieval tasks degrades significantly for content placed in the middle of long contexts, even when that content is technically within the window.
@@ -212,6 +224,18 @@ Long-context LLMs attend more reliably to content at the beginning and end of th
 
 **Q: Design a system that must serve queries over a 50GB legal document corpus with sub-2-second response time and 99.9% factual accuracy. Which approach, and why?**
 RAG with a hybrid refinement. The corpus is too large for long-context stuffing (cost, latency). Use dense retrieval over chunked documents for candidate selection, reranking for precision, and then load the top-ranked document in full (not just chunks) for the LLM generation step — this handles questions that span sections of a single document. The "99.9% factual accuracy" target requires an explicit eval-and-monitor loop on legal-specific test cases, with a fallback to human review for low-confidence answers. Long-context is used at the document level, not the corpus level.
+
+```mermaid
+flowchart LR
+    Q["Legal query"] --> EMBED["Embed query\n~10ms"]
+    EMBED --> ANN["ANN search\nover chunked corpus\n~30ms"]
+    ANN --> RERANK["Reranker\ntop-20 to top-3\n~50ms"]
+    RERANK --> DOCLOAD["Load top-1 document\nin full — not chunks only\n~20-50K tokens"]
+    DOCLOAD --> LLM["LLM generation\nwith full document\nno cross-section gaps\n~1-1.5s TTFT"]
+    LLM --> CONF{"Confidence\ncheck"}
+    CONF -->|"High"| ANS["Answer + citations"]
+    CONF -->|"Low"| HUMAN["Flag for human review"]
+```
 
 **Q: A team wants to switch from RAG to long-context loading to "simplify the stack" — when is this a good trade and when is it not?**
 It is a reasonable trade when: the corpus is small and stable (fits within budget at the target QPS), latency is flexible (the use case is not interactive), and multi-section reasoning is frequent enough that chunk-based retrieval is producing real quality problems. It is a bad trade when: the corpus is large and growing (cost scales with corpus size on every request), the product is interactive (TTFT at corpus scale fails the UX requirement), or retrieval precision is actually fine and the motivation is engineering convenience rather than a quality signal.
