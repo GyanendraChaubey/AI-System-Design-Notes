@@ -4,9 +4,9 @@ The infrastructure that finds relevant information before generation happens: em
 
 | Page | Status |
 |---|---|
-| [Embedding Models](01-embedding-models.md) | 📋 Planned |
-| [Vector Databases](02-vector-databases.md) | 📋 Planned |
-| [Indexing Algorithms (ANN/HNSW/IVF)](03-indexing-algorithms-ann.md) | 📋 Planned |
-| [Hybrid Search & Reranking](04-hybrid-search-and-reranking.md) | 📋 Planned |
-| [Chunking Strategies](05-chunking-strategies.md) | 📋 Planned |
-| [Knowledge Base Lifecycle Management](06-knowledge-base-lifecycle-management.md) | 📋 Planned |
+| [Embedding Models](01-embedding-models.md) | ✅ Complete |
+| [Vector Databases](02-vector-databases.md) | ✅ Complete |
+| [Indexing Algorithms (ANN/HNSW/IVF)](03-indexing-algorithms-ann.md) | ✅ Complete |
+| [Hybrid Search & Reranking](04-hybrid-search-and-reranking.md) | ✅ Complete |
+| [Chunking Strategies](05-chunking-strategies.md) | ✅ Complete |
+| [Knowledge Base Lifecycle Management](06-knowledge-base-lifecycle-management.md) | ✅ Complete |
