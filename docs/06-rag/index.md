@@ -5,6 +5,6 @@ Retrieval-Augmented Generation: the default architecture for grounding LLM outpu
 | Page | Status |
 |---|---|
 | [RAG Architecture](01-rag-architecture.md) | ✅ Complete |
-| [RAG Evaluation Metrics](02-rag-evaluation-metrics.md) | 📋 Planned |
-| [RAG Failure Modes](03-rag-failure-modes.md) | 📋 Planned |
-| [Advanced RAG Patterns](04-advanced-rag-patterns.md) | 📋 Planned |
+| [RAG Evaluation Metrics](02-rag-evaluation-metrics.md) | ✅ Complete |
+| [RAG Failure Modes](03-rag-failure-modes.md) | ✅ Complete |
+| [Advanced RAG Patterns](04-advanced-rag-patterns.md) | ✅ Complete |
