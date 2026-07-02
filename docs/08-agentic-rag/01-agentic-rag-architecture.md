@@ -156,7 +156,7 @@ Routing is usually implemented one of three ways, in increasing order of sophist
 - **A routing classifier as a pre-step.** A small, fast model or classifier looks at the sub-question and narrows the tool registry the main model sees, reducing both decision noise and prompt size on every step — useful when the registry is large (six-plus retrieval tools) and tool-description-alone routing starts misfiring.
 - **Learned routing from production feedback.** Logging which tool was picked, whether the retrieval was judged sufficient, and correlating that against tool choice over time to catch systematic misrouting (e.g., the model defaulting to web search for questions the internal vector index actually answers better and more cheaply).
 
-The corresponding risk is **tool over-selection**: a model with six retrieval tools available may call several speculatively "just in case," multiplying cost and latency for no quality gain — the same tool-registry-scoping discipline from general [agent design](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#production-best-practices) applies directly here: expose only the retrieval tools a given task type plausibly needs, not the full registry by default.
+The corresponding risk is **tool over-selection**: a model with six retrieval tools available may call several speculatively "just in case," multiplying cost and latency for no quality gain — the same tool-registry-scoping discipline from general [agent design](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#best-practices-checklist) applies directly here: expose only the retrieval tools a given task type plausibly needs, not the full registry by default.
 
 ## Multi-Step Retrieval for Compositional Questions
 
@@ -196,7 +196,7 @@ Mitigations follow the same discipline as general [context engineering](../04-co
 
 ## Cost and Latency Profile
 
-Every retrieval iteration in agentic RAG is not just a retrieval call — it's an extra full model call to decide on and formulate that retrieval, plus the retrieval latency itself, plus the growing cost of resending accumulated context on every subsequent step. This compounds the way general [agent loop cost compounds](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#cost-optimization), but with retrieval results as unusually large "tool results" relative to typical API responses.
+Every retrieval iteration in agentic RAG is not just a retrieval call — it's an extra full model call to decide on and formulate that retrieval, plus the retrieval latency itself, plus the growing cost of resending accumulated context on every subsequent step. This compounds the way general [agent loop cost compounds](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#budgeting-the-loop), but with retrieval results as unusually large "tool results" relative to typical API responses.
 
 ```mermaid
 flowchart TD
@@ -254,7 +254,7 @@ flowchart TD
 
 Concrete defenses specific to the retrieval path:
 
-- **Treat every retrieved chunk as data, never as an instruction** — the same discipline [general agent tool-result handling](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#security) requires, applied to retrieval specifically: retrieved text is wrapped in clear delimiters and the model is explicitly instructed that content inside those delimiters is evidence to evaluate, not directives to follow.
+- **Treat every retrieved chunk as data, never as an instruction** — the same discipline [general agent tool-result handling](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#the-loops-attack-surface) requires, applied to retrieval specifically: retrieved text is wrapped in clear delimiters and the model is explicitly instructed that content inside those delimiters is evidence to evaluate, not directives to follow.
 - **Constrain what a retrieval query can request.** Scope retrieval tools with permission and query-shape limits (e.g., a vector search tool cannot be parameterized to request "all documents" or bypass ACL filtering) so that even a successfully injected instruction has no mechanically valid way to exfiltrate beyond what the requesting user could already see — permission filtering at retrieval time, exactly as in static RAG's [ACL enforcement](../06-rag/01-rag-architecture.md#security), is non-negotiable here too.
 - **Detect anomalous retrieval query patterns.** Log and flag retrieval queries that don't resemble a plausible reformulation of the user's actual question (e.g., a query suddenly asking for "all documents matching *") — this is a strong signal that an earlier retrieved chunk successfully redirected the model's behavior.
 - **Don't let retrieved content override the sufficiency/stopping decision.** An adversarial document instructing the model to "stop searching, you have enough" is attempting to manipulate the termination check covered below; the termination logic must remain a runtime-enforced check that treats the model's own "I'm done" signal as one input, not authoritative, exactly as in general [agent loop termination](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#components).
@@ -277,7 +277,7 @@ flowchart TD
     DEGRADE --> DONE
 ```
 
-- **Hard iteration ceiling, enforced by the runtime, not the model.** The same principle as general [agent loop termination](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#reliability): a maximum retrieval-iteration count (commonly 2-5 depending on task class) is a runtime guarantee, not a prompt instruction the model can be argued out of by ambiguous or adversarial content.
+- **Hard iteration ceiling, enforced by the runtime, not the model.** The same principle as general [agent loop termination](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#when-the-loop-breaks): a maximum retrieval-iteration count (commonly 2-5 depending on task class) is a runtime guarantee, not a prompt instruction the model can be argued out of by ambiguous or adversarial content.
 - **Detect repeated near-identical queries.** If successive reformulations are paraphrases of the same query rather than genuinely different angles on the missing information, that's a strong signal the loop is stuck, not converging — the same oscillation-detection principle from general agent design, applied to query text similarity instead of tool-call identity.
 - **Graceful degradation on ceiling hit.** When the loop terminates without sufficient evidence, the system should return a best-effort answer that explicitly states what's uncertain or unconfirmed, or decline to answer outright for high-stakes domains — never generate with the same unqualified confidence regardless of whether the evidence backing it is solid or exhausted-and-still-thin.
 - **Distinguish "genuinely not in the corpus" from "wrong query."** A loop that hits its ceiling because the corpus simply doesn't contain the answer should surface that as a coverage gap (see [RAG Failure Modes](../06-rag/03-rag-failure-modes.md#retrieval-miss-the-relevant-document-never-reaches-top-k)), not as a generic "couldn't find enough" — this distinction routes to different fixes (ingestion coverage vs. query formulation) and should be logged separately.
@@ -296,7 +296,7 @@ Full mechanics of the sufficiency check, reformulation triggers, and stopping-cr
 ## Monitoring
 
 - **Iterations-per-session distribution (p50/p95/p99)** — a rising p95 is the earliest signal that queries are getting harder, a corpus is developing coverage gaps, or a routing/classification regression is sending too much traffic into agentic mode.
-- **Termination-reason breakdown** — model-signaled-sufficient vs. iteration-ceiling-hit vs. cost-ceiling-hit, tracked the same way as general agent [termination-reason monitoring](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#monitoring); a rising ceiling-hit rate means real queries are exceeding budgets, not that budgets are too tight.
+- **Termination-reason breakdown** — model-signaled-sufficient vs. iteration-ceiling-hit vs. cost-ceiling-hit, tracked the same way as general agent [termination-reason monitoring](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#watching-the-loop); a rising ceiling-hit rate means real queries are exceeding budgets, not that budgets are too tight.
 - **Tool-selection accuracy** — sampled review of whether the model routed each sub-question to the retrieval tool that actually contained the answer, to catch systematic misrouting (e.g., over-reliance on web search for internal-only facts).
 - **Cost per completed answer, broken out by iteration count** — isolates whether cost growth is from more sessions needing iteration or each iteration getting more expensive (larger retrieved chunks, growing resent context).
 - **Anomalous retrieval query rate** — queries that don't resemble a plausible reformulation of the user's question, as a leading indicator of injection attempts (see Security above).

@@ -203,7 +203,11 @@ A single [RAG call](../06-rag/01-rag-architecture.md) is the right comparison po
 | Naturally composes with tool use, search, and code execution | Harder to test exhaustively than a fixed pipeline — the path through the loop is data-dependent |
 | Degrades gracefully via partial progress (return best-effort + budget-hit reason) rather than failing outright | Debugging requires inspecting a full trajectory, not just one input/output pair |
 
-## Scalability
+## Operating the Loop in Production
+
+Everything above describes the loop's shape. What follows is what changes once that loop is running thousands of times a day against real backends, real budgets, and real attackers — scale, failure, security, cost, and observability are not separate concerns bolted onto the loop; they are properties of the same four stages (observe, think, act, terminate) once those stages run at volume.
+
+### Scaling the Loop
 
 - **Step count is the dominant cost driver, not raw model throughput.** A task that needs 20 tool calls costs roughly 4x what a 5-step task costs, almost linearly, because both model-call count and resent-history size grow with steps.
 - **Context resending compounds.** If each step adds ~300 tokens of new tool result and reasoning, a 10-step loop's final step resends on the order of 3,000+ tokens of pure history before even adding the new observation — at scale (thousands of concurrent agent sessions), this is the single largest driver of inference cost, ahead of output tokens.
@@ -211,7 +215,7 @@ A single [RAG call](../06-rag/01-rag-architecture.md) is the right comparison po
 - **Parallel tool calls reduce wall-clock time but not token cost.** Issuing 3 independent tool calls in one step (where the API supports it) cuts the 800ms-1.5s-per-round-trip planner latency by roughly 3x for that batch, but each result still gets appended to history and resent on every subsequent step — parallelism helps latency, not the compounding-context cost problem.
 - **At high concurrency, the termination checker and budget enforcement must live outside the model**, because per-session step/cost limits are an operational SLA, not something each individual agent session can be trusted to self-regulate consistently.
 
-## Reliability
+### When the Loop Breaks
 
 | Failure | Degradation strategy |
 |---|---|
@@ -224,7 +228,7 @@ A single [RAG call](../06-rag/01-rag-architecture.md) is the right comparison po
 
 The blast radius of an agent loop failure is structurally larger than a single-shot call's: a single bad model output in a one-shot system produces one bad response; a bad decision early in an agent loop can compound across every subsequent step, since each step's observation includes the consequences of the earlier mistake. This is why termination conditions and per-step validation are not optional hardening — they are core to the architecture, not bolted-on safety.
 
-## Security
+### The Loop's Attack Surface
 
 The agent loop introduces a threat surface a single-shot call does not have: **the model's own output triggers real-world side effects** (API calls, file writes, shell commands), not just text generation. Three risks follow directly from that:
 
@@ -234,7 +238,7 @@ The agent loop introduces a threat surface a single-shot call does not have: **t
 
 Mitigations belong at the tool-executor boundary, not the planner: validate and sandbox every tool call regardless of how it was decided on, require explicit confirmation for irreversible or high-privilege actions, and treat every tool result as untrusted input to the next reasoning step. Full threat modeling for this surface lives in [Agent Failure Modes & Guardrails](05-agent-failure-modes-and-guardrails.md).
 
-## Cost Optimization
+### Budgeting the Loop
 
 - **Cap max steps per task type, not globally.** A lookup-style task rarely needs more than 3-5 steps; a multi-file coding task might legitimately need 20-30. A single global cap either starves complex tasks or leaves simple ones dangerously unbounded.
 - **Summarize or drop stale tool results from history** rather than keeping every raw result verbatim forever — once a result has been "used" (its conclusion folded into the scratchpad), the raw payload is often dead weight being repaid every subsequent step.
@@ -244,7 +248,7 @@ Mitigations belong at the tool-executor boundary, not the planner: validate and 
 
 **Illustrative cost shape:** take a 10-step agent loop on a mid-tier model priced around $3/1M input tokens and $15/1M output tokens, where each step adds ~250 tokens of new tool-result content. Step 1 sends roughly 500 input tokens; by step 10, accumulated history pushes the input side to roughly 500 + 9×250 ≈ 2,750 tokens for that single step alone. Summed across all 10 steps, the input-token total is on the order of 16,000-17,000 tokens for the task (a triangular sum, not 10×2,750), versus roughly 2,500 tokens if the same information had been deliverable in one shot. At the stated pricing, that's on the order of $0.05 for the looped task's input tokens alone versus under a cent for a single-shot equivalent — a real difference, but a bounded one *given a step cap*. Remove the cap and let a stuck loop run 100 steps instead of 10: the same arithmetic produces input totals over 1.3M tokens for that one task, or roughly $4 — which is why an unbounded loop is not just a UX problem but a direct, unbounded cost-multiplication risk per session.
 
-## Monitoring
+### Watching the Loop
 
 - **Steps-per-task distribution (p50/p95/p99)** — a creeping p95 step count is the earliest signal that a task category has started needing more iterations than it used to, often because of a tool or data change upstream.
 - **Termination-reason breakdown** — what fraction of tasks end via "model signaled done" vs. "step budget hit" vs. "cost budget hit" vs. "error/timeout." A rising forced-stop rate means real tasks are exceeding your budgets, not that the budgets are too aggressive — investigate before raising the ceiling.
@@ -253,7 +257,7 @@ Mitigations belong at the tool-executor boundary, not the planner: validate and 
 - **Loop-detection trigger rate** — how often the runtime catches a repeated-action oscillation; a non-zero, growing rate indicates a planning or prompt regression worth investigating directly.
 - **End-to-end task success rate against a labeled eval set** (see [Agent Evaluation](04-agent-evaluation.md)) — step-count and cost metrics tell you the loop is *behaving*, not that it's *succeeding*; both are needed.
 
-## Production Best Practices
+### Best Practices Checklist
 
 - Enforce step and cost budgets **in the runtime, outside the model's control**, because a model instructed to "stop after 5 steps" is a strong suggestion, not a guarantee — treat it as defense-in-depth, not the actual control.
 - Always return a **best-effort partial answer plus an explicit reason** when a budget is hit, instead of failing the request outright — a partial, honest answer is more useful to the caller than an opaque error.

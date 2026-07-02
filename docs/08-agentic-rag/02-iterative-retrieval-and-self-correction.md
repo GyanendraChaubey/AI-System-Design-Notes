@@ -218,7 +218,7 @@ The production default for most systems: **weight by recency/authority when reli
 
 ### The critical production problem
 
-Everything above assumes the loop eventually converges. In production, it sometimes won't — the evidence genuinely isn't in any available source, and every reformulation still comes back insufficient. Without hard stopping criteria, this is not a theoretical edge case: it is a direct, unbounded cost and latency risk, identical in shape to the general [agent loop termination problem](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#reliability) but specific to retrieval iteration.
+Everything above assumes the loop eventually converges. In production, it sometimes won't — the evidence genuinely isn't in any available source, and every reformulation still comes back insufficient. Without hard stopping criteria, this is not a theoretical edge case: it is a direct, unbounded cost and latency risk, identical in shape to the general [agent loop termination problem](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#when-the-loop-breaks) but specific to retrieval iteration.
 
 ```mermaid
 flowchart TD
@@ -298,7 +298,7 @@ flowchart LR
 ## Monitoring
 
 - **Sufficiency-check outcome distribution** — sufficient-on-first-pass vs. required-reformulation vs. terminated-without-sufficiency, tracked over time; a rising terminated-without-sufficiency rate is a direct signal of corpus coverage gaps or a broken reformulation strategy.
-- **Reformulation-loop detection rate** — how often the near-duplicate-query guard fires, the direct analog of general [agent loop-detection monitoring](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#monitoring) applied to query similarity specifically.
+- **Reformulation-loop detection rate** — how often the near-duplicate-query guard fires, the direct analog of general [agent loop-detection monitoring](../09-agents/01-agent-fundamentals-and-the-agent-loop.md#watching-the-loop) applied to query similarity specifically.
 - **CRAG threshold calibration drift** — periodically re-validate the relevance threshold against a labeled eval set, since embedding model updates, corpus changes, or classifier retraining can silently shift what a given score actually means.
 - **Cost per sufficiency check, broken out from cost per iteration overall** — isolates whether cost growth comes from more iterations happening or the checks themselves getting more expensive.
 - **False-positive and false-negative correction rates**, tracked as first-class metrics, not just inferred from aggregate cost — a false-negative (judged sufficient when it wasn't) is a silent quality failure that won't show up in cost metrics at all.
