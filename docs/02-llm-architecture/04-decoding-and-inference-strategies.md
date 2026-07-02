@@ -184,13 +184,13 @@ Libraries implementing this: **Outlines** (most widely used, grammar-based), **L
 
 ```mermaid
 flowchart TD
-    TOKENS["Generated tokens so far\ne.g. {\"name\": \"Alice\", \"age\":"]
+    TOKENS["Generated tokens so far\ne.g. { name: 'Alice', age:"]
     PARSE["Parse current state\nusing grammar or JSON Schema\nParser determines what comes next"]
     VALID["Compute valid token mask\nOnly tokens that maintain\nvalid partial structure\ne.g. digits 0-9 are valid\nletters or braces are NOT"]
     LOGITS["Original model logits\nover full vocabulary"]
     MASK["Apply mask:\nSet invalid tokens to -infinity\nValid tokens keep their logits"]
     SAMPLE["Sample from masked distribution\nResult is guaranteed\ngrammatically valid"]
-    APPEND["Append chosen token\ne.g. 2 -> {\"name\": \"Alice\", \"age\": 2"]
+    APPEND["Append chosen token\ne.g. 2 -> { name: 'Alice', age: 2"]
     UPDATE["Update parse state\nNow expect more digits\nor closing quote"]
 
     TOKENS --> PARSE --> VALID --> MASK

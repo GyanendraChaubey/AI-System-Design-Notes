@@ -87,11 +87,11 @@ flowchart LR
     MetaStore --> Merger
     Merger -->|"Top-k results + payloads"| App
 
-    style API fill:#4A90D9,color:#fff
-    style IndexLayer fill:#E8A838,color:#fff
-    style MetaStore fill:#6BAE75,color:#fff
-    style ObjStore fill:#9B59B6,color:#fff
-    style Merger fill:#E74C3C,color:#fff
+    style API fill:#1D4ED8,color:#fff
+    style IndexLayer fill:#B45309,color:#fff
+    style MetaStore fill:#15803D,color:#fff
+    style ObjStore fill:#6D28D9,color:#fff
+    style Merger fill:#B91C1C,color:#fff
 ```
 
 ### Detailed Write Path and Read Path
@@ -120,10 +120,10 @@ flowchart TB
 
     style WritePath fill:#1A252F,color:#ECF0F1
     style ReadPath fill:#1A252F,color:#ECF0F1
-    style W2 fill:#E74C3C,color:#fff
-    style R4 fill:#E8A838,color:#fff
-    style R5 fill:#6BAE75,color:#fff
-    style R6 fill:#9B59B6,color:#fff
+    style W2 fill:#B91C1C,color:#fff
+    style R4 fill:#B45309,color:#fff
+    style R5 fill:#15803D,color:#fff
+    style R6 fill:#6D28D9,color:#fff
 ```
 
 **Component responsibilities along each path:**
@@ -254,11 +254,11 @@ flowchart TD
     MT -->|"Yes, shared index"| MT2["Namespace / partition\nper tenant\n(soft isolation)"]
     MT -->|"No"| MT3["Single collection,\nno isolation needed"]
 
-    style P1 fill:#6BAE75,color:#fff
-    style P2 fill:#4A90D9,color:#fff
-    style P3 fill:#E8A838,color:#fff
-    style P4 fill:#9B59B6,color:#fff
-    style P5 fill:#E74C3C,color:#fff
+    style P1 fill:#15803D,color:#fff
+    style P2 fill:#1D4ED8,color:#fff
+    style P3 fill:#B45309,color:#fff
+    style P4 fill:#6D28D9,color:#fff
+    style P5 fill:#B91C1C,color:#fff
 ```
 
 ### Managed SaaS
@@ -311,12 +311,12 @@ flowchart TD
     N -->|Yes| O["Qdrant\nbest perf/$ self-hosted"]
     N -->|No| P["Milvus\nenterprise scale,\nKafka-backed"]
 
-    style D fill:#6BAE75,color:#fff
-    style G fill:#6BAE75,color:#fff
-    style J fill:#4A90D9,color:#fff
-    style M fill:#E8A838,color:#fff
-    style O fill:#9B59B6,color:#fff
-    style P fill:#E74C3C,color:#fff
+    style D fill:#15803D,color:#fff
+    style G fill:#15803D,color:#fff
+    style J fill:#1D4ED8,color:#fff
+    style M fill:#B45309,color:#fff
+    style O fill:#6D28D9,color:#fff
+    style P fill:#B91C1C,color:#fff
 ```
 
 ### Comparison Table

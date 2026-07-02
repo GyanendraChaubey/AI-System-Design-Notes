@@ -124,8 +124,8 @@ flowchart LR
     E --> F[Embedding Model]
     F --> G[(Vector Index)]
 
-    style A fill:#f5f5f5,stroke:#999
-    style G fill:#dbeafe,stroke:#3b82f6
+    style A fill:#f5f5f5,stroke:#999,color:#1a1a2e
+    style G fill:#dbeafe,stroke:#3b82f6,color:#1a1a2e
 ```
 
 ## Hierarchical Parent-Child Chunking
@@ -199,11 +199,11 @@ flowchart TD
     EMBED --> UPSERT[Vector DB Upsert\nwith payload]
     UPSERT --> IDX[(Vector Index\n+ Metadata Store)]
 
-    style PARSER fill:#fef9c3,stroke:#ca8a04
-    style CHUNKER fill:#dcfce7,stroke:#16a34a
-    style META_LAYER fill:#f0fdf4,stroke:#16a34a
-    style EMBED_LAYER fill:#dbeafe,stroke:#3b82f6
-    style IDX fill:#dbeafe,stroke:#3b82f6
+    style PARSER fill:#fef9c3,stroke:#ca8a04,color:#1a1a2e
+    style CHUNKER fill:#dcfce7,stroke:#16a34a,color:#1a1a2e
+    style META_LAYER fill:#f0fdf4,stroke:#16a34a,color:#1a1a2e
+    style EMBED_LAYER fill:#dbeafe,stroke:#3b82f6,color:#1a1a2e
+    style IDX fill:#dbeafe,stroke:#3b82f6,color:#1a1a2e
 ```
 
 ## Document-Type-Specific Strategies

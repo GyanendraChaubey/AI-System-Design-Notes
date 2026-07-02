@@ -86,7 +86,7 @@ For self-hosted models, or when provider-side constraints are insufficient, gram
 
 ```mermaid
 flowchart TD
-    CURR_TOKENS["Current generated tokens\ne.g. {\"status\": \""]
+    CURR_TOKENS["Current generated tokens\ne.g. { status: '"]
     PARSE_STATE["Parse grammar state\nJSON parser knows:\nwe are inside a string value\nfor field 'status'"]
     VALID_MASK["Compute valid token mask\nValid: any character token\nfor the enum values\ne.g. 'a','c','e','f','h','i','l','n','o','p','r','t','u'\nInvalid: closing brace, comma, digit"]
     MODEL_LOGITS["Full model logits\nover 100K vocabulary entries"]

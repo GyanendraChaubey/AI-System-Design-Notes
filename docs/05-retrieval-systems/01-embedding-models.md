@@ -95,9 +95,9 @@ flowchart LR
     E --> F["Dense Vector\n384 / 768 / 1024 / 1536 / 3072 dims"]
     F --> G["Vector Index\n(see Vector Databases)"]
 
-    style A fill:#e8f4f8,stroke:#2196F3
-    style F fill:#e8f8e8,stroke:#4CAF50
-    style G fill:#fff3e0,stroke:#FF9800
+    style A fill:#e8f4f8,stroke:#2196F3,color:#1a1a2e
+    style F fill:#e8f8e8,stroke:#4CAF50,color:#1a1a2e
+    style G fill:#fff3e0,stroke:#FF9800,color:#1a1a2e
 ```
 
 ### Detailed Architecture — Dense and Sparse Paths
@@ -130,9 +130,9 @@ flowchart TB
     SPVEC --> INVERTED["Inverted Index\n(Elasticsearch / OpenSearch)"]
     PERTOK --> COLDB["ColBERT Index\n(PLAID engine)"]
 
-    style DENSE fill:#e3f2fd,stroke:#1976D2
-    style SPARSE fill:#f3e5f5,stroke:#7B1FA2
-    style LATE fill:#e8f5e9,stroke:#388E3C
+    style DENSE fill:#e3f2fd,stroke:#1976D2,color:#1a1a2e
+    style SPARSE fill:#f3e5f5,stroke:#7B1FA2,color:#1a1a2e
+    style LATE fill:#e8f5e9,stroke:#388E3C,color:#1a1a2e
 ```
 
 ## Encoder Internals: Tokenization, Attention, and Pooling
@@ -263,9 +263,9 @@ flowchart TD
 
     Q2 -->|"Highest accuracy needed"| LATE["Late Interaction (ColBERT)\nPer-token MaxSim\n3-10x index size vs dense\nUse: when budget allows, p99 latency < 50ms"]
 
-    style HYBRID fill:#fff3e0,stroke:#FF9800
-    style LATE fill:#fce4ec,stroke:#E91E63
-    style FINETUNE fill:#e8f5e9,stroke:#4CAF50
+    style HYBRID fill:#fff3e0,stroke:#FF9800,color:#1a1a2e
+    style LATE fill:#fce4ec,stroke:#E91E63,color:#1a1a2e
+    style FINETUNE fill:#e8f5e9,stroke:#4CAF50,color:#1a1a2e
 ```
 
 ### When to Use Dense vs Sparse vs Late Interaction
@@ -314,9 +314,9 @@ flowchart TD
     H --> J
     I --> J
 
-    style E fill:#fff3e0,stroke:#FF9800
-    style I fill:#fce4ec,stroke:#E91E63
-    style F fill:#f3e5f5,stroke:#7B1FA2
+    style E fill:#fff3e0,stroke:#FF9800,color:#1a1a2e
+    style I fill:#fce4ec,stroke:#E91E63,color:#1a1a2e
+    style F fill:#f3e5f5,stroke:#7B1FA2,color:#1a1a2e
 ```
 
 ### Dense vs Sparse vs Late Interaction

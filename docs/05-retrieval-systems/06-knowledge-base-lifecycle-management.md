@@ -216,7 +216,7 @@ sequenceDiagram
     CompactJob->>VecDB: Count tombstoned vectors (ghost fraction)
     alt Ghost fraction > 5%
         CompactJob->>VecDB: Rebuild index segment — purge tombstoned vectors
-        VecDB-->>CompactJob: Segment rebuilt; ghost vectors removed
+        VecDB-->>CompactJob: Segment rebuilt - ghost vectors removed
     else Below threshold
         CompactJob->>CompactJob: Skip compaction this cycle
     end
