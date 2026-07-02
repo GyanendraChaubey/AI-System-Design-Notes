@@ -16,6 +16,17 @@ A frozen LLM has three structural problems that retrieval fixes and fine-tuning 
 - **Hallucination on long-tail facts** — models are statistically more likely to confabulate plausible-sounding answers for facts that were rare or absent in training data, and they do so with the same confident tone as for well-represented facts.
 - **No grounding or citability** — without a traceable source, you cannot tell a user (or an auditor, or a regulator) *why* the model said what it said.
 
+```mermaid
+flowchart LR
+    LLM["Frozen LLM"] --> P1["Staleness\nknowledge ends at\ntraining cutoff"]
+    LLM --> P2["Long-tail hallucination\nconfabulates confidently\non rare facts"]
+    LLM --> P3["No grounding\ncannot cite why\nit said something"]
+    P1 --> FIX1["Fixed by: live retrieval\nnot a training run"]
+    P2 --> FIX2["Fixed by: concrete\nevidence to read from"]
+    P3 --> FIX3["Fixed by: traceable\nsource chunks"]
+    FIX1 & FIX2 & FIX3 --> RAG["RAG addresses all three\nfine-tuning addresses none reliably"]
+```
+
 Fine-tuning does not solve any of these well: it is good at teaching style, format, and latent skills, but published evidence and production experience both show it is an unreliable way to inject discrete, retrievable facts — the model can still confabulate facts that were in the fine-tuning set, and updating it requires a full retrain-and-redeploy cycle (hours to days) instead of a re-index (minutes).
 
 ## Why This Architecture Exists
@@ -182,6 +193,20 @@ A common assumption in 2022–2023 was that RAG would always be necessary for gr
 - **Latency.** Prefilling 128K tokens takes 2–10 seconds on most frontier model APIs. Retrieval + 5K-token context typically completes time-to-first-token in under 1 second.
 - **Attribution and citation.** RAG naturally produces citations (the retrieved chunks). Long-context stuffing requires the model to self-identify which parts of the full document it used — a harder, less reliable task.
 
+```mermaid
+flowchart TD
+    START["Grounding decision"] --> SIZE{"Corpus size and\nchange frequency"}
+    SIZE -->|"Small, stable,\nunder ~100K tokens"| COVERAGE{"Query needs full-document\nreasoning or exploration?"}
+    SIZE -->|"Large or\nfrequently updated"| RAGWIN["Use RAG"]
+    COVERAGE -->|"Yes"| LCWIN["Use long-context stuffing"]
+    COVERAGE -->|"No, targeted lookup"| COST{"Cost and latency\nbudget tight?"}
+    COST -->|"Yes: under $0.10/query,\nunder 1s"| RAGWIN
+    COST -->|"No: up to $2/query,\nup to 5s acceptable"| LCWIN
+    RAGWIN & LCWIN --> CITE{"Traceable citations\nrequired?"}
+    CITE -->|"Yes"| RAGWIN
+    CITE -->|"Not strictly"| FINAL["Either viable;\noften combined in practice"]
+```
+
 **The practical decision:**
 
 | Signal | Long-context stuffing | RAG |
@@ -222,6 +247,14 @@ flowchart TD
 - **The reranker is usually the real bottleneck**, since a cross-encoder runs a full forward pass per candidate. Production systems cap reranker input at 20-100 candidates and use a smaller distilled reranker rather than the largest available cross-encoder.
 - **Re-embedding cost**: changing embedding models means re-embedding the entire corpus. At 1B chunks and ~$0.02-0.13 per 1M tokens for a typical embedding API, a full re-embed of a 1B-chunk, ~200-token-average corpus is on the order of $4,000-$26,000 in API cost alone, before compute/time — which is why embedding-model migrations are planned, versioned events, not casual swaps.
 
+```mermaid
+flowchart LR
+    QPS["Rising QPS\nand corpus size"] --> EMB["Embedding service\nusually first bottleneck\nfix: autoscaling + batching"]
+    EMB --> RR["Reranker\nusually the real bottleneck\nfix: cap candidates, distill model"]
+    RR --> IDX["Vector index\nbottleneck past ~100M+ vectors\nfix: sharding, IVF over HNSW"]
+    IDX --> REEMBED["Embedding model migration\none-time cost spike\nfix: plan as a versioned event"]
+```
+
 ## Reliability
 
 | Failure | Degradation strategy |
@@ -231,6 +264,22 @@ flowchart TD
 | Stale index | Serve with a visible "as of" freshness indicator rather than silently serving outdated facts |
 | Reranker timeout | Skip reranking, return raw top-k — degraded relevance beats no answer |
 | LLM provider outage | Fall back to a secondary model/provider (see [Reliability Engineering](../23-staff-level-architecture/09-reliability-engineering.md)) |
+
+```mermaid
+flowchart TD
+    REQ["Incoming query"] --> VDB{"Vector DB\nhealthy?"}
+    VDB -->|"No"| LEX["Fall back to\nlexical-only retrieval"]
+    VDB -->|"Yes"| RET["Hybrid retrieval"]
+    LEX --> RR{"Reranker\nresponds in time?"}
+    RET --> RR
+    RR -->|"Timeout"| RAW["Skip rerank\nreturn raw top-k"]
+    RR -->|"Yes"| RANKED["Reranked candidates"]
+    RAW & RANKED --> GEN{"Primary LLM\nprovider up?"}
+    GEN -->|"No"| SECONDARY["Fail over to\nsecondary provider"]
+    GEN -->|"Yes"| ANSWER["Generate answer"]
+    SECONDARY --> ANSWER
+    ANSWER --> USER["Degraded but\nnon-failing response\nto user"]
+```
 
 Useful SLO framing: track **answerable rate** (fraction of queries where retrieval returned at least one chunk above a relevance threshold) separately from **answer quality**, and track **freshness lag** (time between a source document changing and that change being reflected in the index) as a first-class SLO — for fast-moving corpora (ticket systems, chat logs) this might be minutes; for slower ones (policy docs) hours is fine.
 
@@ -286,6 +335,15 @@ Most RAG literature assumes a monolingual corpus and single-language queries. Pr
 2. **Use a multilingual embedding model.** Models like BGE-M3, multilingual-E5, and LaBSE produce embeddings where semantically equivalent content in different languages is close in embedding space. A query in German can retrieve relevant documents written in English without explicit translation. Pros: no translation cost, language agnostic at query time. Cons: multilingual models typically have lower performance on any single language than a monolingual model specialising in that language; vocabulary fertility for non-Latin-script languages can inflate token counts and embedding cost.
 
 3. **Language-sharded indexes.** Maintain a separate index per language, each with a language-specialised embedding model. Route each query to its language's index. Pros: best per-language retrieval quality. Cons: highest operational complexity (N indexes, N embedding models, query routing layer).
+
+```mermaid
+flowchart TD
+    START["Global corpus,\nmultiple languages"] --> OPT1["Option 1: Translate\neverything to one language\nsimple, lossy, ingest-time cost"]
+    START --> OPT2["Option 2: Multilingual\nembedding model\nno translation, lower per-language accuracy"]
+    START --> OPT3["Option 3: Language-sharded\nindexes\nbest accuracy, highest complexity"]
+    OPT1 & OPT2 & OPT3 --> DECISION{"Corpus size,\nlanguage count,\nops budget"}
+    DECISION --> HYBRID["Production default: multilingual\nembedding model + language metadata\nfilter or boost by detected query language"]
+```
 
 **Hybrid approach (most common in production):** Use a multilingual embedding model for all languages, but maintain a language metadata field per document and apply a language filter (or a mild boost) to prefer documents in the user's detected language when multiple equally-relevant documents exist across languages. This gives 90% of the benefit of sharded indexes at much lower operational cost.
 
