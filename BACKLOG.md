@@ -77,8 +77,8 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## Multi-Agent Systems (`docs/10-multi-agent-systems/`)
 
 - ✅ `01-multi-agent-architecture-patterns.md` — Multi-Agent Architecture Patterns
-- 📋 `02-agent-communication-protocols.md` — Agent Communication Protocols
-- 📋 `03-coordination-failure-and-emergent-behavior.md` — Coordination Failure & Emergent Behavior
+- ✅ `02-agent-communication-protocols.md` — Agent Communication Protocols
+- ✅ `03-coordination-failure-and-emergent-behavior.md` — Coordination Failure & Emergent Behavior
 
 ## Planning Systems (`docs/11-planning-systems/`)
 

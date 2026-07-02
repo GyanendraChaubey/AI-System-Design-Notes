@@ -1,12 +1,10 @@
 # Multi-Agent Architecture Patterns
 
-## Overview
+## What a Multi-Agent System Is, and Why It Exists
 
-A multi-agent system runs more than one independent agent loop on the same task and coordinates them explicitly, instead of giving one agent a bigger toolset and a longer leash. Each sub-agent gets its own context window, often its own role, prompt, tools, or even model, and a separate coordination layer decides how work is split up and how results get merged back together. This chapter is about that coordination layer — what it buys you, what it costs, and the handful of patterns that cover almost everything seen in production.
+A multi-agent system runs more than one independent agent loop on the same task and coordinates them explicitly, instead of giving one agent a bigger toolset and a longer leash. Each sub-agent gets its own context window, often its own role, prompt, tools, or even model, and a separate coordination layer decides how work is split up and how results get merged back together. Concretely: it is an architecture in which multiple independent agent loops — each maintaining its own context, and frequently its own role, tool registry, or model — collaborate on a single overall task under an explicit coordination mechanism that determines how the task is decomposed across agents and how their individual outputs are combined into a final result.
 
-## Definition
-
-A multi-agent system is an architecture in which multiple independent agent loops — each maintaining its own context, and frequently its own role, tool registry, or model — collaborate on a single overall task under an explicit coordination mechanism that determines how the task is decomposed across agents and how their individual outputs are combined into a final result. The defining feature is the coordination mechanism itself: without it, you just have several unrelated agents running in parallel by accident, not a system. This is distinct from one agent with many tools, where a single context window and a single loop make every decision; in a multi-agent system, the decisions are distributed across multiple loops that do not share context by default.
+The defining feature is the coordination mechanism itself: without it, you just have several unrelated agents running in parallel by accident, not a system. This is distinct from one agent with many tools, where a single context window and a single loop make every decision; in a multi-agent system, the decisions are distributed across multiple loops that do not share context by default. This chapter is about that coordination layer — what it buys you, what it costs, and the handful of patterns that cover almost everything seen in production.
 
 ## Problem Statement
 
@@ -329,8 +327,35 @@ When sub-tasks have a strict dependency order — agent B genuinely needs agent 
 **Q: A 4-worker orchestrator task is taking longer than expected. How do you diagnose where the time is going?**
 Break down latency per role — decomposition, each worker, synthesis — not just total elapsed time. Since wall-clock time is bounded by the slowest worker, find which specific worker is the tail; a single slow worker (a flaky tool, an overly broad sub-task, an unbounded retry) is the usual cause, not "the model is generally slow." Compare against the per-role latency distributions under Monitoring to tell a one-off incident from a real regression.
 
+```mermaid
+flowchart LR
+    DECOMP["Decomposition\n1-2s"] --> WPOOL
+    subgraph WPOOL["Worker Pool - parallel"]
+        W1["Worker 1\n8s"]
+        W2["Worker 2\n15s - slowest"]
+        W3["Worker 3\n9s"]
+        W4["Worker 4\n7s"]
+    end
+    WPOOL --> SYNTH["Synthesis\n3-5s"]
+    SYNTH --> TOTAL["Total wall-clock time is roughly\ndecomposition plus slowest worker\nplus synthesis"]
+```
+
+The diagnostic instinct this diagram is meant to trigger: never average the four workers' latencies together. Worker 2 alone sets the wall-clock floor for the whole task, so the fix is scoped to whatever made worker 2 slow, not to the pool in general.
+
 **Q: How do you prevent one confidently wrong worker from corrupting the final synthesized answer?**
 Treat every worker result as untrusted input to synthesis, not a verified finding: require structured, schema-validated output per worker; attach a confidence signal synthesis can weigh; cross-check overlapping claims when sub-tasks overlap; and design synthesis to surface conflicts to the user or re-dispatch a clarifying sub-task rather than silently picking one version when results disagree.
+
+```mermaid
+flowchart LR
+    WORKER["Worker Output"] --> GATE{"Quality Gate:\nschema valid, confidence,\ncross-check"}
+    GATE -->|"pass"| STRUCT["Structured\nschema-validated result"]
+    STRUCT --> SYNTH["Synthesis"]
+    GATE -->|"fail or low confidence"| REJECT["Reject / flag"]
+    REJECT --> REDISPATCH["Re-dispatch\nclarifying sub-task"]
+    REDISPATCH --> GATE
+    REJECT -->|"retry budget exhausted"| PARTIAL["Pass to synthesis\nas flagged gap"]
+    PARTIAL --> SYNTH
+```
 
 ### Staff
 
@@ -340,12 +365,55 @@ Start from whether the task actually decomposes into independent sub-tasks — i
 **Q: Design the failure-handling strategy for an orchestrator-worker system where any of the 5 workers might time out, error, or return low-confidence results.**
 Each worker gets its own bounded retry budget, independent of the others, so one bad worker can't consume a shared retry pool meant for all five. Synthesis is designed to operate on a partial result set from the start, not as a bolted-on fallback — 4 successful workers and 1 timeout should still produce a useful answer with the gap explicitly flagged, not a failed task. A quality gate sits between every worker and synthesis to catch low-confidence results before they're treated as ground truth, and the orchestrator runs under the same step/cost/time ceilings as any single agent loop, since an unbounded orchestrator can spawn unbounded cost across every worker beneath it.
 
+```mermaid
+flowchart TB
+    W1["Worker 1"] --> RB1["Retry budget\nper-worker"]
+    W2["Worker 2"] --> RB2["Retry budget\nper-worker"]
+    W3["Worker 3"] --> RB3["Retry budget\nper-worker"]
+    W4["Worker 4"] --> RB4["Retry budget\nper-worker"]
+    W5["Worker 5"] --> RB5["Retry budget\nper-worker"]
+    RB1 & RB2 & RB3 & RB4 & RB5 --> GATE{"Quality Gate\nper worker"}
+    GATE -->|"pass"| OK["Passed results"]
+    GATE -->|"timeout, error, or\nlow confidence"| FLAG["Flag gap\nexclude from trusted set"]
+    OK --> PARTSYNTH["Partial-result Synthesis\nmerge available results"]
+    FLAG --> PARTSYNTH
+    PARTSYNTH --> GAPNOTE["Explicit gap note\nin final answer"]
+    PARTSYNTH --> CEIL{"Orchestrator ceiling:\nstep, cost, time"}
+    CEIL -->|"within budget"| FINAL["Final Answer"]
+    CEIL -->|"exceeded"| FORCED["Forced stop\nbest-effort answer"]
+```
+
 ## Google-Level Follow-Ups
 
-- "Your 5-worker orchestrator design costs 3x a single agent doing the same task, and the product team says the latency win isn't worth it. What do you change?" — probes whether the candidate's first instinct is to drop worker count or switch patterns entirely (sequential, or back to single-agent), rather than trying to "optimize" a design the cost-latency tradeoff doesn't justify for this use case.
-- "Two of your five workers keep returning contradictory findings on overlapping sub-tasks. Decomposition bug or expected behavior?" — probes whether the candidate distinguishes deliberate overlap (redundancy for cross-checking, a legitimate debate-pattern choice) from accidental overlap (a decomposition bug producing sub-tasks that were supposed to be independent but aren't).
-- "How would this design change if one worker's sub-task could, in rare cases, take 10x longer than the others?" — probes for understanding that fan-in tail latency is dominated by the single slowest worker; a strong answer covers timeout/partial-result strategies, possibly demoting that role to async/best-effort rather than just "add a timeout" with no fallback.
-- "At what scale does hierarchical multi-agent stop paying for itself?" — probes whether the candidate recognizes each added delegation level compounds cost and latency multiplicatively, and that past some point another hierarchy level for "more parallelism" produces mostly coordination overhead with little added useful work underneath it.
+> "Your 5-worker orchestrator design costs 3x a single agent doing the same task, and the product team says the latency win isn't worth it. What do you change?" — *probes whether the candidate's first instinct is to drop worker count or switch patterns entirely (sequential, or back to single-agent), rather than trying to "optimize" a design the cost-latency tradeoff doesn't justify for this use case.*
+
+> "Two of your five workers keep returning contradictory findings on overlapping sub-tasks. Decomposition bug or expected behavior?" — *probes whether the candidate distinguishes deliberate overlap (redundancy for cross-checking, a legitimate debate-pattern choice) from accidental overlap (a decomposition bug producing sub-tasks that were supposed to be independent but aren't).*
+
+```mermaid
+flowchart TB
+    R1["Worker 1 result"] --> OVERLAP
+    R2["Worker 2 result"] --> OVERLAP
+    subgraph SYNTHBLOCK["Synthesis Step"]
+        OVERLAP{"Overlap detector:\ndo claims cover\nthe same fact?"}
+        OVERLAP -->|"no overlap"| MERGE["Merge complementary\nfindings"]
+        OVERLAP -->|"overlap, agree"| CONFIRM["Treat as\ncross-confirmed"]
+        OVERLAP -->|"overlap, contradict"| RESOLVE{"Conflict resolution"}
+        RESOLVE -->|"deliberate debate pattern"| WEIGH["Weigh by confidence\nor re-check source"]
+        RESOLVE -->|"accidental\ndecomposition bug"| REDISP["Re-dispatch\nclarifying sub-task"]
+        RESOLVE -->|"unresolved"| SURFACE["Surface conflict\nto user"]
+    end
+    MERGE --> OUT["Final synthesized answer"]
+    CONFIRM --> OUT
+    WEIGH --> OUT
+    REDISP --> OUT
+    SURFACE --> OUT
+```
+
+> "How would this design change if one worker's sub-task could, in rare cases, take 10x longer than the others?" — *probes for understanding that fan-in tail latency is dominated by the single slowest worker; a strong answer covers timeout/partial-result strategies, possibly demoting that role to async/best-effort rather than just "add a timeout" with no fallback.*
+
+> "At what scale does hierarchical multi-agent stop paying for itself?" — *probes whether the candidate recognizes each added delegation level compounds cost and latency multiplicatively, and that past some point another hierarchy level for "more parallelism" produces mostly coordination overhead with little added useful work underneath it.*
+
+> "If two workers disagree and there's no way to check which one is right, what does synthesis do?" — *probes whether the candidate defaults to silently picking one answer (a correctness risk) versus surfacing the unresolved conflict explicitly to the user or downstream consumer, which is the only honest option when the system genuinely cannot adjudicate.*
 
 ## Common Mistakes
 
