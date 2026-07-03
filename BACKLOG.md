@@ -88,9 +88,9 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## Memory Systems (`docs/12-memory-systems/`)
 
-- 📋 `01-memory-architecture-for-agents.md` — Memory Architecture for Agents
-- 📋 `02-short-term-vs-long-term-memory.md` — Short-Term vs Long-Term Memory
-- 📋 `03-memory-retrieval-and-forgetting.md` — Memory Retrieval & Forgetting
+- ✅ `01-memory-architecture-for-agents.md` — Memory Architecture for Agents
+- ✅ `02-short-term-vs-long-term-memory.md` — Short-Term vs Long-Term Memory
+- ✅ `03-memory-retrieval-and-forgetting.md` — Memory Retrieval & Forgetting
 
 ## Tool Calling (`docs/13-tool-calling/`)
 
