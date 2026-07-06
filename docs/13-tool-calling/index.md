@@ -4,6 +4,6 @@ The protocol layer underneath agentic tool use: schemas, execution, standardizat
 
 | Page | Status |
 |---|---|
-| [Function Calling Architecture](01-function-calling-architecture.md) | 📋 Planned |
-| [Model Context Protocol (MCP)](02-model-context-protocol.md) | 📋 Planned |
-| [Tool Selection at Scale](03-tool-selection-at-scale.md) | 📋 Planned |
+| [Function Calling Architecture](01-function-calling-architecture.md) | ✅ Complete |
+| [Model Context Protocol (MCP)](02-model-context-protocol.md) | ✅ Complete |
+| [Tool Selection at Scale](03-tool-selection-at-scale.md) | ✅ Complete |
