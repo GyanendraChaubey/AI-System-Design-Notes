@@ -4,6 +4,6 @@ GPU fundamentals, sizing math, and multi-GPU topology — enough hardware litera
 
 | Page | Status |
 |---|---|
-| [GPU Fundamentals for AI Systems](01-gpu-fundamentals-for-ai-systems.md) | 📋 Planned |
+| [GPU Fundamentals for AI Systems](01-gpu-fundamentals-for-ai-systems.md) | ✅ Complete |
 | [GPU Sizing & Capacity Planning](02-gpu-sizing-and-capacity-planning.md) | ✅ Complete |
-| [Multi-GPU Topologies & Interconnects](03-multi-gpu-topologies-and-interconnects.md) | 📋 Planned |
+| [Multi-GPU Topologies & Interconnects](03-multi-gpu-topologies-and-interconnects.md) | ✅ Complete |
