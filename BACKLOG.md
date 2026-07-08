@@ -129,13 +129,13 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 
 ## LLMOps (`docs/18-llmops/`)
 
-- 📋 `01-llmops-overview.md` — LLMOps Overview
-- 📋 `02-prompt-and-model-versioning.md` — Prompt & Model Versioning
-- 📋 `03-deployment-strategies-canary-shadow.md` — Deployment Strategies: Canary & Shadow
-- 📋 `04-ci-cd-for-ai-systems.md` — CI/CD for AI Systems
-- 📋 `05-the-fine-tuning-pipeline.md` — The Fine-Tuning Engineering Pipeline *(topic-specific structure)*
-- 📋 `06-ai-incident-response.md` — AI Incident Response *(topic-specific structure)*
-- 📋 `07-continual-learning-and-model-freshness.md` — Continual Learning and Model Freshness *(topic-specific structure)*
+- ✅ `01-llmops-overview.md` — LLMOps Overview
+- ✅ `02-prompt-and-model-versioning.md` — Prompt & Model Versioning
+- ✅ `03-deployment-strategies-canary-shadow.md` — Deployment Strategies: Canary & Shadow
+- ✅ `04-ci-cd-for-ai-systems.md` — CI/CD for AI Systems
+- ✅ `05-the-fine-tuning-pipeline.md` — The Fine-Tuning Engineering Pipeline *(topic-specific structure)*
+- ✅ `06-ai-incident-response.md` — AI Incident Response *(topic-specific structure)*
+- ✅ `07-continual-learning-and-model-freshness.md` — Continual Learning and Model Freshness *(topic-specific structure)*
 
 ## Evaluation (`docs/19-evaluation/`)
 
