@@ -1,6 +1,6 @@
 # Case Studies
 
-Twenty complete system designs for real AI products, each following the same 16-part format: Requirements through Interview Discussion. Use these as worked examples, not just reading material — try designing each one yourself before reading the chapter.
+Twenty-nine system designs spanning real AI products and classic interview prompts, each following the same 16-part format: Requirements through Interview Discussion. Use these as worked examples, not just reading material — try designing each one yourself before reading the chapter.
 
 | Page | Status |
 |---|---|
@@ -24,3 +24,12 @@ Twenty complete system designs for real AI products, each following the same 16-
 | [AI Recruiter](18-ai-recruiter.md) | 📋 Planned |
 | [AI SDR](19-ai-sdr.md) | 📋 Planned |
 | [Glean-Style Enterprise Search](20-glean-enterprise-search.md) | ✅ Complete |
+| [LLM Inference System](21-llm-inference-system.md) | 📋 Planned |
+| [RAG System](22-rag-system.md) | 📋 Planned |
+| [AI Chat Application](23-ai-chat-application.md) | 📋 Planned |
+| [Vector Database](24-vector-database.md) | 📋 Planned |
+| [Web Crawler for AI Knowledge Ingestion](25-web-crawler-ai-ingestion.md) | 📋 Planned |
+| [AI Recommendation System](26-ai-recommendation-system.md) | 📋 Planned |
+| [AI Notification System](27-ai-notification-system.md) | 📋 Planned |
+| [AI Logging & Observability Platform](28-ai-logging-observability-platform.md) | 📋 Planned |
+| [Multi-Agent AI Platform](29-multi-agent-ai-platform.md) | 📋 Planned |
