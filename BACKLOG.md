@@ -155,10 +155,10 @@ Source of truth: `scripts/new_stub.py` (the `SECTIONS` list). Edit entries there
 ## AI Security (`docs/21-ai-security/`)
 
 - ✅ `01-ai-security-architecture.md` — AI Security Architecture
-- 📋 `02-prompt-injection-and-jailbreaks.md` — Prompt Injection & Jailbreaks
-- 📋 `03-data-exfiltration-and-tool-abuse.md` — Data Exfiltration & Tool Abuse
-- 📋 `04-guardrails-and-content-safety.md` — Guardrails & Content Safety
-- 📋 `05-supply-chain-and-model-security.md` — Supply Chain & Model Security
+- ✅ `02-prompt-injection-and-jailbreaks.md` — Prompt Injection & Jailbreaks
+- ✅ `03-data-exfiltration-and-tool-abuse.md` — Data Exfiltration & Tool Abuse
+- ✅ `04-guardrails-and-content-safety.md` — Guardrails & Content Safety
+- ✅ `05-supply-chain-and-model-security.md` — Supply Chain & Model Security
 
 ## Enterprise AI (`docs/22-enterprise-ai/`)
 
