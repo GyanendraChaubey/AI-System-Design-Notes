@@ -5,7 +5,7 @@ How you know an AI system is actually good — offline and online evaluation, LL
 | Page | Status |
 |---|---|
 | [LLM Evaluation Architecture](01-llm-evaluation-architecture.md) | ✅ Complete |
-| [Offline vs Online Evaluation](02-offline-vs-online-evaluation.md) | 📋 Planned |
-| [LLM-as-Judge](03-llm-as-judge.md) | 📋 Planned |
-| [Human Evaluation & Annotation](04-human-evaluation-and-annotation.md) | 📋 Planned |
-| [Regression Testing for LLMs](05-regression-testing-for-llms.md) | 📋 Planned |
+| [Offline vs Online Evaluation](02-offline-vs-online-evaluation.md) | ✅ Complete |
+| [LLM-as-Judge](03-llm-as-judge.md) | ✅ Complete |
+| [Human Evaluation & Annotation](04-human-evaluation-and-annotation.md) | ✅ Complete |
+| [Regression Testing for LLMs](05-regression-testing-for-llms.md) | ✅ Complete |
