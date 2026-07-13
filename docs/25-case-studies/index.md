@@ -5,7 +5,7 @@ Twenty-nine system designs spanning real AI products and classic interview promp
 | Page | Status |
 |---|---|
 | [ChatGPT](01-chatgpt.md) | ✅ Complete |
-| [Claude](02-claude.md) | 📋 Planned |
+| [Claude](02-claude.md) | ✅ Complete |
 | [Gemini](03-gemini.md) | 📋 Planned |
 | [Perplexity](04-perplexity.md) | ✅ Complete |
 | [Cursor](05-cursor.md) | ✅ Complete |
