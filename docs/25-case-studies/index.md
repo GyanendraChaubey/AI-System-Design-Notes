@@ -6,15 +6,15 @@ Twenty-nine system designs spanning real AI products and classic interview promp
 |---|---|
 | [ChatGPT](01-chatgpt.md) | ✅ Complete |
 | [Claude](02-claude.md) | ✅ Complete |
-| [Gemini](03-gemini.md) | 📋 Planned |
+| [Gemini](03-gemini.md) | ✅ Complete |
 | [Perplexity](04-perplexity.md) | ✅ Complete |
 | [Cursor](05-cursor.md) | ✅ Complete |
-| [GitHub Copilot](06-github-copilot.md) | 📋 Planned |
+| [GitHub Copilot](06-github-copilot.md) | ✅ Complete |
 | [Deep Research Agent](07-deep-research-agent.md) | ✅ Complete |
 | [Enterprise RAG Platform](08-enterprise-rag-platform.md) | ✅ Complete |
-| [AI Customer Support Platform](09-ai-customer-support-platform.md) | 📋 Planned |
-| [AI Coding Agent](10-ai-coding-agent.md) | 📋 Planned |
-| [AI Voice Agent](11-ai-voice-agent.md) | 📋 Planned |
+| [AI Customer Support Platform](09-ai-customer-support-platform.md) | ✅ Complete |
+| [AI Coding Agent](10-ai-coding-agent.md) | ✅ Complete |
+| [AI Voice Agent](11-ai-voice-agent.md) | ✅ Complete |
 | [AI Tutor](12-ai-tutor.md) | 📋 Planned |
 | [AI Healthcare Assistant](13-ai-healthcare-assistant.md) | 📋 Planned |
 | [AI Meeting Assistant](14-ai-meeting-assistant.md) | 📋 Planned |
@@ -26,7 +26,7 @@ Twenty-nine system designs spanning real AI products and classic interview promp
 | [Glean-Style Enterprise Search](20-glean-enterprise-search.md) | ✅ Complete |
 | [LLM Inference System](21-llm-inference-system.md) | 📋 Planned |
 | [RAG System](22-rag-system.md) | 📋 Planned |
-| [AI Chat Application](23-ai-chat-application.md) | 📋 Planned |
+| [AI Chat Application](23-ai-chat-application.md) | ✅ Complete |
 | [Vector Database](24-vector-database.md) | 📋 Planned |
 | [Web Crawler for AI Knowledge Ingestion](25-web-crawler-ai-ingestion.md) | 📋 Planned |
 | [AI Recommendation System](26-ai-recommendation-system.md) | 📋 Planned |
