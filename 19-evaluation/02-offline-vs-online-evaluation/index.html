@@ -1,0 +1,7470 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/19-evaluation/02-offline-vs-online-evaluation/">
+      
+      
+        <link rel="prev" href="../01-llm-evaluation-architecture/">
+      
+      
+        <link rel="next" href="../03-llm-as-judge/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Offline vs Online Evaluation - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#offline-vs-online-evaluation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Offline vs Online Evaluation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-evaluation-mechanics-and-ceiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline Evaluation: Mechanics and Ceiling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Offline Evaluation: Mechanics and Ceiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-offline-evaluation-can-and-cannot-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Offline Evaluation Can and Cannot Do
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-offline-ceiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Offline Ceiling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cost-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#golden-set-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Golden Set Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Golden Set Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regression-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regression Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adversarial-edge-case-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adversarial / Edge Case Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#red-team-safety-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Red-Team / Safety Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#online-evaluation-mechanics-and-signal-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online Evaluation: Mechanics and Signal Hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#online-sampling-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online Sampling Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Online Sampling Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sampling-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sampling Strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sampling-rate-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sampling Rate Calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#async-scoring-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async Scoring Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eval-drift-detection-and-remediation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eval Drift: Detection and Remediation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-offline-to-online-feedback-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Offline-to-Online Feedback Loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-evaluation-mechanics-and-ceiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline Evaluation: Mechanics and Ceiling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Offline Evaluation: Mechanics and Ceiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-offline-evaluation-can-and-cannot-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Offline Evaluation Can and Cannot Do
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-offline-ceiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Offline Ceiling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cost-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#golden-set-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Golden Set Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Golden Set Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regression-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regression Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adversarial-edge-case-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adversarial / Edge Case Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#red-team-safety-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Red-Team / Safety Set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#online-evaluation-mechanics-and-signal-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online Evaluation: Mechanics and Signal Hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#online-sampling-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online Sampling Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Online Sampling Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sampling-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sampling Strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sampling-rate-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sampling Rate Calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#async-scoring-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Async Scoring Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eval-drift-detection-and-remediation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eval Drift: Detection and Remediation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-offline-to-online-feedback-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Offline-to-Online Feedback Loop
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Evaluation
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/19-evaluation/02-offline-vs-online-evaluation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="offline-vs-online-evaluation">Offline vs Online Evaluation<a class="headerlink" href="#offline-vs-online-evaluation" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p><a href="../01-llm-evaluation-architecture/">LLM Evaluation Architecture</a> named offline and online evaluation as two of the four layers in the eval system and sketched how they connect. This chapter is the operational depth on those two modes specifically: what each one can and cannot detect, the hard numbers behind why offline eval is cheap enough to run on every pull request and online eval is not, the taxonomy of golden set types that make offline eval worth trusting, the hierarchy of production signals that make online eval worth trusting, and — the part teams get wrong most often — how the two drift apart from each other silently, and the feedback loop that has to exist to keep them connected.</p>
+<p>The central fact that shapes everything in this chapter: <strong>offline eval only ever tests what someone thought to put in the golden set, and online eval only ever tells you about damage after it has already reached users.</strong> Neither failure mode is fixable by trying harder within one mode. It is fixable only by running both, continuously reconciling them, and treating the gap between them as a first-class metric.</p>
+<h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
+<p><strong>Offline evaluation</strong> is scoring a candidate model or prompt against a fixed, version-controlled golden set before the change reaches any real user — a pre-deploy gate that runs in a CI-like environment, on a known input distribution, with a known expected quality bar.</p>
+<p><strong>Online evaluation</strong> is scoring or sampling real, live production traffic after a change has shipped — a post-deploy monitor that runs on the true, current, unbounded input distribution, but only observes quality after users have already been exposed to it.</p>
+<p>They are not two implementations of the same thing. They answer different questions: offline asks "does this change regress on the failure modes we already know about," online asks "is this change actually good for the traffic we're really getting." A system that only does one of these has a blind spot the size of the other.</p>
+<h2 id="offline-evaluation-mechanics-and-ceiling">Offline Evaluation: Mechanics and Ceiling<a class="headerlink" href="#offline-evaluation-mechanics-and-ceiling" title="Permanent link">&para;</a></h2>
+<h3 id="what-offline-evaluation-can-and-cannot-do">What Offline Evaluation Can and Cannot Do<a class="headerlink" href="#what-offline-evaluation-can-and-cannot-do" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Offline eval CAN</th>
+<th>Offline eval CANNOT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Detect regressions on known failure modes already captured in the golden set</td>
+<td>Test unknown failure modes that were never added to the set</td>
+</tr>
+<tr>
+<td>Enforce per-dimension quality floors before any user is exposed</td>
+<td>Reflect the current live query distribution if the set was built months ago</td>
+</tr>
+<tr>
+<td>Provide a repeatable CI gate that never exposes users to untested changes</td>
+<td>Detect regressions specific to long-tail inputs that aren't represented in the set</td>
+</tr>
+<tr>
+<td>Run in minutes with parallelized LLM-judge calls, cheaply, on every PR</td>
+<td>Capture failure modes introduced by input distribution shift (new use cases, new user segments, seasonal query patterns)</td>
+</tr>
+</tbody>
+</table>
+<p>The asymmetry is structural, not a matter of better engineering: a golden set is, by construction, a snapshot. It encodes everything the team knew to test for at the time it was assembled. It cannot encode what the team didn't know to test for, and it cannot update itself when the world changes underneath it. This is exactly why offline eval is necessary but not sufficient — see <a href="#online-evaluation-mechanics-and-signal-hierarchy">Online Evaluation</a> below for the complementary layer that catches what offline structurally cannot.</p>
+<h3 id="the-offline-ceiling">The Offline Ceiling<a class="headerlink" href="#the-offline-ceiling" title="Permanent link">&para;</a></h3>
+<p>The <strong>offline ceiling</strong> is the maximum regression-detection rate any offline eval system can achieve, and it is bounded by how well the golden set covers the real production query distribution — not by how good the judge model is, how well-written the rubric is, or how many examples the set contains in absolute terms.</p>
+<p>A golden set with 95% distribution coverage has, at best, a 95% regression-detection ceiling: any regression whose failure signature lives entirely in the uncovered 5% of the distribution is invisible to the offline gate no matter how well everything else in the pipeline is built. This is a hard mathematical property of coverage, not a tuning problem — you cannot judge-prompt your way past it, and you cannot threshold your way past it.</p>
+<pre class="mermaid"><code>flowchart TB
+    PROD["True production\nquery distribution"] --&gt; COVERED["Covered by golden set\n~95% of distribution"]
+    PROD --&gt; UNCOVERED["Not covered by golden set\n~5% of distribution"]
+    COVERED --&gt; DETECT["Regressions here:\ndetectable offline"]
+    UNCOVERED --&gt; BLIND["Regressions here:\ninvisible to offline gate\nregardless of judge quality"]
+    DETECT --&gt; CEILING["Offline ceiling = coverage %\n~95% in this example"]
+    BLIND --&gt; CEILING</code></pre>
+<p><strong>Measuring the gap</strong> is the only way to know your actual ceiling, since coverage itself isn't directly observable: compare offline golden-set scores against online sampled scores for the same time window. If offline scores stay flat release after release while online sampled scores trend down, that persistent gap is direct empirical evidence that the ceiling has been reached, or that eval drift (below) has silently lowered it further. A team that never compares the two has no way to know whether their offline gate is catching 95% of regressions or 60% — the gate looks equally green either way.</p>
+<h3 id="cost-model">Cost Model<a class="headerlink" href="#cost-model" title="Permanent link">&para;</a></h3>
+<p>A full golden-set run costs three inference calls per example: the candidate model's response, the baseline model's response for comparison, and one judge call to score the pair.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>N examples x 2 inference calls (candidate + baseline) x 1 judge call = 3N total inference calls
+</span></code></pre></div>
+<p>At <strong>N = 500</strong> examples, serialized at roughly 1 second per call: 1,500 calls x 1 second = 25 minutes. With <strong>50 concurrent calls</strong>, the same run finishes in roughly 1,500 / 50 = 30 seconds. This is why parallelization budget is not an optimization nice-to-have for offline eval — it is the difference between a gate that runs on every PR and a gate too slow to run more than once a day.</p>
+<p><strong>Dollar cost</strong>, at a mid-tier judge model priced around $2 per million input tokens and roughly 1,500 tokens per call (transcript + rubric + instructions):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>500 examples x 3 calls x 1,500 tokens x $0.000002/token = $4.50 per full golden-set run
+</span></code></pre></div>
+<p>At <strong>50 PRs per day</strong>, running the full golden set on every PR costs 50 x <span class="arithmatex">\(4.50 = **\)</span>225/day** for CI eval alone — a real, plannable line item, not an afterthought buried in an API bill. Teams that don't budget this explicitly tend to discover it retroactively, at which point the instinct is often to cut corners on the golden set rather than to plan for the cost — see <a href="../01-llm-evaluation-architecture/#cost-optimization">Cost Optimization</a> in Ch01 for the standard levers (tiered PR-gate vs. pre-release sets, cheap-judge triage, caching unchanged pairs) that keep this number from growing unbounded as the golden set grows.</p>
+<h2 id="golden-set-types">Golden Set Types<a class="headerlink" href="#golden-set-types" title="Permanent link">&para;</a></h2>
+<p>Ch01 introduced the golden set as a single concept. In practice, a mature offline eval system maintains four structurally distinct golden set types, each with its own growth pattern, threshold philosophy, and failure mode when neglected.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph GS["Golden Set (composite)"]
+        REG["Regression set\nnever shrinks, hard block"]
+        CAP["Capability set\none slice per capability"]
+        ADV["Adversarial / edge case set\ncatastrophic-failure detection"]
+        RT["Red-team / safety set\nrefusal rate, absolute threshold"]
+    end
+    REG --&gt; GATE{"Release gate"}
+    CAP --&gt; GATE
+    ADV --&gt; GATE
+    RT --&gt; GATE
+    GATE --&gt;|"any set fails\nits own threshold"| BLOCK["Block release"]</code></pre>
+<h3 id="regression-set">Regression Set<a class="headerlink" href="#regression-set" title="Permanent link">&para;</a></h3>
+<p>The regression set holds previously-fixed failure modes that must never regress again. <strong>This set only grows.</strong> Every production failure that was confirmed and fixed earns a permanent entry. There is no deprecation path for a regression-set example short of the underlying capability being removed from the product entirely.</p>
+<p>The governing invariant: <strong>if this set fails, it's a hard block, not a soft threshold.</strong> A regression-set failure means a bug that was already found, fixed, and paid for once is about to ship again — there is no quality tradeoff that justifies letting it through.</p>
+<p>The most common failure mode building this set: teams start it from hand-crafted examples an engineer imagines rather than from confirmed real production failures. Hand-crafted examples test what the team already believes is a risk; confirmed production failures test what has actually gone wrong. A regression set built primarily from imagination looks reassuring and catches almost nothing a real regression would trigger.</p>
+<h3 id="capability-set">Capability Set<a class="headerlink" href="#capability-set" title="Permanent link">&para;</a></h3>
+<p>One slice per distinct product capability the system provides — question answering, summarization, code generation, whatever the product's discrete use cases actually are. Each slice carries its own quality threshold, so an aggregate pass cannot hide a capability-specific regression the way a single blended score would.</p>
+<p><strong>Slicing by use case type, not by input format.</strong> "Short queries" and "long queries" is a format split, not a capability split, and it doesn't map to anything a product owner can reason about. "Order-status lookup" and "return-policy explanation" are capability slices — each has its own expected behavior, its own failure modes, and its own stakeholders who care if it regresses.</p>
+<p><strong>Minimum slice size</strong>: roughly 300 examples per slice to detect a 5-percentage-point regression with reasonable statistical confidence. Below that, a slice's score moves around from run-to-run noise more than from real quality change, and the per-slice threshold becomes unreliable — worse than no threshold, because it produces false confidence in both directions.</p>
+<h3 id="adversarial-edge-case-set">Adversarial / Edge Case Set<a class="headerlink" href="#adversarial-edge-case-set" title="Permanent link">&para;</a></h3>
+<p>Long-context inputs, ambiguous queries, unusual formatting, multilingual inputs, and inputs at the boundary of what the system is designed to handle. Quality thresholds here are deliberately <strong>lower</strong> than the main capability set — the goal is not polished output on hard inputs, it's catching catastrophic failure (crashes, empty responses, completely incoherent output, safety violations) on inputs the system was never optimized for.</p>
+<p>Conflating this set's threshold with the capability set's threshold is a common design mistake: it either makes the capability set unrealistically lenient (to accommodate edge cases it wasn't meant to cover) or makes the edge-case set unrealistically strict (blocking releases over acceptable-but-imperfect handling of genuinely hard inputs).</p>
+<h3 id="red-team-safety-set">Red-Team / Safety Set<a class="headerlink" href="#red-team-safety-set" title="Permanent link">&para;</a></h3>
+<p>Known harmful, adversarial, or policy-violating prompt patterns. The metric here is <strong>refusal rate</strong>, not a quality score — with a threshold commonly set at <strong>98%+ refusal</strong> for weapons- or CSAM-class prompts.</p>
+<p>The threshold is <strong>absolute, not relative to a baseline.</strong> A 3% drop in safety refusal rate is never acceptable regardless of what else improved in the same release — there is no quality-tradeoff logic that applies to safety the way it applies to tone or verbosity. This is the one golden set type where "regression relative to last week" is the wrong framing entirely; the bar is fixed, and every release either clears it or doesn't.</p>
+<p>Maintenance is different from the other three sets as well: the threat landscape evolves continuously, so this set needs new entries the moment new jailbreak techniques are discovered in the wild — not on a quarterly review cadence like the others. See <a href="../01-llm-evaluation-architecture/#safety-and-red-team-evaluation">Safety and Red-Team Evaluation</a> in Ch01 for the broader red-team methodology this set feeds.</p>
+<table>
+<thead>
+<tr>
+<th>Golden set type</th>
+<th>Growth pattern</th>
+<th>Threshold type</th>
+<th>Primary risk if neglected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Regression</td>
+<td>Only grows, never shrinks</td>
+<td>Hard block on any failure</td>
+<td>Known bugs silently ship again</td>
+</tr>
+<tr>
+<td>Capability</td>
+<td>Grows with new product capabilities</td>
+<td>Per-slice, relative to baseline</td>
+<td>Aggregate score hides a capability-specific regression</td>
+</tr>
+<tr>
+<td>Adversarial / edge case</td>
+<td>Grows as new edge cases surface</td>
+<td>Lower bar, catastrophic-failure focused</td>
+<td>Graceful-degradation failures on hard inputs go undetected</td>
+</tr>
+<tr>
+<td>Red-team / safety</td>
+<td>Grows continuously with threat landscape</td>
+<td>Absolute floor (for example 98%+ refusal), never relative</td>
+<td>A small, "acceptable-looking" safety regression ships</td>
+</tr>
+</tbody>
+</table>
+<h2 id="online-evaluation-mechanics-and-signal-hierarchy">Online Evaluation: Mechanics and Signal Hierarchy<a class="headerlink" href="#online-evaluation-mechanics-and-signal-hierarchy" title="Permanent link">&para;</a></h2>
+<p>Online evaluation scores or samples real production traffic after deployment. Its signals differ enormously in signal-to-noise ratio and in coverage, and conflating them — treating a low-coverage, high-signal metric the same as a high-coverage, low-signal one — is the most common mistake in building an online eval dashboard.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph HIGH["Highest signal, lowest coverage"]
+        NEG["Explicit negative feedback\nthumbs down, escalations"]
+        POS["Explicit positive feedback\nthumbs up"]
+    end
+    subgraph MID["Implicit behavioral signals"]
+        RETRY["Response retry rate"]
+        COPY["Copy-to-clipboard rate"]
+    end
+    subgraph LOW["Lowest signal, highest coverage"]
+        ABANDON["Session abandonment rate"]
+        ESCALATE["Escalation-to-human rate"]
+    end
+    NEG --&gt; USE1["Floor signal:\nsomething is seriously wrong"]
+    POS --&gt; USE2["Detects large wins,\nnot small regressions"]
+    RETRY --&gt; USE3["Quality SLI,\nhours-to-days lag"]
+    COPY --&gt; USE4["Productivity-tool\nquality proxy"]
+    ABANDON --&gt; USE5["Statistically meaningful\nonly at scale"]
+    ESCALATE --&gt; USE6["AI-failure proxy\nin support contexts"]</code></pre>
+<ol>
+<li>
+<p><strong>Explicit negative feedback</strong> (thumbs down, "this is wrong" responses, support escalations) — the highest signal, lowest-coverage class. Users flag only a small fraction of bad responses, and they're far more likely to flag a bad experience than to affirm a good one, so this signal is systematically sparse. Treat it as a <strong>floor signal</strong>: a rising explicit negative rate means something is seriously wrong and demands immediate attention, but a flat or low explicit negative rate is not evidence of high quality — it's evidence that most users don't bother flagging anything, good or bad.</p>
+</li>
+<li>
+<p><strong>Explicit positive feedback</strong> (thumbs up, positive rating) — high signal when given, but coverage is even lower than negative feedback, since users rarely thumb-up a correct response with the same reflex they'd thumb-down a bad one. Useful for detecting when a change is dramatically better (a step-change in positive rate is a real signal), but has essentially no statistical power for detecting a small regression.</p>
+</li>
+<li>
+<p><strong>Response retry rate</strong> — a user rephrasing and immediately re-asking the same question is a strong implicit signal that the first response was insufficient. Detecting "same question" requires an embedding-similarity threshold to distinguish a retry from a genuinely new query in the same session. Expected baseline retry rate is typically <strong>5-15%</strong> depending on task type; monitor deviation from that baseline as a quality SLI, not the raw number in isolation.</p>
+</li>
+<li>
+<p><strong>Copy-to-clipboard rate</strong> — a strong implicit positive signal for productivity tools specifically: the user copied the response content, which indicates they judged it actionable enough to use elsewhere. Instrument at the UI layer (a copy event tied to a response ID) and track it as a quality proxy where the product's core value is producing content the user takes and uses — code, drafts, summaries.</p>
+</li>
+<li>
+<p><strong>Session abandonment rate</strong> — the user asks a question and immediately leaves. Confounded by external factors entirely outside the model's control (the user got a phone call, closed the tab by accident), so it is noisy at the individual-session level but statistically meaningful in aggregate at scale.</p>
+</li>
+<li>
+<p><strong>Escalation-to-human rate</strong> — in support applications specifically, an escalation to a human agent typically means the AI failed to resolve the user's need. Instrument this at the point of handoff and threshold it directly; a rising escalation rate is one of the more directly interpretable implicit signals available, precisely because "the AI didn't need to hand this off" is close to what quality means in that product context.</p>
+</li>
+</ol>
+<p><strong>Lag is the property that ties all of this together.</strong> Implicit signals move only after real usage accumulates — typically <strong>hours to days</strong> after a quality degradation actually starts, because it takes volume for a shift in retry rate or abandonment rate to separate from background noise. Implicit signals are <strong>lagging indicators</strong>, not leading ones. A dashboard that treats a same-hour flat retry rate as "no regression yet" is often just observing that the lag hasn't elapsed, not that the change is safe. Weight faster-moving, higher-coverage signals (retry rate) more heavily for early warning, and slower, sparser signals (explicit feedback trends) for confirmation over a longer window.</p>
+<h2 id="online-sampling-architecture">Online Sampling Architecture<a class="headerlink" href="#online-sampling-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="sampling-strategy">Sampling Strategy<a class="headerlink" href="#sampling-strategy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Uniform random sampling</strong> is the baseline: every request has an equal chance of being scored. Simple, unbiased, but under-weights rare-but-critical slices proportionally to their traffic share.</li>
+<li><strong>Stratified sampling</strong> deliberately oversamples high-stakes or historically fragile slices — safety-adjacent queries, queries from high-value or enterprise users, queries in the tail of the length distribution — so a slice that's 1% of traffic but disproportionately important isn't scored at 1% of the sampling budget.</li>
+<li><strong>Temporal sampling</strong> ensures coverage across time-of-day and day-of-week patterns, since product quality genuinely varies by when users are active (different use-case mix at 3am than at 3pm, weekday vs. weekend traffic composition).</li>
+</ul>
+<pre class="mermaid"><code>flowchart LR
+    TRAFFIC["100% production traffic"] --&gt; UNIFORM["Uniform sample\nbaseline coverage"]
+    TRAFFIC --&gt; STRAT["Stratified sample\nsafety, high-value, tail-length slices"]
+    TRAFFIC --&gt; TEMPORAL["Temporal sample\nacross time-of-day and day-of-week"]
+    UNIFORM --&gt; POOL["Combined sampling pool"]
+    STRAT --&gt; POOL
+    TEMPORAL --&gt; POOL
+    POOL --&gt; SCORE["Async scoring pipeline"]</code></pre>
+<h3 id="sampling-rate-calibration">Sampling Rate Calibration<a class="headerlink" href="#sampling-rate-calibration" title="Permanent link">&para;</a></h3>
+<p>At <strong>1% sampling</strong> and <strong>100,000 requests/hour</strong>, the pipeline produces <strong>1,000 scored samples/hour</strong>. Whether that's enough depends on what kind of signal you're trying to detect:</p>
+<ul>
+<li><strong>Binary signal</strong> (pass/fail, refusal/no-refusal): yes — a binomial test at p &lt; 0.01 detects a 5% absolute change with high confidence at n = 1,000.</li>
+<li><strong>Continuous quality score</strong> with standard deviation σ = 0.15: needs roughly <strong>1,350 samples</strong> per comparison period, from the standard sample-size formula for a t-test at 80% power and α = 0.05 detecting an effect size d = 0.13.</li>
+</ul>
+<p>In practice this means: for detecting coarse, binary-ish regressions (a spike in unsafe outputs, a spike in format failures), 1% sampling on meaningful traffic volume is comfortably sufficient. For detecting a small, continuous quality drift (a 0.1-point drop in a 1-5 rubric score), the sampling rate or the comparison window needs to be large enough to clear that ~1,350-sample bar — either raise the sampling percentage, or accept that small continuous drifts are detected over a longer window than large binary ones.</p>
+<h3 id="async-scoring-pipeline">Async Scoring Pipeline<a class="headerlink" href="#async-scoring-pipeline" title="Permanent link">&para;</a></h3>
+<p>Online scoring must never sit in the critical path of serving a request — adding judge-model latency to live response time would defeat the entire purpose of the product.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant User
+    participant Serve as Request Handling Service
+    participant Queue as Async Queue (Kafka / SQS)
+    participant Worker as Scoring Workers
+    participant DB as Quality Database
+    participant Dash as Dashboard
+
+    User-&gt;&gt;Serve: Send request
+    Serve--&gt;&gt;User: Return response (no eval latency added)
+    Serve-&gt;&gt;Queue: Emit sampled request+response pair (ms)
+    Queue-&gt;&gt;Worker: Deliver for scoring (seconds)
+    Worker-&gt;&gt;Worker: LLM-judge scoring (1-5 seconds per sample)
+    Worker-&gt;&gt;DB: Write scored result (ms)
+    DB-&gt;&gt;Dash: Aggregate and refresh (seconds to minutes)</code></pre>
+<p>Total lag from request to a scored point on the dashboard is typically <strong>tens of seconds to a few minutes</strong> — dominated by queue delivery and judge inference time, not by the database or dashboard refresh. That lag is separate from, and much shorter than, the hours-to-days lag before implicit behavioral signals (retry rate, abandonment) accumulate enough volume to be statistically meaningful — the async-scored judge signal is faster but requires the sample to actually be selected and scored, while implicit signals are slower but come from every request without any judge cost.</p>
+<h2 id="eval-drift-detection-and-remediation">Eval Drift: Detection and Remediation<a class="headerlink" href="#eval-drift-detection-and-remediation" title="Permanent link">&para;</a></h2>
+<p><strong>Eval drift</strong> is the growing divergence between the golden set's input distribution and the live production query distribution. It renders offline scores increasingly uncorrelated with online quality — and it does so invisibly, until a regression ships that the offline gate should have caught but structurally couldn't, because the golden set no longer represents what production actually looks like.</p>
+<pre class="mermaid"><code>flowchart TB
+    T0["Golden set built\nrepresents production at time T0"] --&gt; DRIFT["Production distribution\nshifts over weeks/months"]
+    DRIFT --&gt; GAP["Golden set no longer\nrepresents current traffic"]
+    GAP --&gt; SIG1["Signal 1: offline-to-online\nprediction gap widens"]
+    GAP --&gt; SIG2["Signal 2: embedding distribution\ndivergence grows"]
+    GAP --&gt; SIG3["Signal 3: coverage audit finds\nuncovered production clusters"]
+    SIG1 --&gt; REMEDIATE["Remediation:\nquarterly review, reseed from\nproduction, update rubrics,\ndeprecate stale examples"]
+    SIG2 --&gt; REMEDIATE
+    SIG3 --&gt; REMEDIATE
+    REMEDIATE --&gt; T0</code></pre>
+<p><strong>Detection signal 1 — offline-to-online prediction gap.</strong> Compute the correlation between offline golden-set scores and online sampled scores over a rolling window. If offline scores are stable release after release while online scores are trending down, eval drift is the likely explanation: the golden set is telling you nothing has changed, while real traffic is telling you something has.</p>
+<p><strong>Detection signal 2 — embedding distribution divergence.</strong> Compute the mean embedding of recent production queries and the mean embedding of the golden set, and track the cosine distance between them on a weekly cadence. A growing distance is a direct, quantitative signal that the golden set is drifting away from what production actually looks like — independent of any quality score at all.</p>
+<p><strong>Detection signal 3 — coverage audit.</strong> Cluster recent production queries and check what fraction of clusters are covered by at least N golden-set examples. Clusters with zero or very few golden-set examples are coverage gaps — new use cases, new phrasing patterns, or shifted user intent that the golden set has never been tested against.</p>
+<p><strong>Remediation</strong> is a standing operational practice, not a one-time fix: regular golden-set reviews (quarterly minimum), seeding new golden-set examples primarily from recent production traffic (both confirmed failures and sampled successes, so the set doesn't skew entirely toward failure cases), updating rubric dimensions when the competitive quality bar shifts, and deprecating golden-set examples that represent obsolete use cases the product no longer serves.</p>
+<h2 id="the-offline-to-online-feedback-loop">The Offline-to-Online Feedback Loop<a class="headerlink" href="#the-offline-to-online-feedback-loop" title="Permanent link">&para;</a></h2>
+<p>This is the mechanism that makes the eval system compound in value over time rather than staying frozen at whatever it covered on day one.</p>
+<pre class="mermaid"><code>flowchart LR
+    A["Production failure detected\nimplicit signal threshold or explicit report"] --&gt; B["Confirm it's real\npull examples, run through current eval,\nverify the score drop"]
+    B --&gt; C["Label the examples\nLLM-as-judge + human review\nfor hard cases"]
+    C --&gt; D["Add to golden set\ntagged: use case, failure mode, severity"]
+    D --&gt; E["Same failure mode\ncan no longer slip past\nthe offline gate"]
+    E -.future PRs blocked on regression.-&gt; A</code></pre>
+<p>The process, concretely: a production failure is detected (by an implicit-signal threshold crossing or an explicit user report) → the team confirms it's real by pulling the actual examples, running them through the current eval, and verifying the score genuinely dropped, not just noise → the examples are labeled, typically with LLM-as-judge scoring plus human review for hard or ambiguous cases (see <a href="../03-llm-as-judge/">LLM-as-Judge</a> and <a href="../04-human-evaluation-and-annotation/">Human Evaluation and Annotation</a>) → the labeled examples are added to the golden set with tags for use case, failure mode type, and severity → that exact failure mode can never slip past the offline gate again, closing the loop that <a href="../05-regression-testing-for-llms/">Regression Testing for LLMs</a> enforces on every subsequent change.</p>
+<p><strong>Automation</strong> is where the most mature eval systems take this further: a confirmed online failure above a confidence threshold is automatically staged for golden-set inclusion, with a required human acceptance step before it becomes a hard gate. The human step is not optional scaffolding — automated addition without review can introduce noisy or mislabeled examples that then block unrelated, perfectly fine future changes, which erodes trust in the gate exactly the way an over-strict threshold does (see <a href="../05-regression-testing-for-llms/">Regression Testing for LLMs</a> on gate health).</p>
+<p><strong>Rate of golden-set growth as a health metric.</strong> A golden set gaining N new entries per week from confirmed production failures is a system that is actually learning from reality. A golden set that hasn't grown in three months has either achieved near-perfect coverage — statistically unlikely for any product still under active development — or, far more often, the feedback loop has quietly stopped running. Growth rate belongs on the same dashboard as quality scores, not buried in a changelog nobody reads.</p>
+<h2 id="tradeoffs">Tradeoffs<a class="headerlink" href="#tradeoffs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Offline evaluation</th>
+<th>Online evaluation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Speed</td>
+<td>Minutes, runs on every PR</td>
+<td>Hours to days for implicit signal to accumulate</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>Cheap, bounded by golden set size (~$4.50 per full run at N=500)</td>
+<td>Bounded by sampling rate x judge cost, ongoing</td>
+</tr>
+<tr>
+<td>Coverage</td>
+<td>Only what's in the golden set</td>
+<td>The true, current production distribution</td>
+</tr>
+<tr>
+<td>Risk exposure</td>
+<td>Zero — no real user sees an untested change</td>
+<td>Real users are exposed before quality is confirmed</td>
+</tr>
+<tr>
+<td>Detects</td>
+<td>Known failure modes, previously-fixed regressions</td>
+<td>Unknown failure modes, distribution shift, real usage patterns</td>
+</tr>
+<tr>
+<td>Blind spot</td>
+<td>Anything outside golden set coverage (the offline ceiling)</td>
+<td>Anything before enough volume accumulates to separate signal from noise</td>
+</tr>
+<tr>
+<td>Maintenance burden</td>
+<td>Golden set curation, quarterly drift review</td>
+<td>Sampling infrastructure, signal weighting, dashboard/alert tuning</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scalability">Scalability<a class="headerlink" href="#scalability" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Offline run cost at N=500</strong>: ~<span class="arithmatex">\(4.50 per full golden-set run; at 50 PRs/day, ~\)</span>225/day if every PR runs the full set — the standard mitigation is a smaller PR-gate set (100-200 examples) with the full set reserved for pre-release runs, as covered in <a href="../../18-llmops/04-ci-cd-for-ai-systems/">CI/CD for AI Systems</a>.</li>
+<li><strong>Golden set slice sizing</strong>: ~300 examples per capability slice to detect a 5-percentage-point regression with reasonable confidence; below that, per-slice thresholds are noise-dominated.</li>
+<li><strong>Online sampling throughput</strong>: 1% sampling on 100K requests/hour yields 1,000 scored samples/hour — sufficient for binary-signal regression detection (binomial test, p &lt; 0.01), but continuous quality-score drift detection needs closer to 1,350 samples per comparison window at σ = 0.15, α = 0.05, 80% power.</li>
+<li><strong>Async pipeline lag</strong>: tens of seconds to a few minutes from request to a scored dashboard point for judge-scored samples; hours to days before implicit behavioral signals (retry, abandonment) reach statistical significance.</li>
+</ul>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Degradation strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Golden set has drifted from production distribution (eval drift)</td>
+<td>Track offline-to-online score correlation and embedding distribution divergence weekly; alert when the gap widens beyond a set threshold</td>
+</tr>
+<tr>
+<td>Sampling rate too low to detect a real regression</td>
+<td>Recompute required sample size against current traffic volume and the target effect size; raise sampling rate for slices where detection power is marginal</td>
+</tr>
+<tr>
+<td>Async scoring queue backs up under traffic spikes</td>
+<td>Shed load by dropping to a lower sampling rate temporarily rather than blocking request serving; alert on queue depth, not just on missing dashboard data</td>
+</tr>
+<tr>
+<td>Implicit signal noisy at low traffic volume</td>
+<td>Aggregate over a longer window before alerting; don't threshold on single-hour implicit signal movement for low-volume slices</td>
+</tr>
+<tr>
+<td>Stratified sampling misses a slice nobody thought to stratify on</td>
+<td>Periodically re-derive stratification dimensions from actual production clustering, not just the dimensions defined at launch</td>
+</tr>
+<tr>
+<td>Feedback loop stalls (golden set stops growing)</td>
+<td>Track golden-set growth rate as a monitored SLI; alert if no new confirmed-failure entries land within a defined window</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Tier the golden set by run frequency</strong>: a small PR-gate set (100-200 examples) for every commit, a larger pre-release set (1,000+) for release-gate runs — see <a href="../../18-llmops/04-ci-cd-for-ai-systems/">CI/CD for AI Systems</a> for the two-tier pattern in full.</li>
+<li><strong>Sample production traffic, never score all of it</strong>: 1-5% stratified sampling captures regression signal at a fraction of full-traffic judge cost; the sampling-rate math above shows exactly how far a modest percentage goes.</li>
+<li><strong>Weight cheap implicit signals over expensive judge scoring for continuous monitoring</strong>: retry rate and abandonment rate cost nothing beyond instrumentation and catch large regressions fast; reserve judge-scored samples for the slices where implicit signals alone aren't diagnostic enough.</li>
+<li><strong>Batch offline runs at async/batch API pricing</strong> where available — golden-set runs aren't latency-sensitive, so there's no reason to pay synchronous-endpoint pricing for them.</li>
+</ul>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Offline golden-set scores per dimension, per version</strong> — the leading pre-deploy indicator.</li>
+<li><strong>Online sampled quality score, segmented by slice</strong> — the post-deploy confirmation signal, and the one that catches what offline structurally cannot.</li>
+<li><strong>Offline-to-online correlation, tracked weekly</strong> — the single most direct eval-drift early warning.</li>
+<li><strong>Golden-set growth rate</strong> — new entries per week from confirmed production failures; flat for months is a stalled feedback loop, not a solved problem.</li>
+<li><strong>Implicit signal trend, per signal type</strong> — thumbs-down rate, retry rate, abandonment rate, escalation rate, each with its own baseline and lag characteristics.</li>
+<li><strong>Sampling pipeline health</strong> — queue depth, scoring latency, and the actual realized sampling rate versus the configured target (a queue silently dropping samples under load looks identical to "no regression" on a dashboard until someone checks the realized rate).</li>
+</ul>
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Treat the offline ceiling as a real, measurable number, not an assumption — compare offline and online scores on a rolling basis and use the gap to size how much you can trust the offline gate alone.</li>
+<li>Keep the regression, capability, adversarial, and red-team golden sets structurally separate, each with its own threshold philosophy — a single blended golden set collapses exactly the distinctions that make per-set thresholds meaningful.</li>
+<li>Weight implicit online signals by their lag characteristics, not just their coverage — a fast-moving, high-coverage signal like retry rate is better for early warning than a slow, sparse signal like explicit thumbs-down, even though the thumbs-down signal is individually higher-confidence.</li>
+<li>Run eval drift detection as a scheduled job, not a manual quarterly ritual someone remembers to do — embedding-distance and coverage-audit checks are cheap to automate and expensive to skip.</li>
+<li>Automate the offline-to-online feedback loop as far as staging new golden-set candidates, but keep a mandatory human acceptance step before any auto-staged example becomes a hard gate.</li>
+<li>Budget offline eval cost explicitly per PR and per release cycle — the $4.50-per-run, $225-per-day figures above are exactly the kind of number that should be a planned line item, not a surprise.</li>
+</ul>
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Why can offline evaluation never catch every regression, no matter how well it's built?</strong>
+Offline evaluation only tests what's in the golden set. If the golden set has 95% coverage of the real production distribution, the best possible detection rate is 95% — any regression whose failure signature lives entirely in the uncovered 5% is structurally invisible to the offline gate, regardless of how good the judge model or rubric is. This ceiling is a property of coverage, not of eval sophistication.</p>
+<p><strong>Q: Give an example of an implicit online signal and explain why it's useful even though no user explicitly rated anything.</strong>
+Response retry rate — a user rephrasing and immediately re-asking the same question is a strong signal the first response didn't satisfy them, even though they never clicked a thumbs-down button. It's useful because coverage is much higher than explicit feedback (most users don't bother explicitly rating responses, but retry behavior happens naturally whenever the first answer fails), even though it requires more inference (an embedding-similarity check to confirm it's really the same question) to detect reliably.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Your offline golden-set scores have been flat for three months while your online sampled quality score has been slowly declining. What's your first hypothesis and how do you confirm it?</strong>
+Eval drift — the golden set's input distribution no longer represents current production traffic, so it's measuring against an increasingly outdated slice of reality. Confirm it with two checks: compute the embedding distance between the golden set and recent production queries (a growing distance over recent weeks is direct evidence), and run a coverage audit — cluster recent production queries and check what fraction of clusters have few or no golden-set examples. If both point the same direction, the fix is to reseed the golden set from recent production traffic, not to distrust the online signal.</p>
+<p><strong>Q: At 1% sampling on 100,000 requests/hour, is your online eval pipeline capable of detecting a 5% quality regression?</strong>
+Depends on what kind of signal you're measuring. For a binary signal (pass/fail, refusal rate), yes — a binomial test at p &lt; 0.01 has strong power to detect a 5% absolute change at 1,000 samples/hour. For a continuous quality score with meaningful variance (say σ = 0.15), you need roughly 1,350 samples per comparison period to hit 80% power at α = 0.05 for an effect size that small — so at 1,000 samples/hour you'd need to aggregate over more than an hour, or raise the sampling rate, to reliably catch it.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the golden set strategy for a support-chatbot product from scratch — what types do you build, in what order, and why?</strong>
+Start with the regression set, seeded from real confirmed support escalations rather than hand-written examples — this is highest leverage because it directly prevents known failures from shipping twice, and it only grows from here. Next, build the capability set, one slice per distinct support intent (order status, returns, billing disputes), sized at roughly 300 examples per slice so per-slice thresholds carry real statistical weight, not noise. Add the adversarial/edge-case set once the core capability slices are stable, covering multi-turn confusion, ambiguous intent, and unusually long conversation histories, with a deliberately lower bar focused on catching catastrophic failure rather than polish. Build the red-team/safety set in parallel from day one if the product touches any sensitive categories (account access, payment info) — its absolute threshold (for example 98%+ refusal on manipulation attempts) should never be gated behind "we'll get to it later." The order matters because the regression and capability sets deliver the most day-to-day release-gating value fastest, while safety needs to be present from the start regardless of how mature the rest of the pipeline is.</p>
+<pre class="mermaid"><code>flowchart LR
+    S1["1. Regression set\nfrom real escalations"] --&gt; S2["2. Capability set\n~300/slice by intent"]
+    S2 --&gt; S3["3. Adversarial/edge-case set\nlower bar, catastrophic-failure focus"]
+    S1 -.parallel from day one.-&gt; S4["4. Red-team/safety set\nabsolute threshold"]</code></pre>
+<p><strong>Q: A stakeholder asks why online eval can't just replace offline eval entirely, given that online eval sees the real distribution and offline eval structurally cannot. What's the answer?</strong>
+Online eval only observes quality after users have already been exposed to it — it's a post-deploy monitor, not a pre-deploy gate. Removing offline eval means every change, including catastrophic ones, ships straight to real users first and gets caught (if it's caught at all) only after enough volume accumulates for implicit signals to separate from noise — hours to days of exposure at minimum, and for safety-critical regressions that delay is unacceptable regardless of eventual detection. Offline eval's job isn't to be comprehensive, it's to be a fast, cheap, zero-user-risk filter for everything already known to matter; online eval's job is to catch what offline structurally can't know to test for. They're not substitutes — removing either one reintroduces exactly the failure mode the other exists to prevent.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: You inherit an eval system where offline and online scores have quietly diverged over the past year, and nobody noticed until a major regression shipped. Walk through how you'd rebuild trust in the system, in order.</strong>
+First, make the gap itself visible and monitored — compute the offline-to-online correlation retroactively over the past year to understand when and how fast the divergence happened, and put it on a dashboard as a first-class tracked metric going forward, not a one-time forensic exercise. Second, run all three eval-drift detection signals (correlation gap, embedding distance, coverage audit) to diagnose exactly which parts of the golden set have gone stale, rather than rebuilding the whole set from scratch, which throws away everything that's still valid. Third, reseed the stale portions from recent production traffic — confirmed failures first, since they have the highest signal-to-effort ratio, then sampled successes to keep the set balanced. Fourth, put the offline-to-online feedback loop on a scheduled, partially automated cadence (auto-staging candidate examples with mandatory human acceptance) so the same silent divergence can't recur over another year before anyone notices. Finally, set golden-set growth rate and offline-online correlation as monitored SLIs with alerting thresholds, so "nobody noticed for a year" becomes structurally impossible rather than relying on someone remembering to check.</p>
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<ul>
+<li>"Your golden set has 2,000 examples and hasn't grown in four months. Is that necessarily a problem?" — probes whether the candidate distinguishes "stopped growing because coverage is genuinely excellent" from "stopped growing because the feedback loop died," and names the concrete checks (offline-online correlation, coverage audit) that tell them apart rather than assuming either explanation.</li>
+<li>"You have budget to either double your online sampling rate or double your golden set size. Which do you pick, and what would change your answer?" — probes for a coverage-vs-cost tradeoff argument tied to where the actual gap is: if offline-online correlation is already tight, more online sampling has diminishing returns; if the gap is wide, it's a golden-set coverage problem that more sampling alone won't fix.</li>
+<li>"A single high-value enterprise customer represents 0.5% of traffic but drives significant revenue. How does your stratified sampling strategy account for them, and what breaks if it doesn't?" — probes for concrete stratification design (oversampling by customer tier, not just query characteristics) and awareness that uniform sampling structurally under-serves exactly the traffic slices where a quality regression has the highest business cost.</li>
+<li>"Explain why response retry rate has both a detection-speed advantage and a detection-power disadvantage compared to explicit thumbs-down feedback." — probes for the coverage/lag tradeoff: retry rate has far higher coverage (happens naturally, no user action required) so it accumulates statistical power faster, but it's a noisier, indirect proxy (a retry could mean many things) compared to an explicit, unambiguous negative signal that's rarer but cleaner when it does occur.</li>
+</ul>
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Treating a flat offline score as proof nothing has changed</strong> — without tracking offline-to-online correlation, a flat offline score is equally consistent with "nothing changed" and "the golden set has drifted and stopped measuring anything real."</li>
+<li><strong>Building the regression set from hand-crafted examples instead of confirmed production failures</strong> — hand-crafted examples test what the team already assumes is risky; they miss the failure modes users actually hit.</li>
+<li><strong>Using a single blended golden set instead of separating regression, capability, adversarial, and safety sets</strong> — this collapses exactly the per-set threshold logic (absolute for safety, relative for capability, lenient for edge cases) that makes each set meaningful on its own terms.</li>
+<li><strong>Sampling production traffic uniformly with no stratification</strong> — under-weights rare-but-critical slices (safety-adjacent queries, high-value customers) in direct proportion to how rare they are, which is exactly backwards from where sampling budget should go.</li>
+<li><strong>Reacting to implicit signal movement within the same hour as if it were confirmed</strong> — implicit signals like retry and abandonment rate need hours to days to separate real movement from noise; treating same-hour flatness as "no regression" mistakes lag for safety.</li>
+<li><strong>Letting the offline-to-online feedback loop run manually and irregularly</strong> — a feedback loop that depends on someone remembering to triage production failures and add them to the golden set will, in practice, stop running the moment the team gets busy, and nobody will notice until the next incident repeats a known failure mode.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Offline and online evaluation answer different questions — "does this regress on what we already know" versus "is this actually good for real traffic" — and neither can substitute for the other.</li>
+<li>The offline ceiling is a hard, measurable property of golden-set coverage, not a tunable parameter; measure the offline-to-online score gap directly to know your real ceiling rather than assuming it.</li>
+<li>A full golden-set run has a concrete, budgetable cost (roughly <span class="arithmatex">\(4.50 at N=500, ~\)</span>225/day at 50 PRs/day) and a concrete parallelization requirement (30 seconds at 50 concurrent calls versus 25 minutes serialized) — plan both explicitly.</li>
+<li>Golden sets are not one thing: regression, capability, adversarial/edge-case, and red-team/safety sets each need their own growth pattern and threshold philosophy, especially the absolute (never relative) threshold for safety.</li>
+<li>Online signals form a hierarchy from high-signal/low-coverage (explicit feedback) to low-signal/high-coverage (abandonment, escalation), each with different lag characteristics — weight them accordingly rather than treating all movement as equally meaningful.</li>
+<li>Eval drift is silent by default; it needs three concrete detection signals (offline-online correlation, embedding distribution divergence, coverage audit) running on a schedule, not a periodic manual review someone might forget.</li>
+<li>The offline-to-online feedback loop — confirmed production failure becomes a permanent golden-set entry — is what makes the eval system compound in value over time; golden-set growth rate is itself a health metric worth monitoring, not just a byproduct.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Evaluation</a> in the <a href="../../">AI System Design Notes</a>. Previous: <a href="../01-llm-evaluation-architecture/">LLM Evaluation Architecture</a>. Next: <a href="../03-llm-as-judge/">LLM-as-Judge</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../01-llm-evaluation-architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: LLM Evaluation Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                LLM Evaluation Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03-llm-as-judge/" class="md-footer__link md-footer__link--next" aria-label="Next: LLM-as-Judge">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                LLM-as-Judge
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,7658 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/15-model-serving/02-batching-and-continuous-batching/">
+      
+      
+        <link rel="prev" href="../01-model-serving-architecture/">
+      
+      
+        <link rel="next" href="../03-kv-cache-management/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Batching & Continuous Batching - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#batching-continuous-batching" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Batching & Continuous Batching
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-batching-exists-the-hardware-economics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Batching Exists: The Hardware Economics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-batching-and-the-head-of-line-blocking-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Batching and the Head-of-Line Blocking Problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Static Batching and the Head-of-Line Blocking Problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-batching-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Batching Timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#continuous-batching-the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Continuous Batching: The Solution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Continuous Batching: The Solution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-mechanic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Mechanic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-state-evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch State Evolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-this-requires-pagedattention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why This Requires PagedAttention
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-throughput-vs-latency-tradeoff-as-batch-size-grows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Throughput vs. Latency Tradeoff as Batch Size Grows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Throughput vs. Latency Tradeoff as Batch Size Grows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-three-regimes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Three Regimes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sla-differentiated-operating-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SLA-Differentiated Operating Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefill-vs-decode-disaggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill vs. Decode Disaggregation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prefill vs. Decode Disaggregation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-the-phases-conflict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the Phases Conflict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-mixing-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Mixing Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disaggregated-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disaggregated Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-transfer-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Transfer Cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chunked-prefill-the-middle-ground" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunked Prefill: The Middle Ground
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chunked Prefill: The Middle Ground">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ttft-tradeoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The TTFT Tradeoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-chunked-prefill-is-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Chunked Prefill Is Needed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speculative-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speculative Decoding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Speculative Decoding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acceptance-rate-the-key-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance Rate: The Key Metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-speculative-decoding-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Speculative Decoding Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example-batch-size-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Example: Batch Size Budget
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-configuration-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Configuration Parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-batching-exists-the-hardware-economics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Batching Exists: The Hardware Economics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-batching-and-the-head-of-line-blocking-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Batching and the Head-of-Line Blocking Problem
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Static Batching and the Head-of-Line Blocking Problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-batching-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Batching Timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#continuous-batching-the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Continuous Batching: The Solution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Continuous Batching: The Solution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-mechanic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Mechanic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-state-evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch State Evolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-this-requires-pagedattention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why This Requires PagedAttention
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-throughput-vs-latency-tradeoff-as-batch-size-grows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Throughput vs. Latency Tradeoff as Batch Size Grows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Throughput vs. Latency Tradeoff as Batch Size Grows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-three-regimes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Three Regimes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sla-differentiated-operating-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SLA-Differentiated Operating Points
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefill-vs-decode-disaggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill vs. Decode Disaggregation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prefill vs. Decode Disaggregation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-the-phases-conflict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the Phases Conflict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-mixing-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Mixing Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disaggregated-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disaggregated Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-transfer-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Transfer Cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chunked-prefill-the-middle-ground" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chunked Prefill: The Middle Ground
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chunked Prefill: The Middle Ground">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ttft-tradeoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The TTFT Tradeoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-chunked-prefill-is-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Chunked Prefill Is Needed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speculative-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speculative Decoding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Speculative Decoding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acceptance-rate-the-key-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance Rate: The Key Metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-speculative-decoding-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Speculative Decoding Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-example-batch-size-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Example: Batch Size Budget
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-configuration-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Configuration Parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Model Serving
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/15-model-serving/02-batching-and-continuous-batching.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="batching-continuous-batching">Batching &amp; Continuous Batching<a class="headerlink" href="#batching-continuous-batching" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Batching is the single biggest lever on GPU utilization in LLM serving. It determines whether a GPU runs at 20% or 90% utilization under identical traffic, using the same model weights and the same hardware. The batching strategy — how the scheduler groups concurrent requests — is what separates a serving stack costing $5/million tokens from one costing $0.50/million tokens on the same infrastructure.</p>
+<p>This chapter starts from the hardware economics that make batching necessary, walks through static batching's failure mode, explains how continuous batching solved it, and then covers the full set of techniques that production systems layer on top: prefill-decode disaggregation, chunked prefill, speculative decoding, and the practical configuration parameters that a serving engineer actually tunes.</p>
+<p>See also: <a href="../01-model-serving-architecture/">Model Serving Architecture</a> for the broader serving stack this chapter fits into, and <a href="../../14-ai-infrastructure/02-the-inference-stack/">The Inference Stack</a> for the four-layer stack overview.</p>
+<hr />
+<h2 id="why-batching-exists-the-hardware-economics">Why Batching Exists: The Hardware Economics<a class="headerlink" href="#why-batching-exists-the-hardware-economics" title="Permanent link">&para;</a></h2>
+<p>LLM decode is <strong>memory-bandwidth-bound</strong>, not compute-bound. Each decode step reads the entire set of model weights plus the growing KV cache from VRAM, performs a comparatively small matrix multiply (one token's query against the KV cache), and writes one token back. The bottleneck is data movement, not arithmetic.</p>
+<p>The key number: for a 70B BF16 model (140 GB of weights) on an H100 with 3.35 TB/s HBM3 bandwidth, each decode step takes roughly:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>140 GB ÷ 3,350 GB/s ≈ 42ms per token (single request)
+</span></code></pre></div>
+<p>But that 42ms reads 140 GB of weights regardless of whether the GPU serves 1 request or 64 requests simultaneously. The memory subsystem cost is fixed. Batching routes that fixed cost across many requests at once.</p>
+<table>
+<thead>
+<tr>
+<th>Batch size</th>
+<th>Weight read per step</th>
+<th>Tokens produced</th>
+<th>Effective throughput</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>140 GB</td>
+<td>1</td>
+<td>1x</td>
+</tr>
+<tr>
+<td>8</td>
+<td>140 GB</td>
+<td>8</td>
+<td>~8x</td>
+</tr>
+<tr>
+<td>32</td>
+<td>140 GB</td>
+<td>32</td>
+<td>~32x</td>
+</tr>
+<tr>
+<td>64</td>
+<td>140 GB</td>
+<td>64</td>
+<td>~64x</td>
+</tr>
+</tbody>
+</table>
+<p>A single request uses roughly 1–5% of an H100's parallel compute capacity during decode. The rest is wasted. Batching is the mechanism that amortizes the per-step weight-read cost across many requests simultaneously.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph SingleReq["Single Request: ~1-5% GPU utilization"]
+        W1["140GB weights read"] --&gt; T1["1 token out"]
+    end
+    subgraph Batch64["Batch of 64: ~60-90% GPU utilization"]
+        W2["140GB weights read\nsame cost as single request"] --&gt; T64["64 tokens out"]
+    end</code></pre>
+<hr />
+<h2 id="static-batching-and-the-head-of-line-blocking-problem">Static Batching and the Head-of-Line Blocking Problem<a class="headerlink" href="#static-batching-and-the-head-of-line-blocking-problem" title="Permanent link">&para;</a></h2>
+<p>The naive batching approach works like this: the scheduler waits until N requests have accumulated (or a timeout fires), groups them into one batch, runs the full batch through the model, and returns all results when the entire batch finishes.</p>
+<p>This is <strong>static batching</strong>. It improves utilization over one-at-a-time serving, but it has a structural flaw that makes it unacceptable for autoregressive generation.</p>
+<h3 id="the-core-problem">The Core Problem<a class="headerlink" href="#the-core-problem" title="Permanent link">&para;</a></h3>
+<p>In autoregressive generation, different requests in the same batch produce different output lengths. A request that generates 20 tokens finishes in 20 decode steps. A request that generates 2,000 tokens takes 2,000 decode steps. In static batching, the batch is frozen at dispatch time: the 20-token request must wait in the batch until the 2,000-token request finishes — its GPU slot sits idle for 1,980 decode steps, burning VRAM and blocking the caller.</p>
+<p>This is <strong>head-of-line blocking</strong>: a short request pays the latency cost of the longest request in its batch.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph StaticBatch["Static Batch: 4 requests dispatched together"]
+        direction LR
+        A["Req A: 20 tokens\n|████░░░░░░░░░░░░░░░░░░░░░░░░░░|"]
+        B["Req B: 200 tokens\n|████████████████████░░░░░░░░░░|"]
+        C["Req C: 500 tokens\n|█████████████████████████████░|"]
+        D["Req D: 2000 tokens\n|██████████████████████████████|"]
+    end
+    WAIT["A, B, C must wait here\nuntil D finishes"] --&gt; DONE["All 4 results returned simultaneously\nA waited 1980 extra steps"]
+    StaticBatch --&gt; WAIT</code></pre>
+<p>The wasted compute is not hypothetical. In a batch where one request generates 2,000 tokens and three generate 20 tokens, the three short requests occupy GPU slots for ~1,980 steps producing nothing — 99% of their slot time is idle. Padding to the longest sequence wastes additional compute on the attention over empty positions.</p>
+<h3 id="static-batching-timeline">Static Batching Timeline<a class="headerlink" href="#static-batching-timeline" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Q as Request Queue
+    participant S as Scheduler
+    participant G as GPU
+
+    Note over Q,G: Static batching: batch locked at dispatch time
+    Q-&gt;&gt;S: Batch formed: A(20tok), B(200tok), C(500tok), D(2000tok)
+    S-&gt;&gt;G: Run batch together
+    G--&gt;&gt;S: A finishes at step 20 - slot IDLE
+    G--&gt;&gt;S: B finishes at step 200 - slot IDLE
+    G--&gt;&gt;S: C finishes at step 500 - slot IDLE
+    G--&gt;&gt;S: D finishes at step 2000
+    S-&gt;&gt;Q: Batch complete - all 4 returned NOW
+    Note over Q,S: New requests waited 2000 steps regardless of when they arrived</code></pre>
+<hr />
+<h2 id="continuous-batching-the-solution">Continuous Batching: The Solution<a class="headerlink" href="#continuous-batching-the-solution" title="Permanent link">&para;</a></h2>
+<p><strong>Continuous batching</strong> (also called in-flight batching or iteration-level scheduling) was introduced by the Orca paper (2022) and popularized in production by vLLM. Instead of scheduling at the request level, it schedules at the decode iteration level.</p>
+<h3 id="the-core-mechanic">The Core Mechanic<a class="headerlink" href="#the-core-mechanic" title="Permanent link">&para;</a></h3>
+<p>After each decode step, the scheduler checks: did any requests in the current batch finish (emit EOS or reach max tokens)? If yes, their slots are freed immediately and waiting requests from the queue are inserted for the next decode step. No request needs to wait for other requests to finish.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Q as Request Queue
+    participant S as Scheduler
+    participant KV as KV Cache Mgr
+    participant G as GPU
+
+    Note over Q,G: Continuous batching: batch changes every decode step
+    Q-&gt;&gt;S: A(20tok), B(200tok), C(500tok), D(2000tok) all admitted
+    S-&gt;&gt;KV: Allocate KV blocks for A, B, C, D
+    S-&gt;&gt;G: Decode step 1 - batch [A,B,C,D]
+    loop Steps 2-20
+        G--&gt;&gt;S: All 4 active - produce 1 token each
+        S-&gt;&gt;G: Next decode step
+    end
+    G--&gt;&gt;S: A produces EOS at step 20
+    S-&gt;&gt;KV: Free A's KV blocks immediately
+    Q-&gt;&gt;S: New request E admitted into A's freed slot
+    S-&gt;&gt;KV: Allocate KV blocks for E
+    Note over S,G: Batch is now [B,C,D,E] - A's caller already received their result
+    S-&gt;&gt;G: Decode step 21 - batch [B,C,D,E]</code></pre>
+<h3 id="batch-state-evolution">Batch State Evolution<a class="headerlink" href="#batch-state-evolution" title="Permanent link">&para;</a></h3>
+<p>The batch composition changes at every iteration. This diagram shows 10 decode steps as requests enter and leave:</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph T1["Steps 1-20"]
+        B1["A: generating\nB: generating\nC: generating\nD: generating"]
+    end
+    subgraph T2["Step 21"]
+        B2["A: DONE, freed\nB: generating\nC: generating\nD: generating\nE: just admitted"]
+    end
+    subgraph T3["Steps 21-200"]
+        B3["B: generating\nC: generating\nD: generating\nE: generating"]
+    end
+    subgraph T4["Step 201"]
+        B4["B: DONE, freed\nC: generating\nD: generating\nE: generating\nF: just admitted"]
+    end
+    T1 --&gt; T2 --&gt; T3 --&gt; T4</code></pre>
+<p>The critical property: Request E's first token does not wait for B, C, or D to complete. Request A's completion does not stall B, C, or D. Every completed request immediately frees capacity for the next waiting request.</p>
+<h3 id="why-this-requires-pagedattention">Why This Requires PagedAttention<a class="headerlink" href="#why-this-requires-pagedattention" title="Permanent link">&para;</a></h3>
+<p>Continuous batching creates a problem for memory management: when a new request is inserted mid-batch, the serving engine cannot pre-allocate contiguous VRAM for it because it doesn't yet know how many tokens the request will generate. Classic CUDA memory allocation requires contiguous blocks — you must request the full allocation upfront.</p>
+<p>PagedAttention solves this by managing KV cache in fixed-size pages (blocks), so new requests can be allocated pages incrementally as they generate tokens. This is covered in depth in <a href="../03-kv-cache-management/">KV Cache Management</a>.</p>
+<hr />
+<h2 id="the-throughput-vs-latency-tradeoff-as-batch-size-grows">The Throughput vs. Latency Tradeoff as Batch Size Grows<a class="headerlink" href="#the-throughput-vs-latency-tradeoff-as-batch-size-grows" title="Permanent link">&para;</a></h2>
+<p>Increasing batch size improves aggregate throughput but at a cost to per-request latency. This tradeoff is not linear — there's a regime of good scaling, a knee, and a cliff.</p>
+<h3 id="the-three-regimes">The Three Regimes<a class="headerlink" href="#the-three-regimes" title="Permanent link">&para;</a></h3>
+<p><strong>Regime 1 — Scaling regime (batch size 1 → ~32)</strong>: Each additional request in the batch costs almost nothing in per-request latency (the weight-read was happening anyway) but adds one more token per decode step. Throughput scales nearly linearly with batch size. TPOT barely changes because VRAM bandwidth is the bottleneck, and adding requests doesn't increase per-step VRAM bandwidth consumption significantly.</p>
+<p><strong>Regime 2 — Saturation regime (batch size ~32 → ~128)</strong>: The batch begins to stress available VRAM bandwidth and KV cache memory. Each new request adds more KV cache data to read per step. TPOT begins rising. Throughput continues growing but more slowly.</p>
+<p><strong>Regime 3 — KV cache limit (batch size &gt; memory ceiling)</strong>: The aggregate KV cache for the batch approaches available VRAM. The scheduler must begin evicting or queuing requests. TTFT rises sharply as requests wait for slots. Past this point, adding more concurrent requests reduces throughput (eviction overhead) and spikes latency.</p>
+<pre class="mermaid"><code>flowchart TD
+    BS1["Batch size = 1\nThroughput: 1x\nTTFT: minimal\nTPOT: minimal"] --&gt; BS8["Batch size = 8\nThroughput: ~7x\nTTFT: small queue\nTPOT: ~same"]
+    BS8 --&gt; BS32["Batch size = 32\nThroughput: ~20x\nTTFT: moderate queue\nTPOT: modest increase"]
+    BS32 --&gt; BS64["Batch size = 64\nThroughput: ~30x\nTTFT: noticeable queue\nTPOT: increasing"]
+    BS64 --&gt; BSMAX["Batch size at KV ceiling\nThroughput: peaks here\nTTFT: spikes\nTPOT: elevated"]
+    BSMAX --&gt; BSOVER["Batch beyond ceiling\nThroughput: FALLS\nEviction overhead\nOOM risk"]</code></pre>
+<h3 id="sla-differentiated-operating-points">SLA-Differentiated Operating Points<a class="headerlink" href="#sla-differentiated-operating-points" title="Permanent link">&para;</a></h3>
+<p>Different application classes require different points on this curve:</p>
+<table>
+<thead>
+<tr>
+<th>Application class</th>
+<th>Latency requirement</th>
+<th>Optimal operating point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Real-time voice AI</td>
+<td>TTFT &lt; 300ms</td>
+<td>Small batch, low queue depth</td>
+</tr>
+<tr>
+<td>Interactive chat</td>
+<td>TTFT &lt; 800ms, TPOT &lt; 50ms</td>
+<td>Moderate batch, ~32-64</td>
+</tr>
+<tr>
+<td>Coding assistant</td>
+<td>TTFT &lt; 2s, TPOT &lt; 30ms</td>
+<td>Moderate-large batch</td>
+</tr>
+<tr>
+<td>Document summarization</td>
+<td>TTFT &lt; 10s</td>
+<td>Large batch, maximize throughput</td>
+</tr>
+<tr>
+<td>Batch/async processing</td>
+<td>No latency SLO</td>
+<td>Maximum batch size, highest throughput</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="prefill-vs-decode-disaggregation">Prefill vs. Decode Disaggregation<a class="headerlink" href="#prefill-vs-decode-disaggregation" title="Permanent link">&para;</a></h2>
+<p>The two phases of LLM inference have fundamentally different compute characteristics. Running them on the same hardware in the same batch is efficient for small traffic, but becomes a bottleneck at scale.</p>
+<h3 id="why-the-phases-conflict">Why the Phases Conflict<a class="headerlink" href="#why-the-phases-conflict" title="Permanent link">&para;</a></h3>
+<p><strong>Prefill</strong> (processing the input prompt) is <strong>compute-bound</strong>: all input tokens are processed in parallel in a single forward pass. For a 1,000-token prompt, all 1,000 tokens' key-value pairs are computed simultaneously. This saturates GPU tensor cores — the matrix multiplications are large. A 512-token prefill on an H100 takes ~100-300ms depending on model size.</p>
+<p><strong>Decode</strong> (generating each output token) is <strong>memory-bandwidth-bound</strong>: each step loads the full model weights and KV cache from VRAM to compute attention for just one new token. The matrix multiplications are small (1 token × model_dim) and do not saturate tensor cores. The bottleneck is how fast weights can be streamed from HBM.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Prefill["Prefill Phase - Compute Bound"]
+        direction TB
+        P1["All N input tokens\nprocessed in parallel"] --&gt; P2["Large matrix multiplies\nTensor cores saturated"]
+        P2 --&gt; P3["KV cache computed\nfor all N tokens at once"]
+    end
+    subgraph Decode["Decode Phase - Memory Bound"]
+        direction TB
+        D1["One new token\nper step"] --&gt; D2["Small matrix multiply\nTensor cores idle"]
+        D2 --&gt; D3["Must read ALL weights +\ngrowing KV cache from VRAM"]
+    end
+    Prefill --&gt; Decode</code></pre>
+<h3 id="the-mixing-problem">The Mixing Problem<a class="headerlink" href="#the-mixing-problem" title="Permanent link">&para;</a></h3>
+<p>When prefill and decode are mixed in the same batch, a large prefill request stalls the decode of other requests in the same batch. The prefill's compute-intensive forward pass monopolizes the GPU for its duration, delaying the next decode step for every other active request. This inflates TPOT for all concurrent users sharing the batch.</p>
+<h3 id="disaggregated-architecture">Disaggregated Architecture<a class="headerlink" href="#disaggregated-architecture" title="Permanent link">&para;</a></h3>
+<p><strong>Prefill-decode disaggregation</strong> (also called chunked prefill or split KV) uses separate GPU pools for each phase:</p>
+<ul>
+<li><strong>Prefill servers</strong>: optimize for high compute throughput, large batch of prompt tokens</li>
+<li><strong>Decode servers</strong>: optimize for memory bandwidth, serving many concurrent decode streams</li>
+</ul>
+<pre class="mermaid"><code>flowchart TB
+    REQ["Incoming Request"] --&gt; PREFILL_SRV["Prefill Server\ncompute-optimized GPUs\nprocess full prompt"]
+    PREFILL_SRV --&gt; KV_TRANSFER["KV Cache Transfer\n100-500ms for long contexts\nvia NVLink or PCIe"]
+    KV_TRANSFER --&gt; DECODE_SRV["Decode Server\nmemory-bandwidth-optimized GPUs\nserve token stream"]
+    DECODE_SRV --&gt; STREAM["Token Stream to Caller"]</code></pre>
+<h3 id="kv-transfer-cost">KV Transfer Cost<a class="headerlink" href="#kv-transfer-cost" title="Permanent link">&para;</a></h3>
+<p>The KV cache computed on a prefill server must be transferred to a decode server. This transfer cost is real:</p>
+<table>
+<thead>
+<tr>
+<th>Context length</th>
+<th>KV cache size (Llama 3 70B BF16)</th>
+<th>Transfer time at 32 GB/s PCIe</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,000 tokens</td>
+<td>~327 MB</td>
+<td>~10ms</td>
+</tr>
+<tr>
+<td>8,000 tokens</td>
+<td>~2.6 GB</td>
+<td>~81ms</td>
+</tr>
+<tr>
+<td>32,000 tokens</td>
+<td>~10.5 GB</td>
+<td>~328ms</td>
+</tr>
+</tbody>
+</table>
+<p>Disaggregation is worth it when the prefill-decode mixing penalty exceeds the transfer cost — typically for high-concurrency systems with variable prompt lengths where long prefills are frequently disrupting decode batches.</p>
+<hr />
+<h2 id="chunked-prefill-the-middle-ground">Chunked Prefill: The Middle Ground<a class="headerlink" href="#chunked-prefill-the-middle-ground" title="Permanent link">&para;</a></h2>
+<p>Chunked prefill is a middle ground between full disaggregation and naive mixing. Instead of running an entire long prompt's prefill as one uninterruptible block, the prefill is broken into fixed-size chunks processed across multiple decode iterations, interleaved with decode steps for existing requests.</p>
+<h3 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TB
+    LONG["Long prompt: 8,000 tokens\nChunk size: 1,000 tokens"] --&gt; C1["Chunk 1: tokens 1-1000\nIteration N - interleaved with decode"]
+    C1 --&gt; DEC1["Other requests: decode step N\nRun in same iteration as chunk 1"]
+    DEC1 --&gt; C2["Chunk 2: tokens 1001-2000\nIteration N+1"]
+    C2 --&gt; DEC2["Other requests: decode step N+1"]
+    DEC2 --&gt; DOTS["...remaining 6 chunks..."]
+    DOTS --&gt; PREFILL_DONE["Prefill complete after 8 iterations\nFirst token emitted"]</code></pre>
+<h3 id="the-ttft-tradeoff">The TTFT Tradeoff<a class="headerlink" href="#the-ttft-tradeoff" title="Permanent link">&para;</a></h3>
+<p>Chunked prefill increases the TTFT of the prefilled request (its prefill is spread across 8 iterations instead of 1 uninterrupted pass), but it prevents one large prefill from causing TPOT spikes for every other request in the batch.</p>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Long request TTFT</th>
+<th>Short requests TPOT impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No chunked prefill</td>
+<td>Low (prefill runs once, uninterrupted)</td>
+<td>High spike while long prefill runs</td>
+</tr>
+<tr>
+<td>Chunked prefill, 1K chunks</td>
+<td>Higher (8 iterations for 8K prompt)</td>
+<td>Minimal - decode interleaved</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-chunked-prefill-is-needed">When Chunked Prefill Is Needed<a class="headerlink" href="#when-chunked-prefill-is-needed" title="Permanent link">&para;</a></h3>
+<p>Chunked prefill matters when the traffic mix includes both very long and very short prompts. A system serving only short prompts (512 tokens) doesn't need it. A system with a p99 prompt length of 16,000 tokens in a batch with 64-token chat requests needs it badly.</p>
+<p>Typical chunk sizes: 512–2048 tokens per chunk. Smaller chunks = more scheduler overhead but smoother decode. Larger chunks = more TPOT disruption but faster TTFT for the long request.</p>
+<hr />
+<h2 id="speculative-decoding">Speculative Decoding<a class="headerlink" href="#speculative-decoding" title="Permanent link">&para;</a></h2>
+<p>Speculative decoding is a batching-compatible optimization that reduces the effective number of full model forward passes needed per output token.</p>
+<h3 id="the-mechanism">The Mechanism<a class="headerlink" href="#the-mechanism" title="Permanent link">&para;</a></h3>
+<p>A small <strong>draft model</strong> generates k candidate tokens for each decode step in a single pass. The main model then verifies all k candidates in one parallel forward pass. If the draft's prediction matches the main model's distribution for all k tokens, the main model accepts them — effectively generating k tokens for roughly the cost of one step plus verification overhead.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant D as Draft Model
+    participant M as Main Model
+
+    Note over D,M: Normal decode: 1 token per main model forward pass
+    M-&gt;&gt;M: Generate token N
+    M-&gt;&gt;M: Generate token N+1
+    M-&gt;&gt;M: Generate token N+2
+
+    Note over D,M: Speculative decoding: k tokens per round
+    D-&gt;&gt;D: Generate 4 candidate tokens
+    D-&gt;&gt;M: Propose candidates [t1, t2, t3, t4]
+    M-&gt;&gt;M: Verify all 4 in one parallel pass
+    alt All 4 accepted
+        M--&gt;&gt;D: Accept t1-t4 - 4 tokens for ~1 step cost
+    else Token t3 rejected
+        M--&gt;&gt;D: Accept t1-t2, reject t3 - revert to normal from t3
+    end</code></pre>
+<h3 id="acceptance-rate-the-key-metric">Acceptance Rate: The Key Metric<a class="headerlink" href="#acceptance-rate-the-key-metric" title="Permanent link">&para;</a></h3>
+<p>The speedup from speculative decoding depends entirely on the draft model's <strong>acceptance rate</strong> — the fraction of proposed tokens the main model accepts:</p>
+<table>
+<thead>
+<tr>
+<th>Acceptance rate</th>
+<th>Effective speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>90%</td>
+<td>~3-4x fewer main model steps</td>
+</tr>
+<tr>
+<td>70%</td>
+<td>~2x fewer main model steps</td>
+</tr>
+<tr>
+<td>50%</td>
+<td>~1.5x fewer main model steps</td>
+</tr>
+<tr>
+<td>30%</td>
+<td>Negligible benefit, overhead may outweigh gains</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-speculative-decoding-works">When Speculative Decoding Works<a class="headerlink" href="#when-speculative-decoding-works" title="Permanent link">&para;</a></h3>
+<p><strong>Works well</strong>: tasks with predictable, formulaic output — code completion, SQL generation, structured JSON, repeated-template text. The draft model's predictions are accurate because the output distribution is concentrated.</p>
+<p><strong>Works poorly</strong>: high-entropy creative generation, reasoning chains where each step depends unpredictably on the previous. Draft accuracy is low, the main model rejects frequently, and the overhead of running two models doesn't pay off.</p>
+<p>Speculative decoding is compatible with continuous batching: each request can have its own draft model running in parallel with the main model's decode.</p>
+<hr />
+<h2 id="worked-example-batch-size-budget">Worked Example: Batch Size Budget<a class="headerlink" href="#worked-example-batch-size-budget" title="Permanent link">&para;</a></h2>
+<p>Given:
+- GPU: NVIDIA H100 (80 GB VRAM)
+- Model: Llama 3 70B at INT4 (35 GB weights)
+- Remaining VRAM for KV cache: 80 GB − 35 GB = <strong>45 GB</strong>
+- Average sequence length: 1,000 tokens input + 500 tokens output = 1,500 tokens total
+- KV cache per token (Llama 3 70B, BF16): 80 layers × 8 KV heads × 128 head_dim × 2 × 2 bytes = <strong>327 KB/token</strong>
+- KV cache per sequence: 327 KB × 1,500 = <strong>491 MB</strong>
+- Maximum concurrent sequences: 45 GB ÷ 491 MB ≈ <strong>91 sequences</strong></p>
+<p>But INT4 KV cache (FP8 KV): KV cache remains BF16 unless explicitly quantized. If FP8 KV cache is used (halving it to 163 KB/token): 45 GB ÷ 245 MB per sequence ≈ <strong>183 sequences</strong>.</p>
+<p>Expected throughput on H100 at batch size 91:
+- Decode step time: 35 GB ÷ 3350 GB/s ≈ 10ms per step
+- Tokens/sec: 91 sequences × (1000ms ÷ 10ms) = <strong>9,100 tokens/sec</strong></p>
+<p>This is the order-of-magnitude gain: the same GPU serving one request at a time produces ~100 tokens/sec; batching to 91 concurrent sequences produces ~9,100 tokens/sec — a 91x throughput improvement from batching alone.</p>
+<hr />
+<h2 id="practical-configuration-parameters">Practical Configuration Parameters<a class="headerlink" href="#practical-configuration-parameters" title="Permanent link">&para;</a></h2>
+<p>The parameters a serving engineer tunes in vLLM and TensorRT-LLM:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>What it controls</th>
+<th>Tuning guidance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_num_seqs</code></td>
+<td>Maximum concurrent sequences in the batch</td>
+<td>Set based on VRAM KV cache budget ÷ max KV cache per sequence</td>
+</tr>
+<tr>
+<td><code>max_num_batched_tokens</code></td>
+<td>Maximum total tokens across all requests per iteration</td>
+<td>Limits both prefill and decode together; typically 2048–32768</td>
+</tr>
+<tr>
+<td><code>max_model_len</code></td>
+<td>Maximum sequence length (prompt + output)</td>
+<td>Longer → fewer concurrent sequences; set to p99 of production sequence lengths, not theoretical max</td>
+</tr>
+<tr>
+<td><code>chunked_prefill_size</code></td>
+<td>Tokens per prefill chunk</td>
+<td>512–2048; lower = smoother decode, higher TTFT for long requests</td>
+</tr>
+<tr>
+<td><code>gpu_memory_utilization</code></td>
+<td>Fraction of VRAM vLLM allocates for KV cache</td>
+<td>Default 0.90; leave headroom for CUDA kernels and activations</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart TD
+    START["Serving engineer budget problem:\nWhat are my constraints?"] --&gt; CHECK_VRAM["VRAM budget:\nweights + KV cache + activations"]
+    CHECK_VRAM --&gt; SET_SEQS["Set max_num_seqs:\n45GB VRAM / 491MB per seq = 91"]
+    SET_SEQS --&gt; CHECK_SLA{"SLA class?"}
+    CHECK_SLA --&gt;|"Interactive: TTFT &lt; 500ms"| SMALL_BATCH["Lower max_num_seqs\nReduce queue depth\nSmaller chunks"]
+    CHECK_SLA --&gt;|"Batch: no TTFT SLO"| LARGE_BATCH["Maximize max_num_seqs\nFill KV cache\nLarge chunks"]
+    CHECK_SLA --&gt;|"Mixed"| TIER["Split queues by priority\nInteractive lane: small batch\nBatch lane: large batch"]</code></pre>
+<hr />
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Why does batching improve GPU utilization for LLM serving?</strong></p>
+<p>LLM decode is memory-bandwidth-bound: each decode step reads the entire model weights from VRAM regardless of how many requests are being served. A single request uses ~1–5% of a modern GPU's compute capacity because the bottleneck is weight-read bandwidth, not arithmetic. Batching 64 requests together amortizes that single weight-read across 64 requests simultaneously — the same VRAM bandwidth that produced 1 token now produces 64 tokens. The GPU's compute capacity is finally utilized, not just its memory subsystem.</p>
+<p><strong>Q: What is head-of-line blocking in static batching, and why is it harmful?</strong></p>
+<p>In static batching, a batch is locked at dispatch: all requests in the batch run together until every request finishes. Autoregressive generation produces unpredictable output lengths — one request may finish in 20 tokens while another needs 2,000. The 20-token request's GPU slot sits idle for 1,980 steps while the 2,000-token request finishes, and its caller waits for a result that was computed long ago. Both VRAM and caller time are wasted. Head-of-line blocking is why static batching is inadequate for production LLM serving.</p>
+<hr />
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: How does continuous batching eliminate head-of-line blocking? Walk through the mechanics.</strong></p>
+<p>Continuous batching schedules at the decode iteration level, not the request level. After every decode step, the scheduler checks which requests emitted EOS or reached their token limit. Those requests are evicted immediately — their KV cache is freed, their callers receive their final token, and their GPU slots open. In the same scheduler tick, waiting requests from the queue are admitted into the freed slots. No request needs to wait for its batch-mates to complete. A 20-token request that finishes at step 20 is done at step 20; the 2,000-token request continues unaffected. The batch composition is fluid — it changes after every single decode step.</p>
+<p>This requires PagedAttention or equivalent paged memory management, because incoming requests cannot pre-allocate contiguous VRAM blocks when output length is unknown. Pages are allocated incrementally as the request generates tokens.</p>
+<p><strong>Q: Explain the tradeoff between batch size and latency. What happens at the extremes?</strong></p>
+<p>At small batch sizes, throughput scales nearly linearly with batch size because the per-step weight-read cost is amortized across more requests without materially increasing VRAM pressure or per-request latency. As batch size grows into the saturation regime, TPOT begins rising because the total KV cache traffic per step increases, consuming more bandwidth per step. TTFT also rises as the queue behind the batch grows.</p>
+<p>At the extreme, once the batch's aggregate KV cache exceeds available VRAM, the serving engine must evict sequences or reject new requests — throughput stops growing and may fall due to eviction overhead. The operating point for a given SLA class is the batch size that maximizes throughput while keeping TTFT and TPOT within the SLO budget. Interactive services run smaller batches; batch-processing pipelines run at or near the KV cache ceiling.</p>
+<hr />
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Describe prefill-decode disaggregation. When is the KV transfer cost worth paying?</strong></p>
+<p>Prefill is compute-bound: a long prompt's forward pass runs large matrix multiplications that saturate GPU tensor cores. Decode is memory-bandwidth-bound: each step generates one token by reading the full model weights and KV cache. Mixing them in the same batch means a large prefill monopolizes the GPU during its compute-intensive forward pass, delaying the next decode step for all other requests in the batch and spiking their TPOT.</p>
+<p>Disaggregation uses separate GPU pools: prefill servers process prompts and hand off the resulting KV cache to decode servers via PCIe or NVLink. The transfer cost is real — moving 10 GB of KV cache for a 32K-token context takes ~300ms at PCIe bandwidth. This cost is worth paying when the prefill-decode interference penalty exceeds the transfer overhead: typically in high-concurrency systems where frequent long-context prefills are degrading the TPOT SLO for interactive decode streams. For low-concurrency or uniform-prompt-length systems, the added operational complexity rarely pays off.</p>
+<p><strong>Q: A production system has excellent average latency but terrible p99 TTFT. Your batch size is already well-tuned. What are the three most likely causes?</strong></p>
+<p>First, <strong>long-prompt outliers</strong>: a small fraction of requests with very long prompts monopolize the GPU during prefill, blocking decode steps for all other requests in the batch and causing TPOT spikes for everyone sharing the batch. The fix is chunked prefill — break the long prefill into smaller chunks interleaved with decode steps.</p>
+<p>Second, <strong>KV cache eviction cycles</strong>: under memory pressure, the scheduler evicts sequences to free KV pages for new arrivals. The evicted requests must restart their prefill from scratch, inflating their TTFT dramatically. The tail is caused by these unlucky evictions. The fix is better admission control (reject early rather than evict mid-generation) or increasing the KV cache budget by quantizing weights.</p>
+<p>Third, <strong>queue starvation behind large-batch requests</strong>: if the scheduler isn't doing fair admission, some requests can wait many decode steps before being admitted into the batch. Improving admission fairness with explicit queue time limits fixes this without adding hardware.</p>
+<hr />
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the batching architecture for a system serving both real-time chat (p99 TTFT &lt; 500ms) and asynchronous document analysis (p99 TTFT &lt; 30s) on the same GPU fleet. What goes wrong if you use a single pool?</strong></p>
+<p>A single pool mixes the two latency profiles: when document analysis requests (with multi-thousand-token prompts) are in the batch, their prefill computation blocks decode iterations for chat requests, spiking their TPOT. Simultaneously, the large KV caches of long document sessions crowd out batch slots for short chat sessions, reducing available concurrency for the interactive tier. The p99 for chat degrades whenever the document workload is active.</p>
+<p>The correct architecture is <strong>two separate pools behind a traffic-shaping router</strong>:</p>
+<pre class="mermaid"><code>flowchart TD
+    ROUTER["Traffic Router\nclassifies by request type"] --&gt; CHAT_POOL["Interactive Pool\nSmall batch: max 32 seqs\nChunked prefill: 512-tok chunks\nPriority: low TTFT"]
+    ROUTER --&gt; ASYNC_POOL["Batch Pool\nLarge batch: max 256 seqs\nFull prefill, no chunking\nPriority: maximum throughput"]
+    CHAT_POOL --&gt; RESP1["Chat Response\nTTFT &lt; 200ms p50"]
+    ASYNC_POOL --&gt; RESP2["Document Response\nThroughput optimized"]</code></pre>
+<p>The interactive pool is tuned for low queue depth and chunked prefill to protect TPOT. The async pool is tuned for maximum batch size and throughput with no latency SLO. The router classifies at the API gateway level using request metadata (caller identity, API endpoint, explicit tier tag) — not model inference on the request content, which would add latency on the hot path.</p>
+<p>If budgets force a single pool, use priority queuing with a separate queue per tier: the scheduler preferentially admits interactive requests into freed slots, and caps the KV cache allocation per document request to protect the interactive tier's concurrency.</p>
+<hr />
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<p><strong>"You said continuous batching is better than static batching. Is there any workload where static batching is the right choice?"</strong>
+Tests: whether the candidate can find real exceptions vs. defending continuous batching dogmatically.</p>
+<p>Yes: extremely uniform, fixed-length-output workloads where head-of-line blocking barely exists. Examples: single-token classification (sentiment scoring), embedding generation (fixed-length output = the embedding vector itself), or any use case where all requests in a batch produce exactly one output token. For these, static batching's simplicity has genuine value because the key downside — blocking short requests behind long ones — doesn't exist when all outputs are the same length.</p>
+<p><strong>"Your decode throughput scales well with batch size until batch size 64, then plateaus. What explains the plateau, and what are the possible causes?"</strong>
+Tests: deep understanding of VRAM, memory bandwidth, and the interaction between them.</p>
+<p>Multiple possible causes: (1) KV cache memory pressure — the aggregate KV cache at batch size 64 is approaching available VRAM, so adding more sequences requires evicting existing ones, and eviction overhead cancels the throughput gains; (2) memory bandwidth saturation — at batch 64, the per-step KV cache reads (which grow linearly with batch size) are now saturating HBM bandwidth even though model weight reads are amortized; (3) CUDA graph size — vLLM pre-compiles CUDA graphs for specific batch sizes; at size 64 you may have fallen off the end of the pre-compiled range and reverted to slower eager execution.</p>
+<p><strong>"Speculative decoding's acceptance rate drops from 85% to 30% after a new fine-tuned version of your model is deployed. What changed and what do you do?"</strong>
+Tests: understanding of why speculative decoding works and what breaks it.</p>
+<p>The fine-tuned model's output distribution has shifted relative to the base model that the draft model was trained against. The draft model was likely a smaller variant of the original base model — when the main model was fine-tuned, its token probabilities changed, and the draft model's predictions no longer align with the main model's distribution. The fix: re-train or fine-tune the draft model against the new fine-tuned main model. If the fine-tune was minor (instruction following), the acceptance rate loss may be recoverable with a short distillation run. If it was a large domain-specific fine-tune, the draft model needs to be fully retrained against the new target distribution.</p>
+<p><strong>"Walk me through the arithmetic for the maximum batch size on a specific GPU. Include all the terms that engineers forget."</strong>
+Tests: whether the candidate can do the full VRAM budget calculation including all components.</p>
+<p>Full calculation: total VRAM = model weights + KV cache + activations + CUDA context + framework overhead. Engineers typically forget: (1) activations during prefill can be significant — for a 2,048-token chunked prefill at FP16, the activation memory is model_layers × hidden_dim × seq_len × 2 bytes ≈ several GB for large models; (2) CUDA context and framework overhead — vLLM typically reserves ~2–3 GB for kernel state and page table structures; (3) the difference between BF16 KV cache (default in most engines) and FP8/INT8 KV cache (which halves or quarters the KV budget). Setting <code>gpu_memory_utilization=0.90</code> in vLLM accounts for items 2 and 3, but understanding what's behind that 10% headroom matters when debugging OOM crashes.</p>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Treating batch size as a simple "more is always better" knob.</strong> Batch size beyond the KV cache ceiling reduces throughput and can cause OOM. The correct framing is: batch size is bounded by KV cache budget, and the budget should be computed explicitly, not discovered by crashing.</p>
+</li>
+<li>
+<p><strong>Confusing throughput (tokens/sec aggregate) with latency (ms per token per user).</strong> Maximizing throughput requires large batches that increase per-request TPOT. These are genuinely competing objectives. Engineering for one without measuring the other produces bad SLOs.</p>
+</li>
+<li>
+<p><strong>Deploying speculative decoding without measuring acceptance rate on production traffic.</strong> Acceptance rates measured on benchmarks often don't reflect actual production output distributions. The wrong draft model can actively increase latency by adding verification overhead without accepting enough tokens to compensate.</p>
+</li>
+<li>
+<p><strong>Ignoring the interaction between chunked prefill chunk size and TTFT.</strong> A chunk size of 256 tokens makes TPOT very smooth but TTFT very long for large prompts. A chunk size of 4096 makes TTFT fast for large prompts but allows prefill to stall decode. Chunk size must be tuned against both SLOs simultaneously.</p>
+</li>
+<li>
+<p><strong>Sizing the serving fleet based on average batch size, not p99.</strong> Average batch size may be 32; p99 may be 128 during a traffic spike. If the serving stack is tuned for 32, the p99 hits the KV cache ceiling and latency spikes badly at the 99th percentile. Budget for p95 load with a small burst headroom.</p>
+</li>
+<li>
+<p><strong>Assuming prefill-decode disaggregation is always worth it.</strong> The KV cache transfer cost (100–500ms for long contexts) is a real latency floor for the prefill server's requests. Disaggregation is worth it only when prefill-decode interference in a co-located setup is worse than the transfer overhead. For most deployments below ~1,000 concurrent users per GPU, co-located serving with chunked prefill is simpler and nearly as efficient.</p>
+</li>
+</ol>
+<hr />
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Batching amortizes the weight-read cost</strong>: decode is memory-bandwidth-bound, and the cost of reading model weights from VRAM is fixed per step regardless of batch size. Batching routes that fixed cost across many requests simultaneously.</li>
+<li><strong>Static batching's head-of-line blocking is a solved problem</strong>: continuous batching schedules at the decode iteration level, allowing finished requests to exit the batch immediately and new requests to enter without waiting for any batch-mate.</li>
+<li><strong>The KV cache is the hard ceiling on batch size</strong>: throughput scales with batch size until the aggregate KV cache fills VRAM; beyond that, eviction and queueing overhead cause throughput to plateau or fall.</li>
+<li><strong>Prefill and decode have opposite hardware profiles</strong>: prefill is compute-bound (large matrix multiplications), decode is memory-bandwidth-bound (reading weights per token). Mixing them in the same batch causes prefill to stall decode; disaggregation or chunked prefill mitigates this.</li>
+<li><strong>Chunked prefill is the practical middle ground</strong>: it prevents long-prompt prefills from spiking TPOT for other requests without the operational complexity of full prefill-decode disaggregation.</li>
+<li><strong>Speculative decoding requires high acceptance rate to be worth it</strong>: on predictable outputs it provides 2–4x throughput improvement; on high-entropy outputs it can make latency worse.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Model Serving</a> · <a href="../01-model-serving-architecture/">Model Serving Architecture</a> · <a href="../03-kv-cache-management/">KV Cache Management</a> · <a href="../../14-ai-infrastructure/02-the-inference-stack/">The Inference Stack</a></em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../01-model-serving-architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Model Serving Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Model Serving Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03-kv-cache-management/" class="md-footer__link md-footer__link--next" aria-label="Next: KV Cache Management">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                KV Cache Management
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,7412 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/02-llm-architecture/04-decoding-and-inference-strategies/">
+      
+      
+        <link rel="prev" href="../03-context-windows-and-positional-encoding/">
+      
+      
+        <link rel="next" href="../05-model-families-and-selection/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Decoding & Inference Strategies - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#decoding-inference-strategies" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Decoding & Inference Strategies
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-these-strategies-exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why These Strategies Exist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-decoding-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Decoding Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-decoding-knobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Decoding Knobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-streamed-response-step-by-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Streamed Response Step by Step
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-routed-decoding-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task-Routed Decoding Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constrained-and-structured-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constrained and Structured Generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inference-time-compute-scaling-extended-reasoning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inference-Time Compute Scaling: Extended Reasoning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools-and-ecosystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools and Ecosystem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-these-strategies-exist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why These Strategies Exist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-decoding-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Decoding Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-decoding-knobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Decoding Knobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-streamed-response-step-by-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Streamed Response Step by Step
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-routed-decoding-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task-Routed Decoding Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constrained-and-structured-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constrained and Structured Generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inference-time-compute-scaling-extended-reasoning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inference-Time Compute Scaling: Extended Reasoning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools-and-ecosystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools and Ecosystem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    LLM Architecture
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/02-llm-architecture/04-decoding-and-inference-strategies.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="decoding-inference-strategies">Decoding &amp; Inference Strategies<a class="headerlink" href="#decoding-inference-strategies" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>A forward pass through a transformer ends in a probability distribution over the entire vocabulary — tens of thousands of numbers, one per possible next token. Decoding is the step that turns that distribution into an actual chosen token, and it is a genuinely separate decision from anything the model's weights determine: the same logits, decoded differently, produce a deterministic, repetitive answer; a creative, varied answer; or, with the wrong settings, an incoherent one. Decoding strategy is a product-level lever, not a fixed model property, and it trades off latency, cost, output quality, and output diversity against each other in ways every later chapter on inference takes for granted.</p>
+<h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
+<p><strong>Decoding</strong> (also called sampling or inference strategy) is the algorithm that selects a token from the model's output probability distribution at each generation step, and, in some strategies, manages multiple candidate sequences simultaneously before selecting a final output. The dominant production strategies are <strong>greedy decoding</strong> (always pick the single most probable token), <strong>stochastic sampling</strong> (draw from the distribution, shaped by temperature, top-p, and top-k parameters), <strong>beam search</strong> (track several candidate sequences in parallel and select the overall best), and <strong>speculative decoding</strong> (a latency-oriented technique that proposes multiple tokens at once using a smaller draft model, then verifies them with the full model). None of these change the model's weights or its computed probability distribution — they change what happens <em>after</em> that distribution exists.</p>
+<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
+<p>Decoding strategy is one of the most consequential, and most under-examined, configuration choices in a production LLM system:</p>
+<ul>
+<li><strong>Greedy decoding is deterministic but not "safe" by default.</strong> Always picking the highest-probability token sounds like the conservative choice, but it produces a single fixed path through the distribution that can get stuck in repetitive loops (a known failure mode) and exposes no mechanism for the kind of varied phrasing many products actually want.</li>
+<li><strong>The same prompt at different temperature settings can pass or fail an evaluation suite differently</strong>, purely from decoding randomness — a quality regression that looks like a model or prompt problem can actually be sampling-parameter drift, and a team that doesn't control or monitor decoding settings has no way to distinguish the two.</li>
+<li><strong>Beam search's quality gains come at a multiplicative compute cost</strong>, and that cost is easy to underestimate: tracking <em>k</em> candidate sequences instead of one multiplies the per-step compute and memory roughly by <em>k</em>, for output-quality gains that are real but often smaller than the multiplier suggests, especially for open-ended generation rather than constrained tasks.</li>
+<li><strong>Speculative decoding changes per-token latency, not output content</strong> — when implemented correctly, it is a pure latency optimization with no quality tradeoff, which makes it one of the few "free" levers in this entire chapter, and exactly why teams that don't already use it are leaving a real, no-downside latency win on the table.</li>
+<li><strong>Decoding parameters are frequently treated as an afterthought left at provider defaults</strong>, when they are in fact a first-class product decision with measurable, reproducible effects on output character, latency, and cost.</li>
+</ul>
+<h2 id="why-these-strategies-exist">Why These Strategies Exist<a class="headerlink" href="#why-these-strategies-exist" title="Permanent link">&para;</a></h2>
+<p>Early autoregressive language models faced an immediate design question the moment a probability distribution came out of the final layer: what do you actually do with it? <strong>Greedy decoding</strong> — always take the argmax — was the obvious first answer, simple and deterministic, but production use quickly surfaced its core weakness: greedy decoding is locally optimal at every step but not globally optimal across a sequence, and it has a well-documented tendency to fall into repetitive loops, since once a repetitive pattern becomes the highest-probability continuation at one step, it tends to remain so at the next.</p>
+<p><strong>Beam search</strong> addressed the local-optimum problem directly by tracking multiple candidate continuations in parallel instead of committing to one token at a time, then selecting whichever full candidate sequence scores best overall — better than greedy at avoiding a single bad early commitment, but at a real, multiplicative compute cost, and still prone to producing bland, generic continuations for open-ended text, since beam search tends to converge on the statistically safest path rather than a genuinely varied one.</p>
+<p><strong>Stochastic sampling</strong> (temperature, top-k, top-p) took a different approach entirely: instead of trying to find one "best" sequence, deliberately introduce controlled randomness, drawing from the actual probability distribution rather than always taking the maximum. This produces the variety and naturalness that became essential once LLMs moved from narrow tasks (machine translation, where one broadly-correct answer suffices) to open-ended generation (chat, creative writing, brainstorming), where a single deterministic "best" answer isn't even a coherent product goal.</p>
+<p><strong>Speculative decoding</strong> emerged from a completely different pressure: decode is sequential and memory-bandwidth-bound (see <a href="../01-transformer-internals-for-systems-engineers/#prefill-and-decode-a-request-end-to-end">Transformer Internals for Systems Engineers</a>), so generating each token one at a time wastes the GPU's compute capacity, which sits comparatively idle during decode's bandwidth-bound steps. Speculative decoding exploits this idle compute: a small, fast draft model proposes several tokens ahead, and the full model verifies all of them in a single, parallel, compute-bound pass — turning several sequential decode steps into one, without changing what gets generated, as long as verification rejects any speculative token the full model wouldn't have actually chosen.</p>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Logits</strong> — the raw, unnormalized scores the model outputs for every vocabulary entry at a given step, before any decoding strategy is applied; softmax converts these into a probability distribution.</li>
+<li><strong>Greedy decoding</strong> — always select the single highest-probability token at each step; fully deterministic, fastest to reason about, prone to repetition loops.</li>
+<li><strong>Temperature</strong> — a scalar that reshapes the probability distribution before sampling: temperature below 1 sharpens the distribution toward the most likely tokens (more deterministic, less varied); temperature above 1 flattens it (more random, more varied); temperature of exactly 0 is equivalent to greedy decoding.</li>
+<li><strong>Top-k sampling</strong> — restrict sampling to only the <em>k</em> highest-probability tokens at each step, discarding the long tail entirely before drawing a sample.</li>
+<li><strong>Top-p (nucleus) sampling</strong> — restrict sampling to the smallest set of tokens whose cumulative probability exceeds threshold <em>p</em>, an adaptive alternative to a fixed <em>k</em> that naturally widens the candidate set when the distribution is flat (uncertain) and narrows it when the distribution is peaked (confident).</li>
+<li><strong>Beam search</strong> — track <em>k</em> candidate sequences ("beams") simultaneously at every step, expanding each by its most promising next tokens and pruning back to the top <em>k</em> overall candidates; selects the final highest-scoring complete sequence.</li>
+<li><strong>Speculative decoding</strong> — a smaller, faster "draft" model proposes several tokens ahead; the full "target" model verifies all proposed tokens in one parallel forward pass, accepting a correctly-predicted prefix and rejecting (and correcting) from the first divergence; output distribution matches what the target model alone would have produced, with materially fewer sequential full-model steps.</li>
+<li><strong>Repetition / frequency penalties</strong> — explicit downweighting of tokens (or n-grams) already present in the generated output, a complementary, narrower-purpose lever on top of the main decoding strategy, aimed specifically at the repetition-loop failure mode.</li>
+</ul>
+<p>Temperature directly reshapes the probability distribution before sampling. Low temperature concentrates probability mass on the most likely tokens; high temperature spreads it across the vocabulary.</p>
+<pre class="mermaid"><code>xychart-beta
+    title "Token probability distribution by temperature"
+    x-axis ["tok_A", "tok_B", "tok_C", "tok_D", "tok_E", "tok_F", "tok_G", "tok_H"]
+    y-axis "Probability" 0 --&gt; 100
+    bar [80, 10, 4, 2, 1, 1, 1, 1]
+    line [80, 10, 4, 2, 1, 1, 1, 1]</code></pre>
+<p>At low temperature (near 0), token A dominates — near-greedy behavior. At high temperature, the same base logits produce a nearly flat distribution where low-probability tokens become plausible selections, increasing variety but risking incoherence.</p>
+<h2 id="the-decoding-pipeline">The Decoding Pipeline<a class="headerlink" href="#the-decoding-pipeline" title="Permanent link">&para;</a></h2>
+<p>Decoding sits at one specific, well-defined point in the request path: after the model produces logits for the current step, before the chosen token is appended and fed back in for the next step.</p>
+<pre class="mermaid"><code>flowchart TB
+    FWD[Forward Pass:\nproduces logits over\nfull vocabulary] --&gt; SOFTMAX[Softmax: logits to\nprobability distribution]
+    SOFTMAX --&gt; STRATEGY{Decoding Strategy}
+    STRATEGY --&gt;|Greedy| ARGMAX[Select highest-probability\ntoken, deterministic]
+    STRATEGY --&gt;|Sampling| SHAPE[Apply temperature,\ntop-k/top-p filtering]
+    SHAPE --&gt; DRAW[Sample from\nshaped distribution]
+    STRATEGY --&gt;|Beam search| BEAMEXPAND[Expand all k beams,\nprune to top k overall]
+    ARGMAX --&gt; TOKEN[Chosen token]
+    DRAW --&gt; TOKEN
+    BEAMEXPAND --&gt; TOKEN
+    TOKEN --&gt; APPEND[Append to sequence]
+    APPEND -.fed back as input.-&gt; FWD</code></pre>
+<p>Speculative decoding restructures this loop entirely, replacing several single-token full-model steps with one batched verification step against a cheaper model's guesses.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph Standard["Standard Decoding: N sequential full-model steps for N tokens"]
+        S1[Full model: token 1] --&gt; S2[Full model: token 2] --&gt; S3[Full model: token 3] --&gt; SN[Full model: token N]
+    end
+
+    subgraph Speculative["Speculative Decoding: 1 draft pass + 1 verify pass per batch"]
+        DRAFT[Draft model: propose\ntokens 1..k quickly,\nsmall/fast model] --&gt; VERIFY[Target model: verify\nall k proposed tokens\nin ONE parallel forward pass]
+        VERIFY --&gt; ACCEPT{How many proposed\ntokens match what target\nwould have chosen?}
+        ACCEPT --&gt;|All k accepted| FASTPATH[k tokens produced\nfor the cost of ~1 full-model step]
+        ACCEPT --&gt;|First m accepted,\nrest rejected| PARTIAL[m tokens accepted,\ntarget corrects from\nfirst divergence]
+    end</code></pre>
+<h2 id="the-decoding-knobs">The Decoding Knobs<a class="headerlink" href="#the-decoding-knobs" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+<th>Does NOT own</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logits/softmax computation</td>
+<td>Convert the model's raw output into a probability distribution over the vocabulary</td>
+<td>Any decision about which token to actually pick</td>
+</tr>
+<tr>
+<td>Sampling shaper (temperature, top-k, top-p)</td>
+<td>Reshape or restrict the distribution before a token is drawn</td>
+<td>The underlying probabilities themselves — these are filters/transforms applied on top</td>
+</tr>
+<tr>
+<td>Beam manager</td>
+<td>Track, expand, and prune multiple candidate sequences across steps</td>
+<td>Per-step token probabilities (consumes them, doesn't compute them)</td>
+</tr>
+<tr>
+<td>Draft model (speculative decoding)</td>
+<td>Propose several candidate next tokens quickly and cheaply</td>
+<td>Final acceptance — verification is the target model's job</td>
+</tr>
+<tr>
+<td>Target model (speculative decoding)</td>
+<td>Verify proposed tokens in one parallel pass; accept a correct prefix, correct from the first divergence</td>
+<td>Proposing tokens itself in this mode — that's the draft model's role</td>
+</tr>
+<tr>
+<td>Repetition penalty logic</td>
+<td>Downweight already-generated tokens/n-grams as a targeted anti-repetition measure</td>
+<td>Overall strategy choice — this is typically layered on top of greedy or sampling, not a strategy by itself</td>
+</tr>
+</tbody>
+</table>
+<p>Top-k and top-p are both ways to trim the token distribution, but they adapt differently to how spread the probability mass is at each step.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph TopK["Top-K filtering: K=3"]
+        TK_DIST["Full distribution\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\ntok_D: 8%\ntok_E: 4%\ntok_F: 2%\ntok_others: 1%"]
+        TK_KEEP["Keep only top 3:\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\nRenormalize and sample"]
+        TK_ISSUE["Problem: fixed K=3 too narrow\nwhen dist is flat\ntoo wide when dist is peaked"]
+        TK_DIST --&gt; TK_KEEP --&gt; TK_ISSUE
+    end
+
+    subgraph TopP["Top-P filtering: P=0.85"]
+        TP_DIST["Full distribution\ntok_A: 50%\ntok_B: 20%\ntok_C: 15%\ntok_D: 8%\ntok_E: 4%\ntok_F: 2%\ntok_others: 1%"]
+        TP_CALC["Cumulative sum until &gt;= 85%:\ntok_A: 50%  cumul: 50%\ntok_B: 20%  cumul: 70%\ntok_C: 15%  cumul: 85% -- stop here\nKeep tok_A, tok_B, tok_C"]
+        TP_BENEFIT["Adapts automatically:\nPeaked dist = smaller candidate set\nFlat dist = larger candidate set"]
+        TP_DIST --&gt; TP_CALC --&gt; TP_BENEFIT
+    end</code></pre>
+<h2 id="a-streamed-response-step-by-step">A Streamed Response Step by Step<a class="headerlink" href="#a-streamed-response-step-by-step" title="Permanent link">&para;</a></h2>
+<p>A single streamed response makes the decoding loop's per-token cadence directly visible — each iteration of this loop is one decode step, and the strategy chosen determines both what happens inside the loop and, for speculative decoding, how many tokens the loop actually advances by per full-model invocation.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant APP as Application
+    participant MODEL as Model (Target)
+    participant DRAFT as Draft Model
+    participant DEC as Decoding Logic
+
+    APP-&gt;&gt;MODEL: Prefill prompt, get first logits
+    loop Per decode step (or batch of steps, if speculative)
+        alt Standard sampling/greedy
+            MODEL-&gt;&gt;DEC: Logits for next token
+            DEC-&gt;&gt;DEC: Apply temperature/top-p/top-k,\nselect 1 token (+a few ms)
+            DEC--&gt;&gt;APP: Stream 1 token
+        else Speculative decoding
+            DRAFT-&gt;&gt;DRAFT: Propose k tokens quickly (+small fraction of a full step)
+            DRAFT-&gt;&gt;MODEL: Verify all k in one parallel pass (+~1 full-model step)
+            MODEL--&gt;&gt;DEC: Accept m of k, correct from divergence if m is less than k
+            DEC--&gt;&gt;APP: Stream m tokens at once
+        end
+    end
+    APP-&gt;&gt;APP: Stop on end-token or max length</code></pre>
+<p>The practical consequence: under standard sampling or greedy decoding, perceived streaming speed is bound by one full-model forward pass per token; under well-tuned speculative decoding with a good draft-acceptance rate, the same perceived stream can advance by several tokens per full-model pass, directly cutting wall-clock decode time without changing what's generated — the deeper mechanics and acceptance-rate economics are covered in <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a>.</p>
+<h2 id="task-routed-decoding-configuration">Task-Routed Decoding Configuration<a class="headerlink" href="#task-routed-decoding-configuration" title="Permanent link">&para;</a></h2>
+<p>Production systems don't pick one decoding strategy globally — they route decoding configuration by task type, since the right choice is a function of what the output is for, not a fixed property of the model or the product.</p>
+<pre class="mermaid"><code>flowchart LR
+    TASK[Task Type] --&gt; Q1{Needs a single,\nreproducible correct\nanswer? e.g. classification,\nstructured extraction}
+    Q1 --&gt;|Yes| GREEDY[Greedy decoding\nor very low temperature]
+    Q1 --&gt;|No| Q2{Open-ended generation:\nchat, creative writing,\nbrainstorming?}
+    Q2 --&gt;|Yes| SAMPLE[Temperature + top-p sampling,\ntuned for variety]
+    Q2 --&gt;|No| Q3{High-stakes generation where\nquality matters more than\nlatency, small output space?}
+    Q3 --&gt;|Yes| BEAM[Beam search,\naccept the compute cost]
+    Q3 --&gt;|No| DEFAULT[Sampling with moderate\ntemperature, the common default]</code></pre>
+<ol>
+<li><strong>Task-routed decoding configuration</strong> — a single product surface routes different request types (a structured data-extraction call vs. a conversational reply) through different decoding settings, rather than applying one global default everywhere.</li>
+<li><strong>Low-temperature or greedy decoding for anything requiring reproducibility</strong> — function calling, structured output, and classification-style generation typically default toward greedy or near-zero temperature, since variability here is a bug, not a feature (see <a href="../../03-prompt-architecture/03-structured-output-and-grammars/">Structured Output &amp; Grammars</a>).</li>
+<li><strong>Sampling with tuned temperature and top-p for conversational and creative surfaces</strong> — the overwhelming majority of consumer-facing chat products use this pattern, with temperature as one of the few user-tunable "personality" knobs some products expose directly.</li>
+<li><strong>Speculative decoding layered underneath any of the above, transparently</strong> — because it preserves the target model's output distribution exactly, it is a serving-infrastructure optimization that composes with whatever decoding strategy and parameters the product layer has chosen, not a separate, competing choice.</li>
+</ol>
+<h2 id="constrained-and-structured-generation">Constrained and Structured Generation<a class="headerlink" href="#constrained-and-structured-generation" title="Permanent link">&para;</a></h2>
+<p>Standard sampling selects from the full vocabulary at each step. <strong>Constrained decoding</strong> narrows the valid next-token set to only those tokens consistent with a target schema — a JSON object, a grammar, a fixed list of labels — guaranteeing structurally valid output without post-processing retries.</p>
+<p><strong>Why this matters at the systems level:</strong></p>
+<p>Unstructured LLM output that is then parsed downstream introduces a failure mode: the model generates text that looks like valid JSON but isn't (missing a closing brace, an extra comma, a truncated string), and the parser fails. Naive solutions — retry on parse failure, or use a "JSON fixer" model — add latency and cost. Constrained decoding eliminates the failure mode at the source.</p>
+<p><strong>How it works:</strong></p>
+<p>At each decode step, the decoding engine intersects the model's logit distribution with a <strong>mask</strong> of tokens that are currently valid according to the schema. Tokens that would produce an invalid partial structure (e.g., a non-numeric character when a number is expected) have their logits set to negative infinity before sampling, making them impossible to select. The mask is updated after each token, tracking position in the schema's parse state.</p>
+<p>Libraries implementing this: <strong>Outlines</strong> (most widely used, grammar-based), <strong>LMFE</strong> (structured output with Pydantic), <strong>Guidance</strong> (handlebars-style templates), <strong>XGrammar</strong> (efficient grammar-constrained decoding). Several serving engines (vLLM, llama.cpp) integrate grammar-based constrained decoding natively.</p>
+<p><strong>The tradeoff:</strong> Constrained decoding imposes a small (~5–20%) throughput overhead per token — the mask computation runs on CPU alongside GPU decoding. For high-throughput batch workloads generating structured output at scale, this overhead is worth measuring explicitly.</p>
+<pre class="mermaid"><code>flowchart TD
+    TOKENS["Generated tokens so far\ne.g. { name: 'Alice', age:"]
+    PARSE["Parse current state\nusing grammar or JSON Schema\nParser determines what comes next"]
+    VALID["Compute valid token mask\nOnly tokens that maintain\nvalid partial structure\ne.g. digits 0-9 are valid\nletters or braces are NOT"]
+    LOGITS["Original model logits\nover full vocabulary"]
+    MASK["Apply mask:\nSet invalid tokens to -infinity\nValid tokens keep their logits"]
+    SAMPLE["Sample from masked distribution\nResult is guaranteed\ngrammatically valid"]
+    APPEND["Append chosen token\ne.g. 2 -&gt; { name: 'Alice', age: 2"]
+    UPDATE["Update parse state\nNow expect more digits\nor closing quote"]
+
+    TOKENS --&gt; PARSE --&gt; VALID --&gt; MASK
+    LOGITS --&gt; MASK
+    MASK --&gt; SAMPLE --&gt; APPEND --&gt; UPDATE
+    UPDATE -.next step.-&gt; PARSE</code></pre>
+<p><strong>When to use each approach:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Output type</th>
+<th>Recommended approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON with known schema</td>
+<td>Grammar-constrained decoding (Outlines, LMFE) or JSON mode API</td>
+</tr>
+<tr>
+<td>Function/tool call selection</td>
+<td>Native function-calling API (provider-side constrained)</td>
+</tr>
+<tr>
+<td>Fixed label from a list</td>
+<td>Constrained decoding to the label token set; or greedy at temp=0 with output validation</td>
+</tr>
+<tr>
+<td>Free text with structure hints</td>
+<td>System-prompt engineering; constrained decoding adds overhead without benefit</td>
+</tr>
+<tr>
+<td>Deeply nested or recursive schemas</td>
+<td>Grammar-based (context-free grammar); simple regex patterns miss recursive nesting</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Provider-side JSON mode vs client-side constrained decoding:</strong></p>
+<p>Most frontier model APIs now expose a <code>response_format: { type: "json_object" }</code> parameter (OpenAI, Anthropic) or function calling — these are provider-implemented constrained decoding with no client overhead. For self-hosted models, client-side libraries are required. The output quality is equivalent; prefer the native API option when available to avoid the serving-side overhead.</p>
+<h2 id="inference-time-compute-scaling-extended-reasoning">Inference-Time Compute Scaling: Extended Reasoning<a class="headerlink" href="#inference-time-compute-scaling-extended-reasoning" title="Permanent link">&para;</a></h2>
+<p>Standard decoding has a fixed compute budget per token — one forward pass, one token out. <strong>Extended reasoning</strong> breaks this: models like o1, o3, DeepSeek-R1, and Claude Extended Thinking generate thousands of internal "thinking" tokens before producing any visible output, spending compute on chain-of-thought exploration rather than emitting an answer immediately.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Standard["Standard Decoding"]
+        SP[Prompt] --&gt; SD["One forward pass per token\n~300 visible output tokens\nstreamed directly to user"]
+        SD --&gt; SR[Response]
+    end
+    subgraph Extended["Extended Reasoning"]
+        EP[Prompt] --&gt; ET["Phase 1 — Thinking\n1K to 32K+ hidden tokens\nnot shown to user\none forward pass each"]
+        ET --&gt; ED["Phase 2 — Response\nstandard output tokens\nstreamed to user"]
+        ED --&gt; ER[Response]
+    end</code></pre>
+<p><strong>The systems implications are material, not cosmetic:</strong></p>
+<ul>
+<li><strong>Latency profile inverts.</strong> In standard decoding, time-to-first-token is fast (one prefill pass) and the user sees tokens arriving immediately. In extended reasoning, there is a silent thinking phase running 30–300 seconds before the first visible word. Streaming thinking tokens — as some APIs now expose — improves perceived responsiveness but does not reduce wall-clock time.</li>
+<li><strong>Token volume multiplies by 10–100×.</strong> A response producing 500 output tokens in standard mode may require 8,000 thinking tokens + 500 response tokens in reasoning mode — a 17× token count for the same user-visible answer. At reasoning-model API pricing (typically 3–10× the base rate), the cost per query can be 30–1,000× more than the cheapest small model on the same task.</li>
+<li><strong>KV cache pressure spikes.</strong> Thinking tokens require KV cache entries exactly like any other tokens. A 32K-token thinking budget consumes roughly 32× the KV cache of a standard 1K-token response. A single reasoning request can saturate the KV cache that would otherwise serve 30+ standard requests concurrently.</li>
+<li><strong>Thinking budget is a new capacity-planning input.</strong> Most reasoning APIs expose a <code>max_thinking_tokens</code> parameter. Sizing without measuring actual thinking-token utilization from real traffic — not just the maximum budget — produces severely under-capacity estimates. Actual utilization commonly runs 30–60% of the budget ceiling on average, but p95 can hit the ceiling, and that's what drives your KV cache and GPU saturation events.</li>
+</ul>
+<p><strong>When extended reasoning is worth the cost:</strong></p>
+<p>Route tasks to a reasoning model only after measuring that a cheaper model's output on that task class is insufficient. Reasoning models dominate on multi-step math, complex code generation, and adversarial logical reasoning; they rarely improve factual lookup, summarization, or conversational response — and the cost premium is unjustifiable for those. The production pattern: run the standard model, route to the reasoning model only on inputs that trigger a measured confidence failure or complexity threshold, and track the fraction of real traffic that actually requires that routing, since it directly sets your reasoning-path cost line.</p>
+<h2 id="tradeoffs">Tradeoffs<a class="headerlink" href="#tradeoffs" title="Permanent link">&para;</a></h2>
+<p>The core decision is rarely "which algorithm" in the abstract — it's "how much does this specific task need reproducibility versus variety, and how much compute is the quality gain actually worth."</p>
+<pre class="mermaid"><code>flowchart TD
+    Q1{Is output\nreproducibility a\nhard requirement?} --&gt;|Yes| GREEDY2[Greedy / temperature near 0]
+    Q1 --&gt;|No| Q2{Is the output space\nsmall/constrained,\nand quality worth\nextra compute?}
+    Q2 --&gt;|Yes| BEAMTREE[Beam search]
+    Q2 --&gt;|No| Q3{Is latency the\nbinding constraint\nand a draft model\nis available?}
+    Q3 --&gt;|Yes| SPECTREE[Speculative decoding\n+ sampling/greedy on top]
+    Q3 --&gt;|No| SAMPLETREE[Temperature + top-p\nsampling, tune empirically]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Latency/cost profile</th>
+<th>Output character</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Greedy</td>
+<td>Cheapest per token; fully sequential, no extra compute</td>
+<td>Deterministic, reproducible, prone to repetition loops on long generations</td>
+</tr>
+<tr>
+<td>Temperature/top-p/top-k sampling</td>
+<td>Same per-token cost as greedy — the shaping step is computationally negligible</td>
+<td>Varied, natural; quality and coherence sensitive to parameter tuning, not guaranteed by default settings</td>
+</tr>
+<tr>
+<td>Beam search (beam width <em>k</em>)</td>
+<td>Roughly <em>k</em>x the per-step compute and memory of greedy</td>
+<td>Generally higher-quality for constrained tasks; tends toward generic, "safe" output for open-ended generation</td>
+</tr>
+<tr>
+<td>Speculative decoding</td>
+<td>Adds a small draft-model cost per step, but cuts the number of required full-model sequential steps — net latency win when draft-acceptance rate is reasonably high</td>
+<td>Output distribution unchanged from the underlying strategy it wraps (no quality tradeoff, by design)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scalability">Scalability<a class="headerlink" href="#scalability" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Decoding cost per token does not scale with batch size the way model compute does</strong> — sampling and greedy selection are cheap, near-constant-time operations relative to the forward pass itself; they almost never become the bottleneck at scale, decode latency is dominated by the forward pass, not by the decoding logic layered on top of it.</li>
+<li><strong>Beam search's compute multiplier compounds with concurrency.</strong> At beam width <em>k</em>, serving the same request volume requires roughly <em>k</em>x the aggregate decode compute and KV cache memory of greedy or sampled decoding for those requests — at meaningful production scale, this is rarely worth it outside narrow, quality-critical, latency-tolerant use cases (e.g., certain translation or structured-generation pipelines), which is why most consumer-facing LLM products use sampling, not beam search.</li>
+<li><strong>Speculative decoding's benefit scales with draft-model acceptance rate, not request volume directly</strong> — a draft model well-matched to the target model's distribution for a given workload yields a consistent per-request latency win regardless of scale; a poorly-matched draft model (low acceptance rate) yields little benefit and wastes the draft pass's compute, making draft-model selection and monitoring a per-workload tuning problem, not a one-time setup (full treatment: <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a>).</li>
+<li><strong>Decoding parameter consistency matters more at scale than it seems at small scale</strong> — at low volume, sampling variance averages out and is barely noticed; at high volume, an un-pinned or inconsistently-applied temperature setting becomes a measurable, aggregate source of eval-score noise and unpredictable cost (longer or shorter generations) across the full traffic distribution.</li>
+</ul>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Cause</th>
+<th>Degradation strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repetitive, looping output</td>
+<td>Greedy decoding (or very low temperature) on a long generation, falling into a locally-stable repetitive pattern</td>
+<td>Apply a repetition penalty as a targeted fix; for open-ended tasks, prefer sampling over pure greedy</td>
+</tr>
+<tr>
+<td>Incoherent or nonsensical output</td>
+<td>Temperature set too high, or top-k/top-p configured too permissively, sampling too far into the distribution's low-probability tail</td>
+<td>Cap temperature and top-p within validated ranges per task type; treat decoding parameters as configuration requiring the same review rigor as a prompt change</td>
+</tr>
+<tr>
+<td>Eval score regression with no prompt or model change</td>
+<td>Decoding parameters changed (deliberately or by a default-value drift in an upgraded client library)</td>
+<td>Pin and version decoding parameters alongside prompts and model versions; treat a parameter change as a gated, evaluated deploy</td>
+</tr>
+<tr>
+<td>Speculative decoding silently degrading quality</td>
+<td>A bug in verification logic that accepts a token the target model would not have chosen</td>
+<td>Verification correctness needs the same testing rigor as any other serving-path correctness property — speculative decoding's entire value proposition depends on output-distribution equivalence holding exactly</td>
+</tr>
+<tr>
+<td>Beam search producing degenerate, overly generic output</td>
+<td>Beam search's tendency to converge on the statistically safest, blandest continuation for open-ended tasks</td>
+<td>Reserve beam search for genuinely constrained tasks; use sampling for open-ended generation regardless of available compute budget</td>
+</tr>
+</tbody>
+</table>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<p>Decoding strategy has a narrower security surface than other layers in this book, but two points are worth naming directly:</p>
+<ul>
+<li><strong>Decoding randomness is not a security boundary.</strong> Relying on sampling variability to make harmful outputs merely "less likely" rather than actually blocked is not a safety control — guardrails and content filtering (see <a href="../../21-ai-security/04-guardrails-and-content-safety/">Guardrails &amp; Content Safety</a>) must operate on actual output, independent of which decoding strategy or parameters produced it.</li>
+<li><strong>Beam search and speculative decoding both increase per-request internal compute work (multiple candidates, or a draft-plus-verify pass) for the same user-visible output</strong> — a resource-exhaustion consideration worth folding into the same capacity and abuse-prevention thinking as context-length limits (see <a href="../01-transformer-internals-for-systems-engineers/#security">Transformer Internals for Systems Engineers</a>), since these strategies change the real compute cost of a request beyond what its token count alone would predict.</li>
+</ul>
+<h2 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Speculative decoding is close to a free latency win when a good draft model exists</strong> — it doesn't change output content or typically increase total cost meaningfully (the draft pass is cheap relative to the full-model steps it replaces), making it one of the few decoding-layer levers worth adopting by default rather than evaluating case by case.</li>
+<li><strong>Avoid beam search at production scale unless the task specifically justifies it</strong> — the <em>k</em>x compute multiplier is a real, ongoing cost for marginal quality gains on most open-ended tasks; reserve it for narrow, quality-critical, lower-volume use cases where the gain is measured and justified.</li>
+<li><strong>Tune temperature and top-p for output length, not just quality</strong> — higher-temperature sampling can produce longer, more rambling completions on some tasks, which directly costs more in output tokens; a parameter tuned purely for "creativity" without checking its effect on output length can silently inflate cost.</li>
+<li><strong>Cap maximum generation length explicitly per task</strong>, independent of decoding strategy, since a repetition loop or runaway generation under any strategy is bounded in actual harm only by an enforced output-length ceiling.</li>
+</ul>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Repetition rate / degenerate-output rate</strong>, sampled from production traffic — a leading indicator that decoding parameters need adjustment for a given task or model version.</li>
+<li><strong>Output length distribution, segmented by decoding configuration</strong> — catches a temperature or top-p change (deliberate or accidental) that's silently inflating generation length and cost.</li>
+<li><strong>Decoding parameter values actually sent per request, logged and versioned</strong> — without this, an eval regression investigation has no way to rule out (or confirm) decoding drift as the cause.</li>
+<li><strong>Speculative decoding acceptance rate</strong>, if in use — the direct signal for whether the draft model is well-matched to current traffic, and the leading indicator for when a draft model needs retraining or replacement as the target model or workload shifts.</li>
+<li><strong>Latency improvement attributable to speculative decoding</strong>, tracked as its own metric — confirms the technique is delivering its intended benefit in production, not just in benchmark conditions.</li>
+</ul>
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Treat decoding parameters as versioned configuration</strong>, reviewed and gated the same way a prompt or model change is — not a runtime default left untracked.</li>
+<li><strong>Route decoding strategy by task type explicitly</strong> — greedy/low-temperature for anything requiring reproducibility, tuned sampling for open-ended generation, rather than one global setting for every product surface.</li>
+<li><strong>Default to speculative decoding wherever a viable draft model exists</strong>, given its near-zero quality tradeoff and real latency upside.</li>
+<li><strong>Avoid beam search outside narrow, justified, lower-volume use cases</strong>, given its compute multiplier at production scale.</li>
+<li><strong>Set and enforce a maximum generation length per task</strong>, independent of decoding strategy, as a hard backstop against repetition loops or runaway output.</li>
+<li><strong>Validate any decoding parameter change against an eval suite before rollout</strong>, the same gate applied to a prompt or model version change, since decoding parameters measurably affect eval outcomes.</li>
+</ul>
+<h2 id="real-world-examples">Real World Examples<a class="headerlink" href="#real-world-examples" title="Permanent link">&para;</a></h2>
+<p>The following reflect publicly documented patterns and widely discussed industry practice, not confirmed internal configuration of any specific product.</p>
+<ul>
+<li><strong>OpenAI's and Anthropic's public APIs</strong> both expose temperature and top-p as direct, documented request parameters, with documented defaults — a direct, product-level acknowledgment that decoding strategy is a tunable surface for API consumers, not a fixed internal detail.</li>
+<li><strong>Code-completion products</strong> (the category GitHub Copilot and similar tools occupy) are widely understood to favor low-temperature or near-greedy decoding for inline suggestions, prioritizing the kind of predictable, low-variance completions that match a single, specific coding context, over the open-ended variety appropriate for conversational products.</li>
+<li><strong>Speculative decoding</strong> has been publicly described in research from multiple major labs (including Google's and DeepMind's published work on the technique) and is implemented in open-source serving engines like vLLM and others discussed in <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a> — it has moved from a research technique to a standard production serving-engine feature within a few years of its initial publication.</li>
+<li><strong>Structured-output and function-calling features</strong> across major providers are widely documented to recommend or default toward low-temperature decoding, since reproducibility and schema-validity matter more than phrasing variety for these use cases — a direct, publicly visible instance of task-routed decoding configuration.</li>
+</ul>
+<h2 id="tools-and-ecosystem">Tools and Ecosystem<a class="headerlink" href="#tools-and-ecosystem" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Tools</th>
+<th>When to prefer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Constrained / structured generation</strong></td>
+<td>Outlines, XGrammar, LM Format Enforcer (LMFE), Guidance</td>
+<td>Outlines: most widely adopted, grammar + regex + JSON schema; XGrammar: fastest token-mask computation; LMFE: Pydantic-native schema enforcement; Guidance: handlebars-style template-driven generation</td>
+</tr>
+<tr>
+<td><strong>Provider JSON / structured mode</strong></td>
+<td>OpenAI <code>response_format: {type: "json_schema"}</code>, Anthropic tool use, Google <code>responseMimeType</code></td>
+<td>Prefer provider-side constrained decoding when available — zero client overhead and guaranteed valid output; use client-side libraries only for self-hosted models</td>
+</tr>
+<tr>
+<td><strong>Speculative decoding</strong></td>
+<td>vLLM (native <code>--num-speculative-tokens</code>), llama.cpp (<code>--draft-model</code>), TRT-LLM</td>
+<td>Use when a small, fast draft model (same family, 1/5–1/10 the size) is available; acceptance rate above ~70% gives meaningful latency gains</td>
+</tr>
+<tr>
+<td><strong>Serving engines (decoding config)</strong></td>
+<td>vLLM, SGLang, TGI</td>
+<td>All expose <code>temperature</code>, <code>top_p</code>, <code>top_k</code>, <code>repetition_penalty</code> per-request; vLLM and SGLang expose speculative decoding; TGI exposes watermarking</td>
+</tr>
+<tr>
+<td><strong>Reasoning model APIs</strong></td>
+<td>OpenAI o3/o4-mini (<code>max_completion_tokens</code>), Anthropic (<code>thinking.budget_tokens</code>), DeepSeek API</td>
+<td>Extended thinking requires separate budget parameter; set conservatively and measure actual thinking-token utilisation from production traffic before raising</td>
+</tr>
+<tr>
+<td><strong>Output sampling analysis</strong></td>
+<td><code>temperature_scaling</code> notebooks, token probability inspection via logprobs API</td>
+<td>OpenAI and Anthropic both expose <code>logprobs</code> in completions — use for calibration analysis and to understand which tokens the model is uncertain about</td>
+</tr>
+</tbody>
+</table>
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What does "temperature" actually do during text generation?</strong>
+It reshapes the probability distribution the model outputs before a token is sampled. A temperature below 1 sharpens the distribution toward the already-most-likely tokens, making output more deterministic and repetitive; a temperature above 1 flattens it, making lower-probability tokens relatively more likely to be picked, producing more varied (and, past a point, less coherent) output. Temperature 0 is equivalent to greedy decoding — always pick the single highest-probability token.</p>
+<p><strong>Q: Why might greedy decoding produce worse output than sampling, even though it always picks the "best" token at each step?</strong>
+Greedy decoding is only locally optimal — it picks the single best next token at each step with no regard for how that choice affects the rest of the sequence, and it has a well-known tendency to fall into repetitive loops, since once a repeated phrase becomes locally highest-probability, it tends to stay that way. Picking the "best" token every single time doesn't guarantee the best overall sequence, and for open-ended generation it isn't even clear that one deterministic "best" sequence is the right product goal.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What's the difference between top-k and top-p sampling, and why would you prefer one over the other?</strong>
+Top-k restricts sampling to a fixed number of the highest-probability tokens, regardless of how the probability mass is actually distributed among them. Top-p (nucleus sampling) instead includes however many tokens are needed to reach a cumulative probability threshold, which adapts to the shape of the distribution — when the model is very confident (probability concentrated on a few tokens), the effective candidate set shrinks automatically; when it's uncertain (probability spread thin), the set widens. Top-p is generally preferred because it doesn't require guessing a good fixed <em>k</em> that works well across both confident and uncertain generation steps.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Confident["Model is Confident\nOne token has high probability mass"]
+        CONF_DIST["Token A: 0.80\nToken B: 0.10\nToken C: 0.05\nToken D: 0.03\nToken E: 0.02"]
+        CONF_K["Top-k k=3:\ninclude A, B, C\ncorrect — k matches confident shape"]
+        CONF_P["Top-p p=0.95:\nadd A (0.80) + B (0.10) + C (0.05) = 0.95\nstop — only 3 candidates\ncorrect — adapts automatically"]
+    end
+    subgraph Uncertain["Model is Uncertain\nProbability spread across many tokens"]
+        UNC_DIST["Token A: 0.15\nToken B: 0.12\nToken C: 0.10\n...\nToken K: 0.05"]
+        UNC_K["Top-k k=3:\nonly A, B, C\ncuts off tokens D-K that\nshould be considered"]
+        UNC_P["Top-p p=0.95:\nkeep adding until 0.95 reached\nmay include 10-15 candidates\ncorrect — widens when uncertain"]
+    end
+    CONF_P --&gt; WIN["Top-p adapts to distribution shape\ntop-k does not\ntop-p is generally preferred"]
+    UNC_P --&gt; WIN</code></pre>
+<p><strong>Q: Why is speculative decoding described as a "free" latency win with no quality tradeoff, when it sounds like it's introducing an extra model into the pipeline?</strong>
+Because of how verification works: the small draft model's proposed tokens are only ever <em>accepted</em> if the full target model would have generated the same token anyway — verification compares the draft's proposals against the target model's actual distribution in one parallel pass, and rejects (and corrects) anything that doesn't match. The final output is mathematically equivalent to what the target model alone, decoding token by token, would have produced. The "free" part is that this verification happens in one parallel forward pass instead of several sequential ones, exploiting compute capacity that decode's memory-bandwidth-bound steps otherwise leave idle.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: An eval suite shows a quality regression after a routine model client library upgrade, with no prompt or model changes. What's an under-checked cause specific to this chapter?</strong>
+Decoding parameter defaults. Client libraries and SDKs sometimes change their default temperature, top-p, or other sampling parameters between versions, and if a team relies on library defaults rather than explicitly pinning decoding parameters, an otherwise-routine dependency upgrade can silently change generation behavior. The fix is treating decoding parameters as explicit, versioned configuration — never left to whatever a dependency's current default happens to be — and checking exactly this when an eval regression appears with no other explanation.</p>
+<p><strong>Q: When would beam search actually be the right production choice despite its compute cost, and what tells you it's not worth it for a given task?</strong>
+It's justified for constrained-output tasks where small differences in sequence-level quality matter and the output space is narrow enough that beam search's tendency toward "safe, generic" output isn't a liability — certain structured translation or summarization tasks with a fairly bounded correct-answer space are plausible candidates. It's not worth it when the task is genuinely open-ended (chat, creative writing), where beam search's bias toward the statistically safest continuation actively works against the variety the product needs, or when request volume is high enough that the <em>k</em>x compute multiplier becomes a material, ongoing cost for a quality gain that hasn't been measured to justify it.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the decoding configuration strategy for a multi-surface product: a chat assistant, a structured data-extraction API, and a code-completion feature, all built on the same underlying model. What differs, and what's shared?</strong>
+Each surface gets its own decoding configuration, routed by task type rather than sharing one global default: the chat assistant uses tuned temperature and top-p sampling for natural variety; the data-extraction API uses greedy or near-zero temperature, since reproducibility and schema validity matter far more than phrasing variety and any randomness here is a bug; code completion uses low-temperature decoding favoring predictable, contextually-likely completions, plus likely a tighter maximum generation length given the latency sensitivity of inline suggestions. What's shared across all three is the operational discipline: every surface's decoding parameters are versioned, gated by eval before any change ships, and monitored for output-length and repetition-rate drift — and speculative decoding, if a suitable draft model exists, can be layered underneath all three transparently, since it changes none of their output distributions.</p>
+<p><strong>Q: A production incident traces back to a repetition loop in long-form generation that a recent eval suite didn't catch. How do you both fix the immediate issue and prevent this class of regression going forward?</strong>
+Immediate fix: apply or tighten a repetition penalty for the affected task, and/or shift away from near-greedy decoding toward sampling if the task tolerates it, plus enforce a hard maximum generation length as a backstop regardless of root cause. The deeper gap is in the eval suite: if it didn't catch a repetition-loop failure mode, it likely tests primarily on short-to-moderate generations where this failure mode is less likely to manifest — the fix is adding long-form generation cases specifically designed to surface repetition behavior (e.g., open-ended prompts with no natural stopping point) to the regression suite, since this failure mode is a known, well-documented risk of greedy and low-temperature decoding on long generations and should be tested for deliberately, not discovered in production.</p>
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<ul>
+<li>"If decoding strategy doesn't change the model's weights or its computed logits, why does it matter enough to be its own chapter rather than a minor configuration footnote?" — probes for articulating that decoding is the step that actually determines user-visible output character, reproducibility, latency (via speculative decoding), and cost (via output length) — a genuinely independent axis of system design, not a footnote to model selection.</li>
+<li>"Could you build a product where decoding strategy is chosen dynamically, per-request, by the model itself or by another model? What would that buy you, and what's the risk?" — probes for recognizing this is plausible (e.g., a router classifying whether a request needs reproducibility vs. variety before generation) and that the risk is an added latency/complexity cost and a new failure surface (the router being wrong) for a benefit that's only worth it if task types are genuinely heterogeneous and hard to route by simpler signals upfront.</li>
+<li>"Speculative decoding requires a draft model 'well-matched' to the target model. What does 'well-matched' actually mean, and how would you measure it without running full production traffic through it first?" — probes for understanding draft-acceptance rate as the core metric, and for proposing offline measurement against a representative sample of real or realistic prompts before full rollout, rather than assuming any smaller model from the same family is automatically well-matched.</li>
+<li>"How would your decoding strategy recommendations change for a model architecture fundamentally different from current autoregressive transformers — for instance, a diffusion-based text model that generates all tokens jointly rather than one at a time?" — probes for recognizing that most of this chapter's vocabulary (greedy, temperature, beam search, speculative decoding) is specifically shaped by autoregressive, one-token-at-a-time generation, and a genuinely different generation paradigm would need its own decoding theory, not a direct port of these concepts.</li>
+</ul>
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Leaving decoding parameters at whatever a client library or SDK defaults to</strong>, rather than explicitly pinning and versioning them, risking silent behavior drift on a routine dependency upgrade.</li>
+<li><strong>Using one global decoding configuration across genuinely different task types</strong> (reproducible structured output vs. open-ended chat) instead of routing configuration by task.</li>
+<li><strong>Reaching for beam search at production scale by default</strong>, without measuring whether its compute multiplier is actually justified by a meaningful quality gain for the specific task.</li>
+<li><strong>Treating decoding randomness as a safety or content-filtering mechanism</strong>, rather than recognizing that guardrails must operate on actual output regardless of decoding strategy.</li>
+<li><strong>Tuning temperature purely for subjective "creativity" without checking its effect on output length and therefore cost.</strong></li>
+<li><strong>Not testing for repetition-loop failure modes in eval suites</strong>, despite this being a well-known, specifically-triggerable failure mode of greedy and low-temperature decoding on long generations.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Decoding is a separate, product-level decision layered on top of the model's computed probability distribution — the same logits decoded differently produce meaningfully different output character, latency, and cost.</li>
+<li>Greedy decoding is deterministic and cheap but prone to repetition loops; sampling (temperature, top-k, top-p) trades determinism for variety and is the default for open-ended generation; beam search improves sequence-level quality at a real, multiplicative compute cost best reserved for constrained tasks.</li>
+<li>Speculative decoding is close to a free latency win: a small draft model proposes tokens, the full model verifies them in one parallel pass, and the output distribution is mathematically unchanged from standard decoding — a serving optimization, not a quality tradeoff.</li>
+<li>Production systems should route decoding configuration by task type — greedy/low-temperature for reproducibility-sensitive tasks, tuned sampling for open-ended generation — rather than applying one global default everywhere.</li>
+<li>Decoding parameters need the same versioning, gating, and monitoring discipline as prompts and model versions, since they measurably affect eval outcomes, output length (and therefore cost), and can drift silently through dependency upgrades.</li>
+<li>Decoding strategy is not a safety boundary — content guardrails must operate on actual output regardless of which strategy or parameters produced it.</li>
+<li>This chapter's speculative decoding concept gets its full latency-economics treatment in <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a>; its task-routing implications connect directly to <a href="../../03-prompt-architecture/03-structured-output-and-grammars/">Structured Output &amp; Grammars</a> and <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/">Prompt Engineering as Systems Design</a>.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">LLM Architecture</a> in the <a href="../../">AI System Design Notes</a>. Tracked in <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md">BACKLOG.md</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../03-context-windows-and-positional-encoding/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Context Windows &amp; Positional Encoding">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Context Windows & Positional Encoding
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../05-model-families-and-selection/" class="md-footer__link md-footer__link--next" aria-label="Next: Model Families &amp; Selection">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Model Families & Selection
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

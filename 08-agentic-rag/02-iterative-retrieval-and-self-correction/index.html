@@ -1,0 +1,7567 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/08-agentic-rag/02-iterative-retrieval-and-self-correction/">
+      
+      
+        <link rel="prev" href="../01-agentic-rag-architecture/">
+      
+      
+        <link rel="next" href="../../09-agents/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Iterative Retrieval & Self-Correction - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#iterative-retrieval-self-correction" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Iterative Retrieval & Self-Correction
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-architecture-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why This Architecture Exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-sufficiency-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Sufficiency Check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Sufficiency Check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-sufficient-actually-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What "sufficient" actually means
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-the-check-is-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the check is implemented
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-rag-in-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-RAG in Detail
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Self-RAG in Detail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-canonical-formalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The canonical formalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trained-vs-prompted-and-why-it-differs-from-ad-hoc-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trained vs. prompted, and why it differs from ad-hoc checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#corrective-rag-crag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corrective RAG (CRAG)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Corrective RAG (CRAG)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-web-search-fallback-on-low-confidence-internal-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a web-search fallback on low-confidence internal evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-threshold-tuning-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The threshold-tuning problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-reformulation-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Reformulation Triggers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Query Reformulation Triggers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-signal-drives-what-kind-of-reformulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What signal drives what kind of reformulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#avoiding-reformulation-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Avoiding reformulation loops
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-source-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Source Reconciliation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-Source Reconciliation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-retrieved-evidence-disagrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When retrieved evidence disagrees
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stopping Criteria
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stopping Criteria">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-critical-production-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The critical production problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-to-do-when-the-loop-terminates-without-enough-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to do when the loop terminates without enough evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-of-self-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost of Self-Correction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost of Self-Correction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#every-sufficiency-check-is-an-extra-llm-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Every sufficiency check is an extra LLM call
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-architecture-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why This Architecture Exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-sufficiency-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Sufficiency Check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Sufficiency Check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-sufficient-actually-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What "sufficient" actually means
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-the-check-is-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the check is implemented
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-rag-in-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-RAG in Detail
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Self-RAG in Detail">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-canonical-formalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The canonical formalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trained-vs-prompted-and-why-it-differs-from-ad-hoc-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trained vs. prompted, and why it differs from ad-hoc checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#corrective-rag-crag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corrective RAG (CRAG)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Corrective RAG (CRAG)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-web-search-fallback-on-low-confidence-internal-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a web-search fallback on low-confidence internal evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-threshold-tuning-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The threshold-tuning problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-reformulation-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Reformulation Triggers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Query Reformulation Triggers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-signal-drives-what-kind-of-reformulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What signal drives what kind of reformulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#avoiding-reformulation-loops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Avoiding reformulation loops
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-source-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Source Reconciliation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-Source Reconciliation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-retrieved-evidence-disagrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When retrieved evidence disagrees
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stopping-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stopping Criteria
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stopping Criteria">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-critical-production-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The critical production problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-to-do-when-the-loop-terminates-without-enough-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to do when the loop terminates without enough evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-of-self-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost of Self-Correction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost of Self-Correction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#every-sufficiency-check-is-an-extra-llm-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Every sufficiency check is an extra LLM call
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Agentic RAG
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/08-agentic-rag/02-iterative-retrieval-and-self-correction.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="iterative-retrieval-self-correction">Iterative Retrieval &amp; Self-Correction<a class="headerlink" href="#iterative-retrieval-self-correction" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p><a href="../01-agentic-rag-architecture/">Agentic RAG Architecture</a> established that retrieval is a tool the model calls, and that the model decides when it has enough evidence to stop. This chapter is about the mechanics of that decision: how a system actually determines "enough," what happens when it decides evidence is insufficient, how it decides what to search for next, what it does when sources disagree, and — the production-critical part — how it guarantees the loop terminates at all. This is the decision logic underneath the architecture, not a restatement of it.</p>
+<h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
+<p>Iterative retrieval and self-correction is the set of mechanisms by which an agentic RAG system evaluates the sufficiency of retrieved evidence before generating a final answer, reformulates its retrieval query when evidence is judged insufficient, reconciles retrieved content that conflicts across sources, and enforces stopping criteria that guarantee the retrieval loop terminates — with an honest, bounded degradation path — even when sufficient evidence is never found.</p>
+<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
+<p>Giving a model the ability to retrieve again doesn't automatically make it good at knowing <em>when</em> to. Three concrete failure patterns show why the decision logic itself needs to be engineered, not assumed:</p>
+<ul>
+<li><strong>False confidence on incomplete evidence.</strong> A model can read three chunks that are topically on point and confidently decide it has enough, when the question actually required a fourth fact none of the three chunks contain — the failure isn't that retrieval didn't run again, it's that the sufficiency check itself was wrong.</li>
+<li><strong>Reformulation that doesn't actually change anything.</strong> A naive "try again" instruction often produces a paraphrase of the same query, which retrieves the same (insufficient) chunks again — burning an iteration with zero information gain, and repeating that pattern until a step budget is exhausted.</li>
+<li><strong>No natural stopping point on a genuine coverage gap.</strong> If the answer truly isn't in the corpus, every reformulation will return something insufficient, and a system with no hard stopping criteria will iterate until a step or cost ceiling force-stops it — the question is whether that ceiling exists at all, and what the system says when it fires.</li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    Q["Question arrives"] --&gt; RET["Retrieve"]
+    RET --&gt; CHECK{"Sufficiency\ncheck"}
+    CHECK --&gt;|"Wrongly judged sufficient"| BADGEN["Generate confidently\non incomplete evidence"]
+    CHECK --&gt;|"Correctly judged insufficient"| REFORM{"Reformulation\nactually different?"}
+    REFORM --&gt;|"No, just a paraphrase"| RET
+    REFORM --&gt;|"Yes, addresses the gap"| RET2["Retrieve again\nwith better query"]
+    RET2 --&gt; CHECK2{"Now sufficient?"}
+    CHECK2 --&gt;|"Still no, corpus gap"| CEILING{"Stopping criteria\nexist?"}
+    CEILING --&gt;|"No"| RUNAWAY["Unbounded iteration,\nruns until forced timeout"]
+    CEILING --&gt;|"Yes"| DEGRADE["Graceful degradation:\nhedge or decline"]</code></pre>
+<h2 id="why-this-architecture-exists">Why This Architecture Exists<a class="headerlink" href="#why-this-architecture-exists" title="Permanent link">&para;</a></h2>
+<p><a href="../../06-rag/04-advanced-rag-patterns/">Advanced RAG Patterns</a> introduced Self-RAG and Corrective RAG at the level of "the model critiques its own evidence and re-retrieves if needed" — enough to motivate why the pattern exists, not enough to build it correctly. Two research efforts formalized the missing detail. Asai et al.'s <strong>Self-RAG</strong> (2023) made the sufficiency decision explicit and trainable rather than an ad-hoc prompt, via reflection tokens the model emits as part of generation. <strong>Corrective RAG (CRAG)</strong> took a narrower, more operational angle: treat the sufficiency check as a scored classifier decision with an explicit threshold, and give the system a concrete fallback (web search) rather than just "try again" when the internal corpus's evidence scores low.</p>
+<p>Both are responses to the same underlying gap: "critique your own evidence" is not a specification, it's a slogan. Actually building it requires answering exactly the questions this chapter covers — what does sufficient mean operationally, how is the check implemented cheaply enough to run every iteration, what triggers a reformulation versus a source switch versus giving up, and what hard guarantees exist so the whole thing terminates. This chapter is the engineering answer to those questions.</p>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Sufficiency check</strong> — the evaluation, run before generation, of whether retrieved evidence is complete, non-contradictory, and relevant enough to answer the question.</li>
+<li><strong>Reflection tokens</strong> — Self-RAG's mechanism for making retrieval and critique decisions explicit, structured outputs rather than implicit reasoning: <code>[Retrieve]</code>, <code>[IsRel]</code>, <code>[IsSup]</code>, <code>[IsUse]</code>.</li>
+<li><strong>Relevance threshold</strong> — CRAG's scored cutoff for whether internally retrieved evidence is good enough to use as-is, trigger augmentation, or be discarded in favor of a web search fallback.</li>
+<li><strong>Reformulation trigger</strong> — the specific signal (temporal mismatch, over-generality, missing entity) that determines <em>how</em> a query should change, not just that it should.</li>
+<li><strong>Multi-source reconciliation</strong> — the logic applied when evidence from different sources or different retrieval iterations disagrees.</li>
+<li><strong>Stopping criteria</strong> — the combination of iteration count, quality threshold, timeout, and convergence signals that guarantee loop termination.</li>
+<li><strong>Cheap sufficiency check</strong> — a non-frontier-model or non-LLM classifier used to make the sufficiency decision affordable to run on every iteration.</li>
+</ul>
+<h2 id="the-sufficiency-check">The Sufficiency Check<a class="headerlink" href="#the-sufficiency-check" title="Permanent link">&para;</a></h2>
+<h3 id="what-sufficient-actually-means">What "sufficient" actually means<a class="headerlink" href="#what-sufficient-actually-means" title="Permanent link">&para;</a></h3>
+<p>"Is this enough to answer the question" is really three separable judgments, and conflating them is why naive sufficiency checks underperform:</p>
+<ul>
+<li><strong>Completeness</strong> — does the retrieved context contain every fact the question requires, not just some of them? A question asking for a comparison between two things needs both sides present; evidence for only one side is incomplete even if it's perfectly relevant.</li>
+<li><strong>Non-contradiction</strong> — do the retrieved chunks agree with each other? Two chunks that are both relevant but state different numbers for the same fact (an old and a current pricing page) are not sufficient evidence even though both individually pass a relevance bar — the system has evidence, but not <em>resolved</em> evidence.</li>
+<li><strong>Relevance</strong> — is the retrieved content actually about the question asked, as opposed to topically adjacent? This is the same failure mode as <a href="../../06-rag/03-rag-failure-modes/#retrieval-distraction-wrong-chunks-retrieved-right-chunk-crowded-out">retrieval distraction and query-context semantic mismatch</a> from static RAG, but here it's being actively checked rather than silently passed through to generation.</li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    EV["Retrieved evidence"] --&gt; C1{"Complete?\nAll required facts present"}
+    EV --&gt; C2{"Non-contradictory?\nChunks agree with each other"}
+    EV --&gt; C3{"Relevant?\nActually about this question,\nnot just topically adjacent"}
+    C1 --&gt;|"No"| INSUFF["Insufficient:\nreformulate to fill the gap"]
+    C2 --&gt;|"No"| INSUFF2["Insufficient:\nreconcile or surface conflict"]
+    C3 --&gt;|"No"| INSUFF3["Insufficient:\nreformulate or re-rank"]
+    C1 --&gt;|"Yes"| C2
+    C2 --&gt;|"Yes"| C3
+    C3 --&gt;|"Yes"| SUFF["Sufficient:\nproceed to generation"]</code></pre>
+<h3 id="how-the-check-is-implemented">How the check is implemented<a class="headerlink" href="#how-the-check-is-implemented" title="Permanent link">&para;</a></h3>
+<p>Three implementation strategies, in increasing order of cost and decreasing order of speed:</p>
+<ul>
+<li><strong>Explicit LLM call.</strong> A dedicated prompt — "Given this question and this retrieved context, is the context sufficient to answer completely and without contradiction? If not, state what's missing." — run as a separate step after retrieval and before generation. Most accurate, most expensive: it's a full extra model call per iteration.</li>
+<li><strong>Folded into chain-of-thought.</strong> The same judgment made as part of the generating model's own reasoning trace before it commits to a final answer, rather than as a separate call — cheaper (no extra round trip) but harder to audit and easier for the model to skip under time/token pressure, since there's no forcing function requiring the judgment to actually happen.</li>
+<li><strong>A lightweight, non-LLM classifier.</strong> A small trained model (or even a heuristic — retrieval score distribution, chunk-count-above-threshold, keyword overlap) that makes a coarse sufficient/insufficient call cheaply, escalating only ambiguous cases to a full LLM check. This is the production-favored approach at scale, covered further under Cost of Self-Correction below.</li>
+</ul>
+<pre class="mermaid"><code>flowchart LR
+    RET["Retrieved evidence"] --&gt; CLASS["Cheap classifier:\nscore distribution,\nkeyword overlap"]
+    CLASS --&gt; CONF{"Confidence\nof the call"}
+    CONF --&gt;|"Clearly sufficient\nor clearly insufficient"| FAST["Fast path:\nno LLM call needed"]
+    CONF --&gt;|"Ambiguous"| ESCALATE["Escalate to\nexplicit LLM\nsufficiency check"]
+    FAST &amp; ESCALATE --&gt; DECISION["Sufficiency decision"]</code></pre>
+<h2 id="self-rag-in-detail">Self-RAG in Detail<a class="headerlink" href="#self-rag-in-detail" title="Permanent link">&para;</a></h2>
+<h3 id="the-canonical-formalization">The canonical formalization<a class="headerlink" href="#the-canonical-formalization" title="Permanent link">&para;</a></h3>
+<p>Self-RAG (Asai et al., 2023) is the formal version of the "critique your own evidence" idea gestured at in <a href="../../06-rag/04-advanced-rag-patterns/#self-rag-corrective-rag">Advanced RAG Patterns</a>. Rather than relying on free-form prompted reasoning to decide whether to retrieve and whether the result is good, Self-RAG trains the model to emit explicit <strong>reflection tokens</strong> as structured output interleaved with generation — turning a judgment call into an inspectable, trainable signal.</p>
+<p>Four reflection tokens, each answering one narrow question:</p>
+<ul>
+<li><strong><code>[Retrieve]</code></strong> — should I retrieve at all for this input? (Same retrieve-or-not decision covered under <a href="../01-agentic-rag-architecture/#core-concepts">Agentic RAG Architecture</a>, but here emitted as an explicit token rather than inferred from free-form reasoning.)</li>
+<li><strong><code>[IsRel]</code></strong> — is this specific retrieved passage relevant to the query? Evaluated per-passage, not once for the whole retrieved set — this is the mechanism that catches the query-context semantic mismatch failure mode at the passage level.</li>
+<li><strong><code>[IsSup]</code></strong> — is the generated segment actually supported by the cited passage? Evaluated after a segment of the answer is drafted, checking groundedness the same way <a href="../../06-rag/03-rag-failure-modes/#context-hallucination-the-model-generates-beyond-what-was-retrieved">faithfulness checking</a> does in static RAG, but as an integral, trained part of generation instead of a bolted-on post-hoc pass.</li>
+<li><strong><code>[IsUse]</code></strong> — is the resulting answer actually useful to the user, independent of whether it's supported? A fully-supported but unhelpful answer (technically correct, doesn't address what was actually asked) still fails this check.</li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    IN["Input query"] --&gt; RTOKEN{"Retrieve token:\nretrieve?"}
+    RTOKEN --&gt;|"No"| DIRECT["Generate directly,\nno retrieval"]
+    RTOKEN --&gt;|"Yes"| RET["Retrieve passages"]
+    RET --&gt; RELTOKEN["IsRel token:\nscore each passage\nfor relevance"]
+    RELTOKEN --&gt; FILTER["Keep only passages\nscored relevant"]
+    FILTER --&gt; GEN["Generate answer segment,\nconditioned on kept passages"]
+    GEN --&gt; SUPTOKEN["IsSup token:\nis this segment supported\nby its cited passage?"]
+    SUPTOKEN --&gt;|"Not supported"| RETRY["Regenerate segment\nor retrieve again"]
+    SUPTOKEN --&gt;|"Supported"| USETOKEN["IsUse token:\nis the answer useful?"]
+    USETOKEN --&gt;|"Not useful"| RETRY
+    USETOKEN --&gt;|"Useful"| FINAL["Emit final\nsegment/answer"]
+    RETRY --&gt; RET
+    DIRECT --&gt; FINAL</code></pre>
+<h3 id="trained-vs-prompted-and-why-it-differs-from-ad-hoc-checks">Trained vs. prompted, and why it differs from ad-hoc checks<a class="headerlink" href="#trained-vs-prompted-and-why-it-differs-from-ad-hoc-checks" title="Permanent link">&para;</a></h3>
+<p>The critical engineering distinction: Self-RAG's original formulation <strong>trains</strong> a model (via a critic model generating labeled reflection-token data, then fine-tuning the target model to produce those tokens as part of its own output distribution) rather than relying on prompting a general-purpose model to "check if you have enough evidence" at inference time. This matters for three reasons:</p>
+<ul>
+<li><strong>Calibration.</strong> A trained reflection token is a learned, calibrated signal correlated with actual downstream answer quality on held-out data. An ad-hoc prompted check ("is this sufficient? yes/no") has no such calibration guarantee — the model may say "sufficient" at a different accuracy rate than a trained classifier would, and that rate is unknown until measured.</li>
+<li><strong>Granularity.</strong> <code>[IsRel]</code> is evaluated per-passage, and <code>[IsSup]</code> per-generated-segment — finer-grained than a single end-of-context "is this enough" judgment, which catches issues (one bad passage among five good ones, one unsupported sentence in an otherwise-grounded paragraph) that a single coarse check misses entirely.</li>
+<li><strong>Cost shape.</strong> Because the tokens are part of the model's native output distribution rather than a separate call, a trained Self-RAG-style model produces its critique in the same forward pass as generation — no extra round-trip latency per check, unlike an explicit separate LLM sufficiency call.</li>
+</ul>
+<p>The tradeoff is upfront cost and inflexibility: training reflection tokens into a model requires a labeled dataset and a fine-tuning run, and the resulting behavior is fixed to what was trained, unlike a prompted check that can be edited and iterated on in minutes. Most production agentic RAG systems use the <strong>prompted, ad-hoc version</strong> of this idea (an explicit "is this sufficient" LLM call, or reasoning folded into chain-of-thought) precisely because it's editable without a training run — Self-RAG's fully trained version is the more rigorous, better-calibrated, but higher-upfront-investment end of the same spectrum.</p>
+<h2 id="corrective-rag-crag">Corrective RAG (CRAG)<a class="headerlink" href="#corrective-rag-crag" title="Permanent link">&para;</a></h2>
+<h3 id="adding-a-web-search-fallback-on-low-confidence-internal-evidence">Adding a web-search fallback on low-confidence internal evidence<a class="headerlink" href="#adding-a-web-search-fallback-on-low-confidence-internal-evidence" title="Permanent link">&para;</a></h3>
+<p>CRAG extends the sufficiency-check idea with a specific, concrete escape hatch: instead of only reformulating and re-querying the same internal corpus, it evaluates retrieved evidence with a scored relevance classifier and, when the score falls below a threshold, triggers a <strong>web search</strong> to supplement or replace the internal evidence before generation.</p>
+<pre class="mermaid"><code>flowchart TD
+    Q["Query"] --&gt; INTRET["Retrieve from\ninternal corpus"]
+    INTRET --&gt; SCORE["Relevance classifier\nscores retrieved evidence"]
+    SCORE --&gt; THRESH{"Score vs.\nthreshold"}
+    THRESH --&gt;|"High confidence"| USEINT["Use internal evidence\nas-is"]
+    THRESH --&gt;|"Ambiguous / medium"| AUGMENT["Use internal evidence,\naugment with web search"]
+    THRESH --&gt;|"Low confidence"| WEBFALL["Discard internal evidence,\ntrigger web search"]
+    USEINT &amp; AUGMENT &amp; WEBFALL --&gt; MERGE["Merge into final\nevidence set"]
+    MERGE --&gt; GEN["Generate"]</code></pre>
+<h3 id="the-threshold-tuning-problem">The threshold-tuning problem<a class="headerlink" href="#the-threshold-tuning-problem" title="Permanent link">&para;</a></h3>
+<p>CRAG's design reduces to a single, consequential number: the relevance threshold. Getting it wrong in either direction has a distinct, measurable cost:</p>
+<ul>
+<li><strong>Threshold set too strict</strong> (requiring very high relevance confidence to skip web search) → the system triggers web search far more often than actually necessary, adding 1-3+ seconds of latency per triggered fallback and pulling in external content that needs its own trust handling — excessive cost and latency on queries the internal corpus could have answered fine.</li>
+<li><strong>Threshold set too lenient</strong> (accepting low-relevance internal evidence without triggering fallback) → the system proceeds to generation on evidence that's actually only weakly relevant, reintroducing the retrieval-distraction and semantic-mismatch failure modes CRAG exists to prevent — silently worse answers with no visible signal that anything went wrong.</li>
+</ul>
+<pre class="mermaid"><code>flowchart LR
+    STRICT["Threshold too strict"] --&gt; S1["Web search triggers\ntoo often"]
+    S1 --&gt; S2["Excess latency + cost,\nunnecessary external dependency"]
+    LENIENT["Threshold too lenient"] --&gt; L1["Weak internal evidence\naccepted as sufficient"]
+    L1 --&gt; L2["Distraction / semantic-mismatch\nfailures reach generation unfixed"]
+    RIGHT["Threshold tuned against\na labeled eval set"] --&gt; R1["Fallback triggers only when\ninternal evidence is genuinely weak"]</code></pre>
+<p>The threshold is not a constant to guess once — it should be tuned against a labeled eval set the same way any retrieval-quality parameter is (see <a href="../../06-rag/01-rag-architecture/#monitoring">RAG evaluation</a>), and re-validated whenever the internal corpus, embedding model, or relevance classifier changes, since all three shift what "a good relevance score" actually looks like.</p>
+<h2 id="query-reformulation-triggers">Query Reformulation Triggers<a class="headerlink" href="#query-reformulation-triggers" title="Permanent link">&para;</a></h2>
+<h3 id="what-signal-drives-what-kind-of-reformulation">What signal drives what kind of reformulation<a class="headerlink" href="#what-signal-drives-what-kind-of-reformulation" title="Permanent link">&para;</a></h3>
+<p>"Try a different query" is not one action — the right reformulation depends entirely on <em>why</em> the evidence was insufficient, and treating every insufficiency the same way (generic re-ask) is why naive re-retrieval loops often repeat the same mistake in different words.</p>
+<pre class="mermaid"><code>flowchart TD
+    INSUFF["Evidence judged\ninsufficient"] --&gt; WHY{"What's the specific\nsignal?"}
+    WHY --&gt;|"Right topic,\nwrong time period"| TEMPORAL["Add temporal constraint\nto the query"]
+    WHY --&gt;|"Chunks too general,\nmissing the specific detail"| NARROW["Narrow the query\nwith the specific term"]
+    WHY --&gt;|"Missing a key entity\nthe question depends on"| ADDENTITY["Add the missing entity\nexplicitly to the query"]
+    WHY --&gt;|"Query itself was\ntoo narrow, zero results"| BROADEN["Broaden the query"]
+    TEMPORAL &amp; NARROW &amp; ADDENTITY &amp; BROADEN --&gt; RETRY["Re-retrieve with\nthe modified query"]</code></pre>
+<ul>
+<li><strong>Right topic, wrong time period.</strong> Retrieved chunks are clearly about the correct subject but describe an outdated or mismatched period (last year's pricing when the question is about current pricing) — the fix is adding an explicit temporal constraint to the query (a date range, "current," "as of [date]"), not a generic re-ask.</li>
+<li><strong>Too general.</strong> Retrieved chunks describe the general topic but not the specific angle the question needs (a general overview chunk when the question needs a specific edge case or exception) — the fix narrows the query with the specific term the general chunks lack, mirroring the over-specific-vs-general tension from <a href="../../06-rag/04-advanced-rag-patterns/#step-back-prompting">step-back prompting</a>, applied in the opposite direction.</li>
+<li><strong>Missing a key entity.</strong> The retrieved chunks are on-topic but don't mention an entity the question actually depends on (a specific product tier, a named individual, a specific clause) — the fix explicitly adds that entity to the query rather than rephrasing the whole thing.</li>
+<li><strong>Too narrow, zero or near-zero results.</strong> The opposite failure — an overly specific query matched almost nothing — needs broadening, not narrowing.</li>
+</ul>
+<h3 id="avoiding-reformulation-loops">Avoiding reformulation loops<a class="headerlink" href="#avoiding-reformulation-loops" title="Permanent link">&para;</a></h3>
+<p>The practical risk with any reformulation step is producing a <strong>paraphrase of the same query</strong> rather than a genuinely different one — same intent, same missing signal, different words, same (insufficient) results. Concrete mitigations:</p>
+<ul>
+<li><strong>Require the reformulation step to name the specific gap it's addressing</strong> (not just "try again," but "the previous query found general pricing info; this query adds the enterprise-tier qualifier that was missing") — forcing an explicit diagnosis makes a content-free paraphrase much harder to produce unnoticed.</li>
+<li><strong>Track query similarity across iterations</strong> — if a new query's embedding or lexical overlap with a prior query in the same session is above a threshold, flag it as a likely non-productive reformulation and force a different strategy (switch retrieval tool, broaden instead of narrow, or terminate) rather than retrying.</li>
+<li><strong>Cap reformulation attempts per distinct gap type</strong> — if temporal-constraint reformulation has already been tried and still returned insufficient evidence, trying it again with slightly different date phrasing rarely helps; escalate to a different mitigation strategy (multi-source reconciliation, or surfacing the gap directly) instead of repeating the same category of fix.</li>
+</ul>
+<h2 id="multi-source-reconciliation">Multi-Source Reconciliation<a class="headerlink" href="#multi-source-reconciliation" title="Permanent link">&para;</a></h2>
+<h3 id="when-retrieved-evidence-disagrees">When retrieved evidence disagrees<a class="headerlink" href="#when-retrieved-evidence-disagrees" title="Permanent link">&para;</a></h3>
+<p>An agentic RAG system that retrieves from multiple sources (per <a href="../01-agentic-rag-architecture/#multi-tool-retrieval">multi-tool retrieval</a>) will eventually retrieve genuinely conflicting facts — an internal doc says one thing, a web search says another, or two internal documents disagree because one is stale. This is a distinct problem from the non-contradiction check above (which detects that a conflict exists); reconciliation is about what to <em>do</em> once one is detected.</p>
+<pre class="mermaid"><code>flowchart TD
+    CONFLICT["Contradiction detected\nacross sources"] --&gt; OPT1["Surface explicitly to user:\nsources disagree, here's both"]
+    CONFLICT --&gt; OPT2["Weight by recency/authority:\nprefer the more current\nor more authoritative source"]
+    CONFLICT --&gt; OPT3["Defer to highest-confidence\nsingle source"]
+    CONFLICT --&gt; OPT4["Flag for human review,\ndecline to auto-resolve"]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>How it works</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Surface the contradiction explicitly</td>
+<td>Present both facts and their sources, let the user or downstream process judge</td>
+<td>Most honest, but pushes resolution work onto the user — poor UX for a question expecting a single clean answer</td>
+</tr>
+<tr>
+<td>Weight by recency or authority</td>
+<td>Prefer the source with a newer timestamp, or a higher-trust tier (official policy doc over a forum post)</td>
+<td>Fast and usually correct, but requires reliable metadata (timestamps, source-authority tiers) to actually work — garbage metadata makes this confidently wrong</td>
+</tr>
+<tr>
+<td>Defer to highest-confidence source</td>
+<td>Use the retrieval/relevance score itself to pick a winner</td>
+<td>Simplest to implement, but conflates retrieval relevance (is this chunk about the question) with factual authority (is this chunk correct) — two different things a similarity score doesn't actually measure</td>
+</tr>
+<tr>
+<td>Flag for human review</td>
+<td>Decline to auto-resolve for high-stakes domains, route to a human</td>
+<td>Highest cost and latency, appropriate only when an automatically-resolved wrong answer is more costly than a delay</td>
+</tr>
+</tbody>
+</table>
+<p>The production default for most systems: <strong>weight by recency/authority when reliable metadata exists, surface explicitly when it doesn't</strong> — silently picking a "highest similarity score" winner is the weakest option, because it resolves a factual conflict using a signal (topical similarity) that was never designed to measure factual correctness.</p>
+<h2 id="stopping-criteria">Stopping Criteria<a class="headerlink" href="#stopping-criteria" title="Permanent link">&para;</a></h2>
+<h3 id="the-critical-production-problem">The critical production problem<a class="headerlink" href="#the-critical-production-problem" title="Permanent link">&para;</a></h3>
+<p>Everything above assumes the loop eventually converges. In production, it sometimes won't — the evidence genuinely isn't in any available source, and every reformulation still comes back insufficient. Without hard stopping criteria, this is not a theoretical edge case: it is a direct, unbounded cost and latency risk, identical in shape to the general <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/#when-the-loop-breaks">agent loop termination problem</a> but specific to retrieval iteration.</p>
+<pre class="mermaid"><code>flowchart TD
+    ITER["Retrieval iteration"] --&gt; CHECKS{"Any stopping\ncondition met?"}
+    CHECKS --&gt;|"Max iteration count reached"| STOP1["Stop: iteration ceiling"]
+    CHECKS --&gt;|"Evidence quality above\nminimum threshold"| STOP2["Stop: sufficient,\ngenerate normally"]
+    CHECKS --&gt;|"Wall-clock timeout exceeded"| STOP3["Stop: timeout"]
+    CHECKS --&gt;|"Confidence score has\nconverged - stopped improving"| STOP4["Stop: convergence plateau"]
+    CHECKS --&gt;|"None met"| CONTINUE["Reformulate,\niterate again"]
+    STOP1 &amp; STOP3 &amp; STOP4 --&gt; DEGRADE["Terminated without\nsufficient evidence"]
+    DEGRADE --&gt; ACTION{"What to do"}
+    ACTION --&gt; GRACEFUL["Degrade gracefully:\nhedge, surface uncertainty,\nor decline to answer"]</code></pre>
+<p>Four independent stopping conditions, all runtime-enforced, none dependent on the model volunteering to stop:</p>
+<ul>
+<li><strong>Maximum iteration count</strong> — a hard cap (commonly 2-5, tuned per task class) on retrieval iterations, the direct analog of a <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/#components">general agent loop's step budget</a>.</li>
+<li><strong>Minimum evidence quality threshold</strong> — stop early (before the iteration cap) as soon as evidence clears the sufficiency bar, since more iterations beyond "already sufficient" only add cost with no quality benefit.</li>
+<li><strong>Timeout-based termination</strong> — a wall-clock ceiling independent of iteration count, since some iterations (a slow web search fallback, a large graph traversal) can individually consume disproportionate time even within a low iteration count.</li>
+<li><strong>Confidence-score convergence</strong> — if the sufficiency/relevance score across successive iterations stops improving (or gets worse), that's a signal the reformulation strategy has stopped helping and further iteration is unlikely to converge — a useful <em>earlier</em> stop than waiting for the hard iteration cap, since it can detect a stuck loop before it burns its full budget.</li>
+</ul>
+<h3 id="what-to-do-when-the-loop-terminates-without-enough-evidence">What to do when the loop terminates without enough evidence<a class="headerlink" href="#what-to-do-when-the-loop-terminates-without-enough-evidence" title="Permanent link">&para;</a></h3>
+<p>A terminated-without-sufficiency loop must not silently generate with the same confident tone as a fully-grounded answer. Concrete degradation options, in order of preference where product context allows:</p>
+<ul>
+<li><strong>Answer with explicit caveats</strong> — state what is and isn't confirmed by the evidence gathered, rather than presenting a best-guess synthesis as settled fact.</li>
+<li><strong>Surface uncertainty directly</strong> — "I found information about X but could not confirm Y" is more useful and more honest than a fluent answer that quietly guesses at Y.</li>
+<li><strong>Decline to answer</strong> — for high-stakes domains (legal, medical, financial commitments), an explicit "I don't have enough verified information to answer this confidently" is the correct terminal state, not a fallback of last resort to be avoided.</li>
+</ul>
+<h2 id="cost-of-self-correction">Cost of Self-Correction<a class="headerlink" href="#cost-of-self-correction" title="Permanent link">&para;</a></h2>
+<h3 id="every-sufficiency-check-is-an-extra-llm-call">Every sufficiency check is an extra LLM call<a class="headerlink" href="#every-sufficiency-check-is-an-extra-llm-call" title="Permanent link">&para;</a></h3>
+<p>A 5-iteration loop with an explicit sufficiency check at each step is not 5 LLM calls — it's closer to 10: one retrieval-decision-and-query-formulation call plus one sufficiency-check call per iteration, before even counting the final generation call. This compounds the <a href="../01-agentic-rag-architecture/#cost-and-latency-profile">general iteration cost problem from Agentic RAG Architecture</a> with an additional, separate call per step specifically for the sufficiency judgment.</p>
+<pre class="mermaid"><code>flowchart LR
+    ITER["1 retrieval iteration"] --&gt; CALL1["Call 1:\ndecide + formulate query"]
+    ITER --&gt; RETCALL["Retrieval execution\nnot an LLM call"]
+    ITER --&gt; CALL2["Call 2:\nsufficiency check"]
+    CALL1 &amp; CALL2 --&gt; TOTAL["2 LLM calls per iteration\n5 iterations = ~10 LLM calls\nbefore final generation"]</code></pre>
+<p>Making this tractable in production relies on the same three-tier strategy introduced under The Sufficiency Check, applied deliberately for cost rather than just latency:</p>
+<ul>
+<li><strong>Use a cheap or small model for the sufficiency check, not the frontier model.</strong> The sufficiency judgment is a narrower, more constrained task (classify: sufficient or not, and why) than open-ended generation — a smaller, faster, far cheaper model is frequently accurate enough for this specific judgment, reserving the expensive model for final synthesis.</li>
+<li><strong>Batch multiple checks into one call where possible.</strong> If several passages need an <code>[IsRel]</code>-style relevance judgment, scoring them together in one call (rather than one call per passage) amortizes the fixed per-call overhead across all of them.</li>
+<li><strong>Use a non-LLM classifier for the coarse pass, escalate only ambiguous cases.</strong> As covered above, a trained lightweight classifier or even a heuristic (retrieval score distribution, keyword overlap) can resolve the clearly-sufficient and clearly-insufficient cases without any LLM call at all, sending only genuinely ambiguous cases to a full LLM check — this is the single highest-leverage cost lever, since most sufficiency decisions in practice aren't actually close calls.</li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    EVERY["Every retrieval iteration"] --&gt; COARSE["Non-LLM coarse classifier\nfirst"]
+    COARSE --&gt; CLEAR{"Clearly sufficient\nor insufficient?"}
+    CLEAR --&gt;|"Yes, high confidence"| SKIP["Skip LLM call entirely,\ndecision made cheaply"]
+    CLEAR --&gt;|"No, ambiguous"| SMALL["Escalate to small/cheap\nLLM sufficiency check"]
+    SMALL --&gt; STILLAMBIG{"Still unclear,\nhigh-stakes query?"}
+    STILLAMBIG --&gt;|"Yes"| FRONTIER["Escalate further to\nfrontier model judgment"]
+    STILLAMBIG --&gt;|"No"| DECIDE["Use small-model decision"]</code></pre>
+<h2 id="evaluation">Evaluation<a class="headerlink" href="#evaluation" title="Permanent link">&para;</a></h2>
+<p>Measuring whether self-correction is actually helping requires comparing against static RAG on the specific dimension it's meant to improve, not just "does the agentic system produce good answers":</p>
+<ul>
+<li><strong>Static vs. agentic answer quality on multi-hop questions specifically</strong> — the comparison must use a multi-hop/compositional eval set (see <a href="../01-agentic-rag-architecture/#cost-and-latency-profile">Agentic RAG Architecture's cost-vs-complexity framing</a>), since on single-hop questions the two architectures should perform similarly and that comparison proves nothing about self-correction's value.</li>
+<li><strong>Cost per correct answer, not just quality score.</strong> A system that's 8% more accurate at 5x the cost may or may not be worth shipping depending on the product — track cost-per-correct-answer as a single combined metric so quality gains are never assessed in isolation from what they cost to achieve.</li>
+<li><strong>False-positive correction rate.</strong> How often does the system re-retrieve when the first retrieval was already sufficient? Every unnecessary reformulation is pure added cost and latency with zero quality benefit — this rate is a direct measure of sufficiency-check precision, and a high one indicates the check itself is miscalibrated (too conservative), not that iteration is inherently expensive.</li>
+</ul>
+<pre class="mermaid"><code>flowchart LR
+    EVAL["Evaluation harness"] --&gt; M1["Quality: static vs agentic\non multi-hop eval set"]
+    EVAL --&gt; M2["Cost per correct answer,\nboth architectures"]
+    EVAL --&gt; M3["False-positive correction rate:\nre-retrieved when first\npass was already sufficient"]
+    M1 &amp; M2 &amp; M3 --&gt; VERDICT["Is self-correction earning\nits cost on this query mix?"]</code></pre>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Sufficiency-check outcome distribution</strong> — sufficient-on-first-pass vs. required-reformulation vs. terminated-without-sufficiency, tracked over time; a rising terminated-without-sufficiency rate is a direct signal of corpus coverage gaps or a broken reformulation strategy.</li>
+<li><strong>Reformulation-loop detection rate</strong> — how often the near-duplicate-query guard fires, the direct analog of general <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/#watching-the-loop">agent loop-detection monitoring</a> applied to query similarity specifically.</li>
+<li><strong>CRAG threshold calibration drift</strong> — periodically re-validate the relevance threshold against a labeled eval set, since embedding model updates, corpus changes, or classifier retraining can silently shift what a given score actually means.</li>
+<li><strong>Cost per sufficiency check, broken out from cost per iteration overall</strong> — isolates whether cost growth comes from more iterations happening or the checks themselves getting more expensive.</li>
+<li><strong>False-positive and false-negative correction rates</strong>, tracked as first-class metrics, not just inferred from aggregate cost — a false-negative (judged sufficient when it wasn't) is a silent quality failure that won't show up in cost metrics at all.</li>
+</ul>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Degradation strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sufficiency check itself is wrong (false sufficient)</td>
+<td>Sample production sessions for post-hoc faithfulness scoring; treat the check as a calibrated model requiring its own eval, not ground truth</td>
+</tr>
+<tr>
+<td>Reformulation loop produces near-duplicate queries</td>
+<td>Query-similarity guard forces a strategy change or termination rather than repeated retries</td>
+</tr>
+<tr>
+<td>CRAG threshold miscalibrated</td>
+<td>Scheduled re-validation against a labeled eval set whenever corpus, embedding model, or classifier changes</td>
+</tr>
+<tr>
+<td>Multi-source conflict unresolved</td>
+<td>Default to explicit surfacing when source metadata (recency, authority) is unreliable, rather than silently picking a similarity-score winner</td>
+</tr>
+<tr>
+<td>Iteration ceiling hit with no sufficient evidence</td>
+<td>Graceful degradation: hedge, surface uncertainty, or decline — never generate with unqualified confidence</td>
+</tr>
+<tr>
+<td>Sufficiency-check cost balloons at scale</td>
+<td>Coarse non-LLM classifier as the default path, LLM escalation only for ambiguous cases</td>
+</tr>
+</tbody>
+</table>
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Separate the sufficiency check from generation as its own auditable step</strong>, whether that's an explicit call, a structured chain-of-thought segment, or a trained reflection token — an implicit, unlogged judgment inside free-form generation cannot be measured, calibrated, or debugged later.</li>
+<li><strong>Tune CRAG-style thresholds against a labeled eval set on a schedule</strong>, not once at launch — corpus drift and embedding model updates silently shift what a given relevance score means.</li>
+<li><strong>Require reformulation to name the specific gap it addresses</strong>, and enforce query-similarity checks across iterations, to prevent burning iteration budget on paraphrases that retrieve the same insufficient evidence again.</li>
+<li><strong>Default multi-source conflict resolution to explicit surfacing</strong> unless recency/authority metadata is verified reliable — a silently-resolved wrong answer is worse than an honestly-surfaced disagreement.</li>
+<li><strong>Enforce every stopping criterion (iteration cap, timeout, quality threshold, convergence check) in the runtime</strong>, and always pair a hit stopping criterion with a defined graceful-degradation response, never a bare failure.</li>
+<li><strong>Route sufficiency checks through a cheap classifier first</strong>, escalating to an LLM only for ambiguous cases — this is the single highest-leverage lever for keeping self-correction's added cost from scaling linearly with iteration count.</li>
+</ul>
+<h2 id="real-world-examples">Real World Examples<a class="headerlink" href="#real-world-examples" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Self-RAG's public release</strong> (Asai et al.) demonstrated reflection-token training on open models, showing measurable gains on long-form QA and fact verification benchmarks specifically by making the retrieve/relevance/support/usefulness judgments explicit and trained rather than implicit — the reference implementation most production systems approximate with prompted equivalents.</li>
+<li><strong>Corrective RAG's web-search fallback pattern</strong> is now a common production shape in enterprise assistants that combine an internal knowledge base with general web search — the internal-corpus-first, web-search-as-escape-hatch structure directly mirrors CRAG's threshold-triggered fallback.</li>
+<li><strong>Perplexity's and similar "deep research" products'</strong> visible behavior of running several searches, sometimes explicitly stating "I found conflicting information" or refining a search after an initial one, is the externally observable signature of sufficiency-checking and reformulation loops operating in production at consumer scale.</li>
+<li><strong>Customer support and internal-knowledge assistants</strong> that explicitly hedge ("I found information about X but couldn't confirm Y as of the most recent update") are exhibiting the graceful-degradation stopping-criteria pattern directly, rather than confidently guessing when evidence runs out.</li>
+</ul>
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What does "sufficient evidence" mean in an agentic RAG system, broken into its component parts?</strong>
+Three separate things have to be true: completeness (does the evidence contain every fact the question needs, not just some), non-contradiction (do the retrieved chunks agree with each other), and relevance (is the retrieved content actually about this specific question, not just topically similar). A sufficiency check that only looks at one of these — commonly just relevance — will miss incomplete or contradictory evidence that still looks "on topic."</p>
+<p><strong>Q: Why can't a sufficiency check just be "ask the model if it has enough information"?</strong>
+Because that's an uncalibrated, ad-hoc judgment with no known accuracy rate — the model might say "sufficient" when it's actually missing a required fact, especially if the missing fact isn't salient in what was retrieved. Self-RAG's answer is to make this judgment an explicit, trained signal (the <code>[IsRel]</code>/<code>[IsSup]</code>/<code>[IsUse]</code> reflection tokens) rather than relying on unstructured self-assessment; the trained version has measurable calibration, the ad-hoc prompted version does not, until it's specifically evaluated.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: How does CRAG's web-search fallback decide when to trigger, and what happens if the threshold is wrong?</strong>
+CRAG scores retrieved internal evidence with a relevance classifier and compares the score to a threshold: above it, use the internal evidence as-is; in a middle band, use it but augment with a web search; below it, discard the internal evidence and rely on web search instead. If the threshold is too strict, the system triggers web search far more often than needed, adding real latency (seconds, not milliseconds) and an external-content trust dependency on queries the internal corpus could have handled. If it's too lenient, weakly relevant internal evidence gets accepted as sufficient, and the system proceeds to generation on evidence that's actually still distraction-prone — the exact failure CRAG exists to prevent, now happening silently.</p>
+<p><strong>Q: A reformulation loop keeps retrieving the same insufficient chunks across three iterations even though the query text changes each time. What's likely going wrong, and how do you fix it?</strong>
+The reformulations are likely paraphrases carrying the same underlying retrieval signal rather than addressing a specific diagnosed gap — different words, same missing information. The fix is requiring each reformulation to name the specific insufficiency it's targeting (a missing entity, a temporal mismatch, over-generality) rather than issuing a generic "try again," and adding a query-similarity check across iterations that flags and blocks near-duplicate reformulations, forcing a genuinely different strategy (switch retrieval tool, broaden instead of narrow, or terminate) instead of another cosmetic rewording.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the stopping criteria for a production iterative retrieval loop, and justify each one.</strong>
+Four independent, runtime-enforced conditions: a maximum iteration count as the hard ceiling regardless of anything else; a minimum evidence-quality threshold that stops early the moment evidence is judged sufficient, since continuing past that point only adds cost; a wall-clock timeout independent of iteration count, because some individual iterations (a slow fallback source) can consume disproportionate time even under a low iteration cap; and a confidence-score convergence check that detects when successive iterations have stopped improving evidence quality, allowing an earlier stop than the hard ceiling once the reformulation strategy is clearly not helping. None of these should depend on the model volunteering that it's done — that's a soft, un-calibrated signal — and every one of them, when it fires without evidence being judged sufficient, must route to a defined graceful-degradation response (hedge, surface uncertainty, or decline) rather than a bare timeout error.</p>
+<pre class="mermaid"><code>flowchart TD
+    A["Max iteration count"] --&gt; STOP["Any one firing\nstops the loop"]
+    B["Min evidence quality\nthreshold met"] --&gt; STOP
+    C["Wall-clock timeout"] --&gt; STOP
+    D["Confidence convergence\nplateau detected"] --&gt; STOP
+    STOP --&gt; ROUTE{"Was evidence\nsufficient?"}
+    ROUTE --&gt;|"Yes"| NORMAL["Generate normally"]
+    ROUTE --&gt;|"No"| GRACE["Graceful degradation"]</code></pre>
+<p><strong>Q: How would you distinguish, using only production telemetry, whether self-correction is genuinely improving answer quality versus just adding cost with placebo-level benefit?</strong>
+Track cost-per-correct-answer, not quality score alone, and compare it against a static RAG baseline specifically on a multi-hop/compositional eval set (not a generic one, since single-hop questions won't show a difference either way). Separately track the false-positive correction rate — how often the system re-retrieves when the first pass was already sufficient — because a high rate there means the sufficiency check is systematically too conservative, and the resulting extra iterations are pure overhead rather than genuine quality recovery. If quality on the multi-hop set is meaningfully higher and cost-per-correct-answer is still favorable after accounting for the false-positive rate, self-correction is earning its cost; if the quality delta is marginal but cost is multiplied, it's closer to a placebo that should be gated more conservatively (higher-confidence trigger threshold) rather than applied broadly.</p>
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<ul>
+<li>"Your sufficiency check has a 95% accuracy rate against a labeled eval set. Is that good enough to ship?" — probes whether the candidate considers the asymmetry of the two error types: a false-sufficient (judged enough when it wasn't) silently ships a wrong answer, while a false-insufficient (judged not-enough when it was) only costs an extra iteration —95% aggregate accuracy can hide a much worse false-sufficient rate specifically, which is the more dangerous error to under-measure.</li>
+<li>"How would you redesign the reformulation strategy if you discovered 80% of insufficiency cases were actually corpus coverage gaps, not bad queries?" — probes whether the candidate recognizes that no amount of query reformulation fixes a genuine coverage gap, and that the fix belongs upstream in ingestion monitoring (per <a href="../../06-rag/03-rag-failure-modes/#coverage-gap-the-document-was-never-ingested">RAG Failure Modes</a>) rather than in ever-more-clever retrieval-loop logic — and whether they'd propose measuring this distinction directly rather than assuming reformulation is always the right lever.</li>
+<li>"Multi-source reconciliation defaults to 'weight by recency' in your design. What's the failure case for that default, and how do you catch it?" — probes for recognizing that recency is a proxy for correctness, not correctness itself — a newer document can be wrong (a bad edit, a draft that shouldn't have been indexed) while an older one is still accurate — and that catching this requires either authority-tier metadata beyond raw timestamps or sampled human review, not blind trust in "newest wins."</li>
+</ul>
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Treating the sufficiency check as free</strong> — it's a real LLM call (or trained-model inference) with its own cost and its own error rate; skipping calibration and evaluation of the check itself is the most common gap in production systems that "have Self-RAG" in name only.</li>
+<li><strong>Reformulating without diagnosing the specific gap</strong> — generic "try again" instructions produce paraphrases that retrieve the same insufficient evidence, burning iteration budget with zero information gain.</li>
+<li><strong>Setting a CRAG-style threshold once and never revisiting it</strong> — corpus changes, embedding model updates, and classifier retraining all shift what a given relevance score means; an untended threshold silently drifts out of calibration.</li>
+<li><strong>Resolving multi-source conflicts by trusting the highest similarity score</strong> — similarity measures topical relevance, not factual correctness; using it to pick a winner in a factual disagreement conflates two different things.</li>
+<li><strong>No hard stopping criteria, relying on the model to know when to give up</strong> — exactly the general agent-loop mistake of trusting a soft self-reported signal, applied to retrieval specifically, and just as capable of producing unbounded cost.</li>
+<li><strong>Generating with full confidence after a forced stop</strong> — when the loop terminates without sufficient evidence, presenting the best-effort answer with the same tone as a fully-grounded one erases the one signal (uncertainty) that would let the user judge how much to trust it.</li>
+</ul>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Sufficiency is three separable checks — completeness, non-contradiction, and relevance — not one; a check that only measures relevance will still pass incomplete or contradictory evidence.</li>
+<li>Self-RAG formalizes the critique step as explicit, trained reflection tokens (<code>[Retrieve]</code>, <code>[IsRel]</code>, <code>[IsSup]</code>, <code>[IsUse]</code>); most production systems use a prompted approximation of the same idea because it's editable without a training run, at the cost of weaker calibration guarantees.</li>
+<li>CRAG's web-search fallback reduces the sufficiency decision to a tunable threshold — a real, ongoing calibration problem, not a one-time setting, since the wrong threshold in either direction has a distinct, measurable failure mode.</li>
+<li>Effective reformulation requires diagnosing <em>why</em> evidence was insufficient (temporal mismatch, over-generality, missing entity) and targeting that specific gap — generic re-asking produces paraphrases that repeat the same failure.</li>
+<li>Multi-source contradictions should default to explicit surfacing or recency/authority weighting with verified metadata — never to picking a winner by similarity score alone, which was never designed to measure factual correctness.</li>
+<li>Hard, runtime-enforced stopping criteria (iteration cap, quality threshold, timeout, convergence check) are non-negotiable, and every one of them must pair with a defined graceful-degradation response — a loop that terminates without enough evidence should hedge or decline, never generate with unqualified confidence.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Agentic RAG</a> in the <a href="../../">AI System Design Notes</a>. Tracked in <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/blob/main/BACKLOG.md">BACKLOG.md</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../01-agentic-rag-architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Agentic RAG Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Agentic RAG Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../09-agents/" class="md-footer__link md-footer__link--next" aria-label="Next: Agents">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Agents
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

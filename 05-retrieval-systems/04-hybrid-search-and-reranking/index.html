@@ -1,0 +1,7518 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/05-retrieval-systems/04-hybrid-search-and-reranking/">
+      
+      
+        <link rel="prev" href="../03-indexing-algorithms-ann/">
+      
+      
+        <link rel="next" href="../05-chunking-strategies/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Hybrid Search & Reranking - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hybrid-search-reranking" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hybrid Search & Reranking
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-dense-only-and-sparse-only-both-fall-short" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Dense-Only and Sparse-Only Both Fall Short
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-stage-retrieval-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Three-Stage Retrieval Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fusion-strategies-rrf-and-weighted-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fusion Strategies: RRF and Weighted Scoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-encoder-reranking-cost-vs-precision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Encoder Reranking: Cost vs Precision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-flow-through-the-hybrid-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Flow Through the Hybrid Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-add-each-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Add Each Layer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-dense-only-and-sparse-only-both-fall-short" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Dense-Only and Sparse-Only Both Fall Short
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-three-stage-retrieval-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Three-Stage Retrieval Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fusion-strategies-rrf-and-weighted-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fusion Strategies: RRF and Weighted Scoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-encoder-reranking-cost-vs-precision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Encoder Reranking: Cost vs Precision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#query-flow-through-the-hybrid-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Flow Through the Hybrid Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-add-each-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Add Each Layer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Retrieval Systems
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/05-retrieval-systems/04-hybrid-search-and-reranking.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="hybrid-search-reranking">Hybrid Search &amp; Reranking<a class="headerlink" href="#hybrid-search-reranking" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Production retrieval systems almost never rely on a single retrieval method — dense vector search excels at semantic similarity but fails on exact-match queries, while sparse lexical search (BM25) nails keyword precision but is blind to paraphrase or concept. Hybrid search merges both signals, and cross-encoder reranking then refines that merged candidate set using deeper query-document interaction that the retrieval phase cannot afford at scale. Together these three stages form the default architecture for any retrieval pipeline that needs to handle the full diversity of real user queries with measurable precision improvements.</p>
+<h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
+<p>Hybrid search is a retrieval strategy that independently executes a dense (embedding-based ANN) retrieval path and a sparse (lexical/BM25) retrieval path against the same corpus, then merges their ranked candidate lists using a fusion function — most commonly Reciprocal Rank Fusion (RRF) — before passing the merged candidate set to a cross-encoder reranker that scores each candidate against the query using deep pairwise interaction. The result is a multi-stage pipeline: Stage 1 retrieves 100–500 candidates in 5–20 ms, Stage 2 fuses to a unified ranked list in ~2 ms, and Stage 3 reranks the top-100 down to the top-10 in 50–200 ms, yielding 10–30% NDCG improvement over first-stage retrieval alone.</p>
+<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
+<p>Every single-method retrieval approach has a hard failure mode that production traffic will hit:</p>
+<p><strong>Dense-only failures.</strong> Bi-encoder embeddings compress text into a fixed-dimensional vector (typically 768–1536 dimensions). Rare terms, out-of-vocabulary (OOV) tokens, product codes (<code>SKU-AX4921</code>), serial numbers, medication names (<code>hydroxychloroquine</code>), and domain jargon with no training signal simply get folded into the nearest generic neighbor in embedding space. A query for "CVE-2024-3094 exploit" returns semantically adjacent security content — not the specific CVE. Dense retrieval fundamentally cannot precision-match on terms that are underrepresented in the embedding model's training distribution.</p>
+<p><strong>Sparse-only (BM25) failures.</strong> BM25 scores documents by TF-IDF statistics over exact term overlap. A query for "fast ML inference" will score zero on a document containing "low-latency model serving" because no tokens overlap. Synonyms, abbreviations, multi-lingual queries, and paraphrase-heavy corpora break BM25 entirely. Semantic relevance is invisible to it.</p>
+<p><strong>Retrieval-quality ceiling without reranking.</strong> Both methods produce relevance-imperfect candidate sets because they embed or index at indexing time and cannot evaluate fine-grained query-document interaction at query time. A bi-encoder produces a single vector per document regardless of which query will hit it. This means the ranking within the candidate set is coarse. A cross-encoder that jointly encodes the query and each candidate can capture interaction signals (negation, multi-hop context, relative comparisons) that neither retriever can.</p>
+<p>Without hybrid search and reranking, a RAG system delivers inconsistent quality across query types — precise on common semantic queries, brittle on tail-distribution or keyword-specific queries — and there is no systematic path to closing the gap.</p>
+<h2 id="why-dense-only-and-sparse-only-both-fall-short">Why Dense-Only and Sparse-Only Both Fall Short<a class="headerlink" href="#why-dense-only-and-sparse-only-both-fall-short" title="Permanent link">&para;</a></h2>
+<p>The first generation of neural retrieval (2019–2021) went dense-only: encode everything with BERT-style bi-encoders, run ANN search, done. On MS MARCO and NQ benchmarks, dense models dramatically outperformed BM25. Teams translated this directly to production — and immediately encountered the failure cases above. Enterprise knowledge bases are full of product codes, policy identifiers, regulation numbers, and proper nouns that occur once or twice. Embedding models trained on Wikipedia and web crawls have no signal for these.</p>
+<p>The fix attempted was query expansion: use the LLM to paraphrase the query into N variants and retrieve with each. This helped recall but multiplied retrieval latency by N and did nothing for the precision of rare-term matching because the expanded queries are also dense.</p>
+<p>The field then rediscovered what classical IR had always known: sparse and dense retrieval are <em>complementary</em>, not one replacing the other. Nogueira et al. (2019) and the subsequent MS MARCO leaderboard demonstrated that naively combining BM25 and dense retriever outputs beat either alone. The remaining question was how to fuse them — which gave rise to RRF (Cormack et al., 2009, rediscovered for neural IR by Raudaschl 2023) as the default because it requires no score normalization and is robust to score scale differences.</p>
+<p>Cross-encoder reranking was introduced to close the quality gap between retrieval (bi-encoder, O(1) per document) and full cross-attention (O(n) per document) at a manageable compute cost by limiting it to a small candidate set. Nogueira and Cho (2019) showed reranking top-100 with BERT improved MRR@10 by 15+ points over first-stage retrieval alone.</p>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p><strong>Bi-encoder (dual-encoder):</strong> Two separate transformer encoders — one for queries, one for documents — that produce independent fixed-size vectors. Similarity is cosine or dot product. Enables pre-computation of all document vectors at indexing time. Retrieval is O(log n) with ANN. See <a href="../01-embedding-models/">Embedding Models</a>.</p>
+</li>
+<li>
+<p><strong>Cross-encoder:</strong> A single transformer that takes <code>[CLS] query [SEP] document [SEP]</code> as joint input and produces a relevance score via a classification head. Cannot pre-compute document representations — requires a forward pass per (query, document) pair at query time. O(n × d) complexity makes it unsuitable for full-corpus retrieval; constraining it to top-100 candidates makes it practical.</p>
+</li>
+<li>
+<p><strong>BM25 (Best Match 25):</strong> A probabilistic ranking function scoring documents by term frequency (TF), inverse document frequency (IDF), and document length normalization. Formula: <code>BM25(q,d) = Σ IDF(t) × (TF(t,d) × (k1+1)) / (TF(t,d) + k1×(1-b+b×|d|/avgdl))</code>. Parameters k1∈[1.2,2.0], b=0.75 are standard defaults. Runs in &lt;10 ms at 100M documents with an inverted index.</p>
+</li>
+<li>
+<p><strong>Reciprocal Rank Fusion (RRF):</strong> <code>RRF(d) = Σ 1/(k + rank_i(d))</code> summed over all retrieval systems. k=60 is standard; it controls how much the top-ranked documents are boosted. The k=60 choice makes the score of the first-rank document roughly 1/61 ≈ 0.016 and prevents any single list from completely dominating. RRF is parameter-free beyond k, requires no score normalization, and is robust when one retriever returns many low-quality results.</p>
+</li>
+<li>
+<p><strong>Weighted linear interpolation:</strong> <code>score = α × dense_score + (1-α) × sparse_score</code>. Requires score normalization (min-max or z-score per query). α is tuned on a validation set, typically α∈[0.3,0.7]. More sensitive to distribution shifts than RRF but allows direct control of the dense/sparse balance.</p>
+</li>
+<li>
+<p><strong>CombSUM / CombMNZ:</strong> Classic IR fusion from Fox &amp; Shaw (1994). CombSUM sums normalized scores across retrieval systems. CombMNZ multiplies CombSUM by the count of systems that retrieved the document — rewarding consensus. Both require score normalization and are less commonly used than RRF in practice.</p>
+</li>
+<li>
+<p><strong>SPLADE (Sparse Lexical and Expansion model):</strong> A learned sparse retrieval model that uses a transformer to predict activation weights over the full vocabulary per document/query, producing a sparse weight vector. Combines BM25's inverted-index efficiency with learned vocabulary expansion. SPLADE-v2 beats BM25 by 5–10 NDCG points and runs with comparable latency. Still uses an inverted index at inference time.</p>
+</li>
+<li>
+<p><strong>ColBERT (Contextualized Late Interaction):</strong> Encodes query and document into sequences of token-level vectors (not a single pooled vector). Similarity is computed as the sum of maximum cosine similarities between each query token vector and all document token vectors — the MaxSim operator. Latency is 20–50 ms, between bi-encoder (5–20 ms) and cross-encoder (50–200 ms), because document token vectors are pre-computed but interaction is richer than single-vector dot product.</p>
+</li>
+<li>
+<p><strong>Query Expansion:</strong> Augmenting the original query with synonyms, related terms, or LLM-generated hypothetical documents (HyDE) to improve recall before retrieval. Increases latency by 2–5× if multiple retrieval calls are made.</p>
+</li>
+<li>
+<p><strong>MMR (Maximal Marginal Relevance):</strong> A post-reranking diversification step that iteratively selects the next document maximizing <code>λ × relevance(d,q) - (1-λ) × max_similarity(d, already_selected)</code>. λ∈[0,1] controls relevance vs. diversity. Used when top-k results would otherwise be near-duplicates.</p>
+</li>
+</ul>
+<h2 id="the-three-stage-retrieval-pipeline">The Three-Stage Retrieval Pipeline<a class="headerlink" href="#the-three-stage-retrieval-pipeline" title="Permanent link">&para;</a></h2>
+<p>The hybrid retrieval pipeline has three distinct stages that run in sequence, each with a different role and latency budget:</p>
+<ul>
+<li><strong>Stage 1 — Parallel sparse + dense retrieval (~20 ms):</strong> BM25 and ANN search run concurrently against the same corpus, each returning up to 500 candidates with their own scores. The goal at this stage is recall — the correct answer must be in the merged candidate set.</li>
+<li><strong>Stage 2 — Fusion (~2 ms):</strong> RRF or weighted interpolation merges the two candidate lists into a single ranked list, deduplicates by doc_id, and surfaces the top-100 candidates for the next stage. Documents appearing in both lists receive a consensus boost.</li>
+<li><strong>Stage 3 — Cross-encoder reranking on top-100 (~100 ms):</strong> A cross-encoder scores each of the top-100 candidates against the query with joint attention, then re-sorts them. The final output — top-10 to top-20 results — goes to the generator.</li>
+</ul>
+<p><strong>High-level hybrid retrieval pipeline:</strong></p>
+<pre class="mermaid"><code>flowchart LR
+    Q([User Query]) --&gt; QE[Query Encoder\n~5ms]
+    Q --&gt; BM25I[BM25 / Inverted Index\n~10ms]
+    QE --&gt; ANN[ANN Search\n~15ms]
+    ANN --&gt; C1[Dense Candidates\ntop-500]
+    BM25I --&gt; C2[Sparse Candidates\ntop-500]
+    C1 --&gt; FUSE[Fusion Layer\nRRF / Interpolation\n~2ms]
+    C2 --&gt; FUSE
+    FUSE --&gt; RANK[Cross-Encoder Reranker\n~100ms on GPU]
+    RANK --&gt; TK([Top-K Results])</code></pre>
+<p><strong>Detailed architecture — parallel retrieval paths, fusion internals, and reranker internals:</strong></p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph Input["Query Processing"]
+        Q([Raw Query]) --&gt; QN[Normalize / Tokenize]
+        QN --&gt; QEmb[Query Bi-Encoder\ne.g. text-embedding-3-large]
+        QN --&gt; QTok[BM25 Tokenizer\nstemming + stopword removal]
+    end
+
+    subgraph Dense["Dense Retrieval Path"]
+        QEmb --&gt; HNSW[HNSW / IVF Index\nin Vector DB]
+        HNSW --&gt; DC[Dense Candidates\nrank 1-500 + cosine scores]
+    end
+
+    subgraph Sparse["Sparse Retrieval Path"]
+        QTok --&gt; INV[Inverted Index\nElasticsearch / Lucene]
+        INV --&gt; SC[Sparse Candidates\nrank 1-500 + BM25 scores]
+    end
+
+    subgraph Fusion["Fusion Layer"]
+        DC --&gt; RRF["RRF Score per doc:\nΣ 1/(60 + rank_i)"]
+        SC --&gt; RRF
+        RRF --&gt; DEDUP[Deduplicate by doc_id]
+        DEDUP --&gt; TOP[Top-100 by RRF score]
+    end
+
+    subgraph Rerank["Cross-Encoder Reranking"]
+        TOP --&gt; PAIRS["Build (query, doc) pairs\n100 pairs"]
+        PAIRS --&gt; XE["Cross-Encoder Forward Pass\n[CLS] query [SEP] doc [SEP]\n→ relevance logit"]
+        XE --&gt; RESORT[Re-sort by relevance logit]
+        RESORT --&gt; MMR_OPT{Diversity\nneeded?}
+        MMR_OPT --&gt;|Yes| MMR[MMR post-filter]
+        MMR_OPT --&gt;|No| TOPK
+        MMR --&gt; TOPK([Top-K Final Results])
+    end
+
+    Input --&gt; Dense
+    Input --&gt; Sparse
+    Dense --&gt; Fusion
+    Sparse --&gt; Fusion
+    Fusion --&gt; Rerank</code></pre>
+<h2 id="fusion-strategies-rrf-and-weighted-scoring">Fusion Strategies: RRF and Weighted Scoring<a class="headerlink" href="#fusion-strategies-rrf-and-weighted-scoring" title="Permanent link">&para;</a></h2>
+<p>The fusion layer merges the ranked candidate lists from dense and sparse retrieval into a single ordering. Two strategies dominate production:</p>
+<p><strong>Reciprocal Rank Fusion (RRF):</strong> <code>RRF(d) = Σ 1/(k + rank_i(d))</code> summed over all retrieval systems. k=60 is the standard default. The k=60 sweet spot is not arbitrary: it makes the rank-1 document score 1/61 ≈ 0.016, the rank-60 document 1/120 ≈ 0.008 (a 2× difference, not a 60× cliff), and prevents any single noisy retriever from dominating. If BM25 returns many poor candidates that rank highly by BM25 score, their RRF contribution is dampened because rank alone — not score magnitude — drives the formula. RRF requires no score normalization and has no tunable weight parameter beyond k.</p>
+<p><strong>Weighted score interpolation:</strong> <code>score = α × dense_score + (1-α) × sparse_score</code>. Requires per-query score normalization (min-max or z-score over the candidate set, not global normalization — global normalization leaks corpus statistics). α is tuned on a validation set, typically α∈[0.3,0.7]; dense-heavy corpora typically need α∈[0.5,0.7], keyword-heavy corpora α∈[0.3,0.4]. The normalization requirement is the main liability: BM25 scores are unbounded and scale with document length and corpus size, while cosine similarities are bounded in [-1, 1]. Skipping normalization causes BM25 to dominate by orders of magnitude.</p>
+<p><strong>When to use each:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>Prefer RRF</th>
+<th>Prefer Weighted Interpolation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Score calibration</td>
+<td>Scores not calibrated</td>
+<td>Scores are calibrated / normalized</td>
+</tr>
+<tr>
+<td>Tuning budget</td>
+<td>No dev set for tuning</td>
+<td>Have labeled dev set for α tuning</td>
+</tr>
+<tr>
+<td>Retriever reliability</td>
+<td>One retriever may be noisier</td>
+<td>Both retrievers are equally reliable</td>
+</tr>
+<tr>
+<td>Operational simplicity</td>
+<td>Default choice</td>
+<td>Only when direct balance control is needed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CombSUM / CombMNZ</strong> (Fox &amp; Shaw, 1994) are older alternatives that sum normalized scores or weight by the count of systems that retrieved the document. Both require normalization and are less used than RRF in practice.</p>
+<p><strong>SPLADE</strong> is a drop-in replacement for BM25 in the sparse path: it uses a transformer to predict vocabulary activation weights, enabling learned vocabulary expansion beyond exact token overlap, while still running on an inverted index at query time with identical latency. SPLADE-v2 outperforms BM25 by 5–10 NDCG points; choose it when offline index build time (GPU required) is acceptable.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Implementation Options</th>
+<th>Latency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query bi-encoder</td>
+<td><code>text-embedding-3-large</code>, <code>bge-large-en-v1.5</code>, <code>e5-mistral-7b</code></td>
+<td>3–8 ms (GPU)</td>
+<td>Same model used at indexing time; model changes require full re-embedding</td>
+</tr>
+<tr>
+<td>Dense ANN index</td>
+<td>HNSW (Qdrant, Weaviate), IVF-PQ (Faiss), DiskANN</td>
+<td>5–20 ms</td>
+<td>See <a href="../03-indexing-algorithms-ann/">Indexing Algorithms</a></td>
+</tr>
+<tr>
+<td>Sparse index</td>
+<td>Elasticsearch / OpenSearch (Lucene BM25), Typesense</td>
+<td>&lt;10 ms at 100M docs</td>
+<td>Sharded horizontally; supports SPLADE with custom scorer</td>
+</tr>
+<tr>
+<td>Fusion layer</td>
+<td>In-process Python (RRF), Redis sorted sets</td>
+<td>1–3 ms</td>
+<td>Stateless; parallelism on candidate lists</td>
+</tr>
+<tr>
+<td>Cross-encoder reranker</td>
+<td><code>ms-marco-MiniLM-L-6-v2</code>, <code>bge-reranker-large</code>, Cohere Rerank API</td>
+<td>50–200 ms (GPU), 300–800 ms (CPU)</td>
+<td>MiniLM is fastest; BGE-large is highest quality offline</td>
+</tr>
+<tr>
+<td>Vector store</td>
+<td>Qdrant, Weaviate, Pinecone, pgvector</td>
+<td>—</td>
+<td>See <a href="../02-vector-databases/">Vector Databases</a></td>
+</tr>
+<tr>
+<td>LLM reranker (Stage 3, optional)</td>
+<td>GPT-4o, Claude 3 Haiku as pointwise/pairwise judge</td>
+<td>500–2000 ms</td>
+<td>Only for latency-insensitive or async pipelines</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart LR
+    BM25["BM25 Results\nRanked list: r₁…rₙ\n(exact term match)"] --&gt; FUSE
+    DENSE["Dense ANN Results\nRanked list: r₁…rₙ\n(semantic similarity)"] --&gt; FUSE
+
+    subgraph FUSE ["Fusion Layer"]
+        direction TB
+        RRF["RRF  ·  score = Σ 1/(60 + rankᵢ)\nNo score normalization needed\nk=60 dampens noisy top-rankers\nDefault production choice"]
+        WGT["Weighted Interpolation\nscore = α·dense + (1-α)·sparse\nNeeds min-max normalization\nα tuned on labeled dev set\nα ∈ 0.3–0.7 typically"]
+    end
+
+    FUSE --&gt; MERGED["Merged Candidates\nTop-100–200 for reranker\nor Top-10 direct to generator"]
+
+    N1["Use RRF when:\n• No labeled dev set\n• Scores not calibrated\n• One retriever noisier"] -. default .-&gt; RRF
+    N2["Use Weighted when:\n• Labeled dev set available\n• Need explicit α control\n• Scores are calibrated"] -. tunable .-&gt; WGT</code></pre>
+<h2 id="cross-encoder-reranking-cost-vs-precision">Cross-Encoder Reranking: Cost vs Precision<a class="headerlink" href="#cross-encoder-reranking-cost-vs-precision" title="Permanent link">&para;</a></h2>
+<p><strong>Bi-encoder vs. cross-encoder:</strong> A bi-encoder encodes query and document independently, produces separate vectors, and computes similarity via dot product — retrieval is O(log n) with ANN, and document vectors are pre-computed at indexing time. Query latency is 1 ms for the dot product step. A cross-encoder takes <code>[CLS] query [SEP] document [SEP]</code> as joint input and produces a relevance logit via a classification head. It cannot pre-compute document representations because the representation depends on the query. One forward pass per (query, document) pair at query time: 10–50 ms per pair on GPU, which makes full-corpus cross-encoder retrieval computationally impossible (10M documents × 50 ms = 140 hours per query). The cross-encoder's accuracy advantage comes precisely from this joint attention — it captures negation, conditional relevance, and multi-hop context that a bi-encoder compresses away.</p>
+<p><strong>Models and their cost profile:</strong></p>
+<ul>
+<li><code>ms-marco-MiniLM-L-12-v2</code>: 6–12 layers, 22M–33M parameters, FP16, fits in &lt;1 GB VRAM. Fastest self-hosted option. 10–30 ms per 100-candidate batch on A10G.</li>
+<li><code>bge-reranker-large</code>: 335M parameters. Highest offline quality among self-hosted models. 50–100 ms per 100-candidate batch on A10G.</li>
+<li><strong>Cohere Rerank API</strong>: Managed, ~$1.00 per 1,000 queries for 100 candidates each. At 1M queries/day: $1,000/day = $30,000/month.</li>
+<li>Self-hosted MiniLM on A10G (<span class="arithmatex">\(1.50/hr, 200 QPS): ~\)</span>180/month at 1M queries/day — 160× cheaper than Cohere. Quality difference is measurable but small for general-domain corpora.</li>
+</ul>
+<p><strong>Cost formula:</strong> N candidate pairs × latency per pair = total reranking latency. Reranker latency scales linearly with candidate count. Reranking 200 candidates takes ~2× as long as reranking 100. The marginal recall improvement from 100→200 candidates is typically &lt;2 NDCG points. Default to top-100 candidates.</p>
+<p><strong>When to rerank:</strong>
+- Precision matters more than last-mile latency (legal, medical, enterprise Q&amp;A).
+- Latency budget allows 100–200 ms for reranking on top of retrieval.
+- Domain evaluation confirms the reranker improves NDCG@10 by at least 5 points on your distribution.</p>
+<p><strong>When NOT to rerank:</strong>
+- High QPS paths where reranker GPU cost dominates infrastructure budget.
+- Latency-sensitive paths with p50 SLA &lt; 50 ms.
+- Corpora where a general-purpose reranker has not been validated — it may hurt precision on specialized domains.
+- Navigational queries where the top fusion result is already correct with high probability (detect with a lightweight query classifier and route past the reranker).</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph BE ["Bi-Encoder Path (Retrieval)"]
+        direction TB
+        QE["Embed query\n3–8 ms GPU"]
+        PRE["Pre-computed doc embeddings\n(indexed offline)"]
+        DOT["ANN dot product\n5–20 ms · O(log N)\nTop-200 candidates"]
+        QE --&gt; DOT
+        PRE --&gt; DOT
+    end
+
+    subgraph XE ["Cross-Encoder Path (Reranking)"]
+        direction TB
+        PAIR["Form query–doc pairs\n'[CLS] query [SEP] doc [SEP]'\nJoint attention — sees both\n10–50 ms per pair on GPU"]
+        LOGIT["Relevance logit\nCaptures negation, conditionals,\nmulti-hop context\nTop-10 reranked"]
+        PAIR --&gt; LOGIT
+    end
+
+    DOT --&gt;|"Top-200 candidates"| PAIR
+    LOGIT --&gt; GEN(["Top-10 to Generator"])
+
+    COST["Bi-encoder: 1 ms score step\nCross-encoder: ~200 ms total\n(200 pairs × 1 ms on GPU)\nOnly feasible on candidate set"] -. cost note .-&gt; XE</code></pre>
+<h2 id="query-flow-through-the-hybrid-pipeline">Query Flow Through the Hybrid Pipeline<a class="headerlink" href="#query-flow-through-the-hybrid-pipeline" title="Permanent link">&para;</a></h2>
+<p>End-to-end: query arrives → parallel BM25 + ANN search → merge candidates → RRF → cross-encoder rerank → top-K to generator.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant QP as Query Processor
+    participant VDB as Vector DB (HNSW)
+    participant ES as Elasticsearch (BM25)
+    participant FL as Fusion Layer
+    participant XE as Cross-Encoder (GPU)
+    participant Cache as Result Cache
+
+    C-&gt;&gt;GW: POST /search {query: "..."}
+    GW-&gt;&gt;Cache: lookup query hash
+    Cache--&gt;&gt;GW: MISS
+    GW-&gt;&gt;QP: normalize + embed query
+    Note over QP: Tokenize: 1ms&lt;br/&gt;Embed (GPU): 5ms&lt;br/&gt;Total: ~6ms
+    QP--&gt;&gt;GW: query_vector + query_tokens
+
+    par Dense retrieval
+        GW-&gt;&gt;VDB: ANN search(query_vector, top_k=500)
+        Note over VDB: HNSW beam search: ~15ms
+        VDB--&gt;&gt;GW: [(doc_id, score), ...] ×500
+    and Sparse retrieval
+        GW-&gt;&gt;ES: BM25 search(query_tokens, top_k=500)
+        Note over ES: Inverted index lookup: ~10ms
+        ES--&gt;&gt;GW: [(doc_id, bm25_score), ...] ×500
+    end
+
+    GW-&gt;&gt;FL: fuse(dense_list, sparse_list)
+    Note over FL: RRF scoring + dedup: ~2ms&lt;br/&gt;Output: top-100 candidates
+    FL--&gt;&gt;GW: top_100_candidates
+
+    GW-&gt;&gt;XE: rerank(query, top_100_candidates)
+    Note over XE: 100 forward passes (batched): ~100ms&lt;br/&gt;Re-sort by relevance logit
+    XE--&gt;&gt;GW: top_10_reranked
+
+    GW-&gt;&gt;Cache: store(query_hash, top_10, ttl=300s)
+    GW-&gt;&gt;C: top_10_results
+    Note over C,GW: Total wall-clock: ~133ms&lt;br/&gt;(embed 6ms + parallel retrieval 15ms&lt;br/&gt;+ fusion 2ms + rerank 100ms&lt;br/&gt;+ overhead ~10ms)</code></pre>
+<p>The parallel execution of dense and sparse retrieval is critical — executing them sequentially would add ~10 ms for no reason, since they share nothing. Most production implementations issue both requests concurrently in the same async coroutine group.</p>
+<p><strong>Latency budget per stage:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Operation</th>
+<th>Latency (p50)</th>
+<th>Latency (p99)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query processing</td>
+<td>Tokenize + embed</td>
+<td>~6 ms</td>
+<td>~10 ms</td>
+</tr>
+<tr>
+<td>Parallel retrieval</td>
+<td>ANN + BM25 (concurrent)</td>
+<td>~15 ms</td>
+<td>~25 ms</td>
+</tr>
+<tr>
+<td>Fusion</td>
+<td>RRF + dedup</td>
+<td>~2 ms</td>
+<td>~3 ms</td>
+</tr>
+<tr>
+<td>Reranking</td>
+<td>Cross-encoder top-100</td>
+<td>~100 ms</td>
+<td>~150 ms</td>
+</tr>
+<tr>
+<td>Overhead</td>
+<td>Serialization + network</td>
+<td>~10 ms</td>
+<td>~20 ms</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>End-to-end</strong></td>
+<td><strong>~133 ms</strong></td>
+<td><strong>~208 ms</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-to-add-each-layer">When to Add Each Layer<a class="headerlink" href="#when-to-add-each-layer" title="Permanent link">&para;</a></h2>
+<p><strong>When to add sparse retrieval alongside dense:</strong>
+- Corpus contains product codes, serial numbers, policy identifiers, medication names, or other OOV terms.
+- Query mix is unknown or heterogeneous (production traffic always includes some keyword-precise queries).
+- BM25 infrastructure is already present (Elasticsearch, OpenSearch) — marginal cost of adding the hybrid path is low.</p>
+<p><strong>When to add fusion:</strong>
+- Both dense and sparse paths are already running — fusion is required to merge their outputs.
+- You want to reward documents with multi-signal relevance (appearing in both lists).
+- Prefer RRF as the default; switch to weighted interpolation only if you have a labeled dev set to tune α.</p>
+<p><strong>When to add cross-encoder reranking:</strong>
+- Top-10 precision is critical (NDCG@10 target &gt; 0.7).
+- Latency budget exceeds ~130 ms.
+- Domain evaluation confirms a net improvement of at least 5 NDCG points over first-stage + fusion output.</p>
+<p><strong>When to skip reranking:</strong>
+- Latency budget &lt; 50 ms.
+- QPS is high enough that GPU reranker cost dominates budget.
+- Corpus is homogeneous and semantic-only (no rare terms, no domain-specific precision requirements).
+- Navigational query traffic is high — route those queries past the reranker.</p>
+<p><strong>Decision flowchart:</strong></p>
+<pre class="mermaid"><code>flowchart TD
+    Start([Query arrives]) --&gt; P1{Query type\nwell-understood?}
+    P1 --&gt;|Semantic only\ne.g. Q&amp;A over docs| DENSE_ONLY[Pattern 1: Dense-Only\nBi-encoder + ANN\nLatency: ~20ms\nNDCG baseline]
+    P1 --&gt;|Mixed: semantic\n+ exact-match| HYBRID[Pattern 2: Hybrid\nDense + BM25 + RRF\nLatency: ~30ms\n+5-15% NDCG]
+    P1 --&gt;|High-precision required\ne.g. legal, medical| HYBRID_RR[Pattern 3: Hybrid + Rerank\nDense + BM25 + RRF\n+ Cross-Encoder\nLatency: ~130ms\n+10-30% NDCG]
+    P1 --&gt;|Async / latency-tolerant\ne.g. overnight batch| FULL[Pattern 4: Full Pipeline\nHybrid + Rerank\n+ LLM relevance check\nLatency: ~1500ms\nMaximum precision]
+
+    DENSE_ONLY --&gt; NOTE1[Use when: corpus is\nhomogeneous, semantic queries\nonly, latency budget &lt;30ms]
+    HYBRID --&gt; NOTE2[Use when: corpus has\nproduct codes/proper nouns,\nor query mix is unknown]
+    HYBRID_RR --&gt; NOTE3[Default production choice.\nCohere Rerank or local\nms-marco-MiniLM]
+    FULL --&gt; NOTE4[Rarely justified online.\nValid for document triage,\noffline evaluation pipelines]</code></pre>
+<p><strong>Decision tree — when to add each layer:</strong></p>
+<pre class="mermaid"><code>flowchart TD
+    A([Start: choose retrieval stack]) --&gt; B{Does your corpus contain\nproduct codes, proper nouns,\nOOV terms, or serial numbers?}
+    B --&gt;|Yes| C[Add sparse BM25 retrieval\n→ Hybrid pipeline]
+    B --&gt;|No| D{Is p50 latency budget\n&gt; 100ms?}
+    D --&gt;|No| DENSE[Dense-only is sufficient\nfor semantic corpora]
+    D --&gt;|Yes| C
+    C --&gt; E{Is top-10 precision\ncritical? NDCG@10 &gt; 0.7?}
+    E --&gt;|No| HYBRID_DONE[Hybrid without reranking\n~30ms, +5-15% NDCG]
+    E --&gt;|Yes| F{Latency budget &gt; 130ms?}
+    F --&gt;|No| COLBERT[Consider ColBERT\n20-50ms, better than\nhybrid without reranker]
+    F --&gt;|Yes| RERANK[Add cross-encoder reranker\n~130ms total, +10-30% NDCG]
+    RERANK --&gt; G{Do top results cluster\naround same sub-topic?}
+    G --&gt;|Yes| MMR_ADD[Add MMR diversity pass\n+2ms, controlled by λ]
+    G --&gt;|No| DONE([Done])
+    MMR_ADD --&gt; DONE</code></pre>
+<p><strong>Advantages and disadvantages:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Hybrid + Rerank</th>
+<th>Dense-Only</th>
+<th>Sparse-Only (BM25)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Semantic recall</td>
+<td>High</td>
+<td>High</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Exact-match precision</td>
+<td>High</td>
+<td>Low</td>
+<td>High</td>
+</tr>
+<tr>
+<td>OOV / rare-term handling</td>
+<td>High</td>
+<td>Low</td>
+<td>High</td>
+</tr>
+<tr>
+<td>Tail-query robustness</td>
+<td>High</td>
+<td>Low</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Latency (p50)</td>
+<td>~130 ms</td>
+<td>~20 ms</td>
+<td>~10 ms</td>
+</tr>
+<tr>
+<td>Infrastructure complexity</td>
+<td>High (3 systems)</td>
+<td>Low (1 system)</td>
+<td>Low (1 system)</td>
+</tr>
+<tr>
+<td>Cost per query</td>
+<td><span class="arithmatex">\(0.001–\)</span>0.01</td>
+<td>$0.0001</td>
+<td>$0.00001</td>
+</tr>
+<tr>
+<td>Index maintenance</td>
+<td>High (two indices)</td>
+<td>Medium</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Tuning surface</td>
+<td>α, k (RRF), reranker model</td>
+<td>Embedding model only</td>
+<td>k1, b only</td>
+</tr>
+<tr>
+<td>NDCG@10 improvement vs BM25</td>
+<td>+15–40%</td>
+<td>+5–20%</td>
+<td>baseline</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scalability">Scalability<a class="headerlink" href="#scalability" title="Permanent link">&para;</a></h2>
+<p><strong>Horizontal scaling of retrieval.</strong> The dense ANN path and the sparse BM25 path scale independently. Vector DBs shard by embedding space partitions (IVF cells or HNSW per-shard); Elasticsearch shards by document ID hash. Both scale linearly with additional nodes. A 10-node Elasticsearch cluster handles 100M documents with BM25 latency under 10 ms. A 4-node Qdrant cluster with HNSW handles 10M 1536-d vectors with ANN latency under 20 ms.</p>
+<p><strong>Reranker throughput.</strong> A single A10G GPU running <code>ms-marco-MiniLM-L-6-v2</code> in FP16 with batch size 32 achieves 100–500 QPS for top-100 reranking. At 100 QPS, a single reranker handles 8.6M queries/day. GPU autoscaling on GKE or EKS allows burst capacity. MiniLM is 6 layers / 22M parameters; it fits in &lt;1 GB VRAM, enabling dense packing on a single GPU.</p>
+<p><strong>RRF fusion is stateless and cheap.</strong> The fusion layer is a pure in-process function — no network hop, no state. It consumes two sorted lists of 500 items and produces a sorted list of ~600 unique items in &lt;1 ms. It can be inlined into the gateway or query processor without a separate service.</p>
+<p><strong>Caching.</strong> Query-level caching at the result cache (Redis, ttl=300s) offloads repeat queries entirely. For production corpora with power-law query distributions, the top 1% of queries may account for 30–50% of traffic. Even a shallow cache (10K entries) captures significant traffic.</p>
+<p><strong>SPLADE at scale.</strong> SPLADE uses the same inverted index infrastructure as BM25 but requires a GPU at index time to compute sparse activations per document. Index build is 10–50× slower than BM25 but query-time latency is identical. Choose SPLADE over BM25 when offline index build time is acceptable and keyword-recall improvements matter.</p>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<p><strong>Graceful degradation.</strong> Each retrieval path is independently deployable. If the vector DB becomes unavailable, fall back to BM25-only. If Elasticsearch is unavailable, fall back to dense-only. The gateway should implement a fallback circuit breaker: detect &gt;50 ms response time increase on either path and route 100% of traffic to the healthy path, emitting an alert metric.</p>
+<p><strong>Reranker failure.</strong> If the cross-encoder is unavailable or times out (&gt; 250 ms), return the fused first-stage results without reranking. Emit a <code>rerank_skipped</code> metric. Most queries have acceptable first-stage quality; the reranker is a quality improvement layer, not a correctness requirement.</p>
+<p><strong>Index freshness.</strong> Dense and sparse indices must stay in sync after document updates. A dual-write pipeline (same event triggers both a vector upsert and an Elasticsearch document update) is the standard pattern. Stale index divergence is common during high write throughput — monitor <code>index_lag_seconds</code> per path and alert above 60 seconds.</p>
+<p><strong>Recall validation.</strong> Run a nightly recall@100 evaluation against a held-out relevance test set. Alert if recall drops more than 2 percentage points, which signals index corruption, embedding model drift, or tokenizer misconfiguration.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<p><strong>Data leakage via retrieval.</strong> A reranker that processes (query, document) pairs on shared GPU infrastructure must ensure that retrieved document text is not logged or retained beyond the request. For cross-encoder APIs (Cohere Rerank), review the data processing agreement — some tiers log inputs for model improvement.</p>
+<p><strong>Access control filtering.</strong> Retrieved candidates must be filtered by the user's access permissions <em>before</em> passing to the reranker. Passing unauthorized documents to a reranker that then returns them re-ranked is a security failure. Apply ACL filters at the retrieval layer (Elasticsearch <code>filter</code> clause, Qdrant <code>must</code> conditions on a <code>user_id</code> or <code>tenant_id</code> field), not post-retrieval.</p>
+<p><strong>Prompt injection via documents.</strong> If retrieved document text is passed directly to an LLM reranker or to a downstream RAG generation step without sanitization, adversarially crafted documents can inject instructions. Scrub or encode retrieved text before concatenating into LLM prompts.</p>
+<p><strong>Query logging.</strong> Queries contain PII in many domains (medical record numbers, employee IDs). Implement query hashing before logging; store only the hash + result IDs, not raw query text. Retrieve the raw text only with explicit audit justification.</p>
+<h2 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h2>
+<p><strong>Reranking cost.</strong> Cohere Rerank API charges approximately <span class="arithmatex">\(1.00 per 1,000 queries for 100 candidates each (\)</span>0.001/query). At 1M queries/day, that is $1,000/day = $30,000/month. A self-hosted <code>ms-marco-MiniLM-L-6-v2</code> on a single A10G (<span class="arithmatex">\(1.50/hr on-demand, 200 QPS) costs ~\)</span>180/month at 1M queries/day — an 160× cost reduction. The quality difference is measurable but small for general-domain corpora; use MiniLM unless your domain requires the precision of Cohere or BGE-large.</p>
+<p><strong>Tiered reranking.</strong> Not all queries need deep reranking. For navigational queries (high-confidence first result), skip the reranker and serve the top fusion result. Classify queries as "navigational" vs "exploratory" using a lightweight 2-class model (20 ms inference); route navigational queries past the reranker. A 30% navigational traffic rate reduces reranker load by 30% with negligible quality loss.</p>
+<p><strong>Candidate set sizing.</strong> Reranking 200 candidates takes ~2× as long as reranking 100. The marginal recall improvement from 100→200 candidates is typically &lt;2 NDCG points. Default to 100 candidates; only increase to 200 if recall@100 metrics show systematic misses.</p>
+<p><strong>Dense index compression.</strong> Quantizing embeddings from FP32 to INT8 reduces vector memory by 4× with &lt;1% recall drop (see <a href="../03-indexing-algorithms-ann/">Indexing Algorithms</a>). A 10M document corpus with 1536-d embeddings: FP32 = 60 GB, INT8 = 15 GB. This fits on fewer nodes and reduces ANN latency.</p>
+<p><strong>SPLADE vs. BM25 cost.</strong> SPLADE requires a GPU for document encoding at index time but not at query time. If index rebuild frequency is low (&lt;1× per day), the GPU cost for indexing (1 hour of A10G = $1.50) is negligible. SPLADE is cost-equivalent to BM25 at query time.</p>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Collection Point</th>
+<th>Alert Threshold</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>retrieval_latency_p50_ms</code> (dense)</td>
+<td>VDB query hook</td>
+<td>&gt; 25 ms</td>
+</tr>
+<tr>
+<td><code>retrieval_latency_p50_ms</code> (sparse)</td>
+<td>ES slowlog</td>
+<td>&gt; 15 ms</td>
+</tr>
+<tr>
+<td><code>fusion_candidate_count</code></td>
+<td>Fusion layer</td>
+<td>&lt; 50 (degenerate retrieval)</td>
+</tr>
+<tr>
+<td><code>rerank_latency_p99_ms</code></td>
+<td>XE service</td>
+<td>&gt; 300 ms</td>
+</tr>
+<tr>
+<td><code>rerank_skipped_rate</code></td>
+<td>Gateway</td>
+<td>&gt; 5% (reranker instability)</td>
+</tr>
+<tr>
+<td><code>recall_at_100</code></td>
+<td>Nightly eval job</td>
+<td>&lt; reference - 2%</td>
+</tr>
+<tr>
+<td><code>ndcg_at_10</code></td>
+<td>Weekly eval job</td>
+<td>&lt; reference - 3%</td>
+</tr>
+<tr>
+<td><code>index_lag_seconds</code> (dense)</td>
+<td>Vector DB write queue</td>
+<td>&gt; 60 s</td>
+</tr>
+<tr>
+<td><code>index_lag_seconds</code> (sparse)</td>
+<td>ES indexing queue</td>
+<td>&gt; 60 s</td>
+</tr>
+<tr>
+<td><code>dense_sparse_overlap_rate</code></td>
+<td>Fusion layer</td>
+<td>&lt; 10% (signals retrieval divergence)</td>
+</tr>
+</tbody>
+</table>
+<p>Track <code>dense_sparse_overlap_rate</code> — the fraction of top-100 candidates that appear in both retrieval lists. A healthy hybrid pipeline shows 15–40% overlap. Overlap below 10% means the two paths retrieve completely different content (possible tokenizer/embedding mismatch). Overlap above 60% means BM25 is largely redundant and you may be over-investing in the sparse path.</p>
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<p><strong>Fix k=60 for RRF unless you tune.</strong> The k=60 default for RRF is robust across a wide range of corpora. If you tune k on a development set, validate on a held-out test set — k is corpus-sensitive and will overfit if tuned on a small sample. For most production deployments, k=60 gives 90% of the benefit with zero tuning.</p>
+<p><strong>Normalize before weighted interpolation; skip normalization for RRF.</strong> If you choose weighted interpolation (α × dense + (1-α) × sparse) over RRF, normalize scores per-query using min-max over the candidate set — not globally. Global normalization leaks corpus statistics. RRF requires no normalization because it operates on ranks, not scores.</p>
+<p><strong>Run dense and sparse queries in parallel, never sequential.</strong> Sequential execution adds 10–15 ms of unnecessary latency. Use async Python (<code>asyncio.gather</code>), Go goroutines, or thread pools. Both queries are I/O-bound (network to VDB and ES), so parallel execution is free.</p>
+<p><strong>Benchmark your reranker model before deploying.</strong> Run your reranker on 500 sampled queries from your production distribution with human relevance judgments. Report NDCG@10 improvement over first-stage. A reranker that does not improve NDCG@10 by at least 5 points on your domain is not worth the latency cost. General-domain rerankers sometimes <em>hurt</em> precision on specialized corpora (medical, legal, code).</p>
+<p><strong>Keep the reranker candidate count fixed at 100 unless corpus size exceeds 10M.</strong> Increasing candidates improves first-stage recall but increases reranker latency linearly. Benchmark recall@100 vs. recall@200 on your corpus; if the gap is &lt;2%, stay at 100.</p>
+<p><strong>Use MMR only for conversational or diversity-critical interfaces.</strong> MMR degrades NDCG@10 (it deliberately deprioritizes redundant-but-relevant results). Only apply it when diversity is explicitly valued (recommendation feeds, exploratory search). Never apply it to factual Q&amp;A retrieval.</p>
+<p><strong>Version your reranker model separately from your embedding model.</strong> They are independently upgradeable. A reranker upgrade requires no re-indexing (it only touches candidates at query time). An embedding model upgrade requires full corpus re-embedding — a multi-hour to multi-day job. Decouple their release cycles.</p>
+<p><strong>Monitor fusion overlap as an operational signal.</strong> A sudden drop in <code>dense_sparse_overlap_rate</code> (e.g., from 25% to 5%) is an early warning that one retrieval path has degraded — often caused by an Elasticsearch shard failure, a vector DB compaction event that invalidated part of the index, or a silent tokenizer misconfiguration after a library upgrade.</p>
+<h2 id="real-world-examples">Real-World Examples<a class="headerlink" href="#real-world-examples" title="Permanent link">&para;</a></h2>
+<p><strong>E-commerce product search.</strong> An illustrative e-commerce platform replacing dense-only search with hybrid + reranking would observe the following: BM25 handles queries like <code>"Sony WH-1000XM5"</code> (exact model number) with 98% precision; dense retrieval handles <code>"noise cancelling headphones for travel"</code> where no exact tokens match the indexed product title. After RRF fusion, precision on exact-model queries improves from ~40% to ~90%. Adding a cross-encoder reranker further improves precision on ambiguous queries like <code>"wireless headphones under 200"</code> by reordering based on price-feature joint understanding that neither retriever can capture in its scoring function.</p>
+<p><strong>Enterprise knowledge base Q&amp;A.</strong> A company deploying a RAG system over internal documentation (10M documents, mix of policy text, technical specs, Jira tickets) would find dense-only retrieval failing on ticket IDs (<code>"JIRA-14923"</code>), employee IDs, and product model codes. Hybrid retrieval recovers these cases. The cross-encoder reranker then resolves ambiguity between documents that use the same terminology in different contexts (e.g., "deployment" in the DevOps sense vs. the HR deployment letter sense), selecting the document whose context aligns with the query's implied domain.</p>
+<p><strong>Legal discovery.</strong> A legal research pipeline searching case law would use hybrid search to handle both citation-style exact queries (<code>"472 U.S. 38"</code>) and concept queries (<code>"fourth amendment reasonable expectation of privacy in digital data"</code>). The reranker, fine-tuned on legal relevance judgments, applies domain-specific relevance signals (precedential weight, jurisdiction) that a general-purpose bi-encoder cannot encode.</p>
+<p><strong>Code search.</strong> A developer tooling pipeline searching a codebase would rely heavily on sparse retrieval (function names, class identifiers, error codes are exact-match terms) with dense retrieval handling natural-language queries (<code>"how to handle authentication errors"</code>). ColBERT is an attractive choice here because it preserves token-level interaction (matching <code>"token"</code> in the query against <code>"AccessToken"</code> in code) better than a single pooled embedding.</p>
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What is BM25 and why does it still matter in 2024?</strong></p>
+<p>BM25 is a probabilistic ranking function that scores documents by the frequency and rarity of query terms in the document, normalized by document length. Despite being formulated in the 1990s, it remains competitive for keyword-precise queries because dense embeddings fundamentally cannot precision-match terms that appear rarely in training data. BM25 runs on an inverted index in &lt;10 ms at 100M documents, requires zero GPU infrastructure, and its performance on exact-match queries (product codes, identifiers, rare technical terms) is often <em>better</em> than dense embeddings trained on general web crawls. It is not replaced by dense retrieval — it is complemented by it.</p>
+<p><strong>Q: Why can't you use a cross-encoder for retrieval over a full corpus?</strong></p>
+<p>A cross-encoder requires a separate forward pass through a transformer for every (query, document) pair. For a corpus of 10M documents and 768-dimension models, that is 10M forward passes per query — roughly 10M × 50 ms = 140 hours per query on a single GPU. A bi-encoder can pre-compute all document embeddings once at indexing time, reducing query time to a single query embedding + ANN lookup. The cross-encoder's accuracy advantage comes precisely from this joint query-document attention, which cannot be precomputed because it depends on the query. The practical solution is to use the cross-encoder only on a small candidate set (top-100) retrieved by the bi-encoder.</p>
+<p><strong>Q: What is RRF and what does k=60 do?</strong></p>
+<p>Reciprocal Rank Fusion scores each document as the sum of <code>1/(k + rank_i)</code> over all retrieval systems. k=60 is a smoothing constant that prevents the top-ranked document from receiving an outsized score. With k=60, the rank-1 document receives score 1/61 ≈ 0.016; the rank-60 document receives 1/120 ≈ 0.008 — a 2× difference, not a 60× difference. This makes RRF robust to cases where one retriever is much noisier than the other: if BM25 returns many poor candidates that rank highly, their scores are dampened. RRF's main advantage over weighted interpolation is that it requires no score normalization and no tuning of weight parameters.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: How do you tune α in weighted linear score interpolation for hybrid search?</strong></p>
+<p>Create a development set of 200–500 queries with human relevance judgments (or click-through data as a proxy). For each query, run dense retrieval and BM25 retrieval independently, normalize both score lists to [0,1] using per-query min-max, then compute <code>α × dense_score + (1-α) × sparse_score</code> for α ∈ {0.1, 0.2, ..., 0.9}. Measure NDCG@10 at each α. The optimal α is the one maximizing NDCG@10 on a held-out test set (not the dev set used for tuning, to avoid overfitting). For general-domain corpora, optimal α is typically 0.5–0.7 (dense-heavy). For corpora with many rare terms, optimal α shifts toward 0.3–0.4. Retune when you change the embedding model.</p>
+<p><strong>Q: What is ColBERT and when does it outperform the standard bi-encoder → cross-encoder pipeline?</strong></p>
+<p>ColBERT encodes both query and document into sequences of per-token vectors (not a single pooled vector). At query time, document token vectors are pre-computed and stored; the similarity is the sum of maximum cosine similarities between query tokens and document tokens (MaxSim). This costs more than a single dot product (O(|q| × |d|) vs. O(d)) but far less than a full cross-encoder forward pass on joint input. ColBERT achieves latency of 20–50 ms vs. 5–20 ms for bi-encoder and 50–200 ms for cross-encoder. ColBERT outperforms the bi-encoder → cross-encoder pipeline primarily when: (1) the token-level interaction signals are strong (code search, technical docs with precise terminology), and (2) latency budget is tight enough that a cross-encoder's 100 ms cannot be afforded but bi-encoder quality is insufficient. The main operational cost is storage: ColBERT requires storing per-token embeddings (~100× more than bi-encoder per document).</p>
+<p><strong>Q: Describe the full three-stage pipeline and where each stage makes its precision contribution.</strong></p>
+<p>Stage 1 (ANN + BM25, ~20 ms): maximizes recall. The goal is to ensure the correct answer is in the top-500 candidate set with high probability. A 95% recall@100 means 95% of all queries have their correct answer in the first 100 candidates. This stage uses approximate methods — ANN is not exact, BM25 ignores semantic meaning — because exact full-corpus scoring is computationally impossible at query time.</p>
+<p>Stage 2 (RRF fusion, ~2 ms): merges the two candidate sets, rewarding documents that appear in both lists (evidence of multi-signal relevance) and deduplicating. RRF improves NDCG@10 by 5–15% over the best single retriever.</p>
+<p>Stage 3 (cross-encoder reranking, ~100 ms): maximizes precision within the candidate set. The cross-encoder attends jointly to query and document tokens, capturing negation (<code>"not Python 2"</code>), conditional relevance, multi-hop reasoning, and sub-topic alignment that neither retriever can encode. It improves NDCG@10 by 10–30% over the Stage 1 + Stage 2 output.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Your hybrid search system shows high recall@100 but poor NDCG@10 even after reranking. What is your debugging methodology?</strong></p>
+<p>First, check whether the recall@100 claim is accurate for the tail query distribution, not just the average. Compute recall@100 stratified by query type (navigational, informational, transactional) and by query length. Short queries (1–2 tokens) often have high average recall but catastrophic recall for specific rare-term queries. Second, run error analysis on the NDCG@10 failures: pull the top-10 results for the 50 worst-NDCG queries and examine what the reranker ranked first vs. what the ground truth is. Common failure patterns: (a) the correct document is not in the top-100 candidate set (recall failure, not reranking failure — fix the retrieval stage), (b) the reranker is out-of-domain (general-domain reranker on a specialized corpus), (c) the candidate set has near-duplicate documents that split relevance signal across multiple results. Third, check <code>dense_sparse_overlap_rate</code> — if it's &lt;10%, the two retrieval paths are retrieving completely disjoint content, which means fusion has no consensus signal and is effectively just concatenating two noise lists. Fourth, validate reranker calibration: plot the reranker's output relevance score distribution against human judgments. If the reranker assigns similar scores to relevant and irrelevant documents, the model is not calibrated for your domain.</p>
+<p><strong>Q: How would you design a hybrid search system for a corpus with documents in 40 languages?</strong></p>
+<p>Dense retrieval: use a multilingual bi-encoder (<code>multilingual-e5-large</code>, <code>mUSE</code>, or <code>LaBSE</code>). Cross-lingual retrieval is handled naturally by the embedding space. ANN index is language-agnostic. Sparse retrieval: BM25 requires language-specific tokenization and stemming for each language — a non-trivial operational burden for 40 languages. Options: (1) use a single BM25 index with ICU tokenizer (handles Unicode word boundaries for most languages), (2) use SPLADE with a multilingual model (outputs sparse activations over a shared vocabulary), (3) maintain per-language BM25 shards and route queries to the appropriate shard by language detection. Reranking: use a multilingual cross-encoder (<code>multilingual-MiniLM-L12</code>, <code>mDeBERTa-v3-base</code>). Performance on non-English languages typically degrades 5–15 NDCG points vs. monolingual models; acceptable for most use cases but validate per-language NDCG in your eval suite. Language detection should happen at the query processor, not at the reranker.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: You are designing retrieval for a product with 10M active users, 500M documents, and a p99 latency SLA of 200 ms. Walk through every architectural decision you make and what you would need to validate each one.</strong></p>
+<p><strong>Corpus scale decision.</strong> 500M documents at 1536-d embeddings (FP32) = 3 TB of vectors. FP32 HNSW at this scale is infeasible on a single cluster. Use IVF-PQ with 8-bit quantization: 3 TB → ~375 GB, fits on 5 nodes with 128 GB RAM each. Recall@100 at this compression level: validate with a 1M-document sample before full indexing. Expect 92–96% recall@100 vs. exact search. For sparse, a 500M-document Elasticsearch cluster at ~2 KB average document size = ~1 TB of inverted index data, sharded across 20 nodes.</p>
+<p><strong>Latency budget allocation.</strong> Total 200 ms p99 budget: query embedding 8 ms, parallel retrieval 25 ms (p99, not p50), fusion 3 ms, reranking 100 ms, overhead/serialization 20 ms = 156 ms. This leaves 44 ms headroom at p99. If retrieval p99 is 25 ms, that implies p50 of ~12–15 ms — achievable with IVF-PQ on a properly sized cluster. If reranker p99 spikes to 150 ms under load, total hits 200 ms and violates SLA. Reranker autoscaling must be configured to keep p99 &lt; 120 ms even at peak QPS.</p>
+<p><strong>QPS planning.</strong> 10M users, assume 5% active concurrently = 500K active users, each issuing 1 query per 10 seconds = 50K QPS. At 100 QPS per A10G reranker, you need 500 A10G GPUs for reranking alone at $1.50/hr each = $750/hr = $18K/day. This is likely unsustainable. Mitigations: (1) tiered reranking (skip reranker for navigational queries, ~30% reduction → $12.6K/day), (2) smaller MiniLM model instead of BGE-large (4× throughput improvement → $3.15K/day), (3) result caching (top-10% of queries account for ~40% of traffic at cache hit rate → $1.89K/day effective). Validate the cache hit rate assumption with a Zipf distribution analysis of historical query logs.</p>
+<p><strong>Validation checklist:</strong> (a) recall@100 of IVF-PQ index vs. exact HNSW on 10K held-out queries; (b) NDCG@10 with reranker on 1K human-judged queries; (c) p99 latency under 50K QPS load test; (d) graceful degradation test: kill 2/20 ES shards, measure precision degradation; (e) ACL filter correctness: 100% pass rate on 200 access-control test cases; (f) index staleness: measure lag between write event and query visibility, target &lt;30 seconds.</p>
+<h2 id="google-level-follow-up-questions">Google-Level Follow-Up Questions<a class="headerlink" href="#google-level-follow-up-questions" title="Permanent link">&para;</a></h2>
+<p><strong>1. "RRF assumes all retrievers are equally reliable. How do you handle a case where BM25 is systematically noisier than your dense retriever for 70% of query types?"</strong></p>
+<p>RRF's k parameter provides implicit downweighting of lower-ranked results from noisy retrievers, but it does not explicitly weight systems against each other. If BM25 is systematically noisier, three approaches: (a) increase k for the BM25 list only — a per-system k parameter. In practice, run with k=60 for dense and k=120 for BM25: BM25's score contribution at rank 1 becomes 1/121 vs. dense's 1/61, halving BM25's weight. (b) Use learned fusion: train a lightweight linear model (or logistic regression) on rank features from each retrieval system with NDCG as the training signal. This is a form of learning-to-rank at the fusion layer. (c) Use CombMNZ with learned weights per system rather than equal weights. The deeper question is why BM25 is noisier: if it's because the query set is predominantly semantic (no keyword-exact signal), the right fix is not to tune fusion weights but to detect query type and route semantic queries to dense-only retrieval.</p>
+<p><strong>2. "ColBERT's storage cost is 100× a bi-encoder. Your 500M document corpus would require 375 GB for bi-encoder embeddings but 37.5 TB for ColBERT. How do you evaluate whether ColBERT's quality improvement justifies the storage cost?"</strong></p>
+<p>This is a cost-benefit analysis with three inputs: (a) quality delta — measure NDCG@10 improvement of ColBERT over bi-encoder + cross-encoder on your specific corpus and query distribution. If the improvement is &lt;2 NDCG points, ColBERT is almost certainly not worth 100× storage. Improvements &gt;5 NDCG points in precision-critical applications (medical, legal) may justify it. (b) Storage cost — 37.5 TB at $0.023/GB/month (S3) = $862/month just for storage, plus the cost of the retrieval infrastructure to serve it. (c) Operational complexity — ColBERT requires a custom serving layer (PLAID for approximate ColBERT, or RAGatouille in Python). The standard answer at Google scale: use ColBERT on a sharded subset of the most-accessed documents (e.g., the top 10M by access frequency), use bi-encoder + cross-encoder for the long tail. This gives ColBERT's precision benefits on the Zipf-heavy head without paying the storage cost for the full corpus.</p>
+<p><strong>3. "Your reranker consistently outperforms on your evaluation set but underperforms in A/B tests. What are the likely explanations and how do you investigate?"</strong></p>
+<p>Classic Goodhart's Law scenario. Likely explanations: (a) evaluation set leakage — the queries in the eval set are not sampled from the production query distribution, or human relevance judgments were provided by annotators who used the same documents that the reranker was trained on. Fix: stratify eval set by query age (queries from the last week only); measure NDCG on queries that were logged <em>after</em> the eval set was created. (b) Implicit feedback mismatch — the A/B metric is click-through rate or dwell time, which correlates with but is not the same as relevance. A reranker can improve NDCG (absolute relevance) while <em>reducing</em> CTR if it demotes popular but less relevant results that users habitually click. (c) Session context — production users have conversational context that single-query eval does not capture. The reranker sees the query in isolation; production users may have refined their query twice before the evaluated query. (d) Latency-quality tradeoff — the reranker adds 100 ms, which may degrade A/B metrics through latency-sensitive user abandonment, independent of result quality. Measure session abandonment rate in the A/B test separately from click-quality metrics.</p>
+<p><strong>4. "Design a hybrid search system that can handle real-time document ingestion at 10,000 documents per second while maintaining sub-200ms query latency."</strong></p>
+<p>The constraint is that embedding 10K documents/second requires real-time inference capacity. At ~100 tokens/document and a GPU throughput of ~10K tokens/second for a typical bi-encoder (batch inference), you need 100 A100 GPUs just for embedding. This is almost certainly not the right architecture. Practical answer: (a) separate the freshness SLA from the embedding SLA. For the dense index, accept 60-second index freshness lag: ingest documents into a fast key-value store (Redis, DynamoDB) at 10K/sec, asynchronously queue for embedding (Kafka), GPU embed in batches of 256 with 4 A10G GPUs (~1K docs/sec/GPU × 4 = 4K docs/sec), write to vector DB with ~3-second lag. For the sparse index, Elasticsearch accepts raw text documents and indexes them in near-real-time (1–5 second lag for BM25 availability), no GPU required. (b) For query time, freshly ingested documents that have not yet been embedded serve only from the BM25 path; once the embedding is available, they appear in the dense path too. Gate queries on a per-document <code>indexed_in_dense</code> flag. This is a two-tier freshness model: BM25 index lag = seconds, dense index lag = minutes. The query pipeline degrades gracefully to sparse-only for documents in the lag window, which is acceptable because freshly ingested documents are often the subject of exact-match queries where BM25 excels.</p>
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<p><strong>1. Skipping score normalization when using weighted interpolation.</strong> BM25 scores are not bounded and scale with document length and corpus size. Dense cosine similarity scores are bounded in [-1, 1]. Directly computing <code>α × BM25_score + (1-α) × cosine_score</code> produces a sum where BM25 dominates by orders of magnitude for long documents. Always normalize scores to [0,1] per-query before interpolation. This mistake is invisible in small-scale tests (where score ranges happen to be similar) and catastrophic in production.</p>
+<p><strong>2. Applying the cross-encoder to the full retrieval set instead of the top-100 candidates.</strong> A system that retrieves 1,000 candidates and passes all 1,000 to the cross-encoder will have reranking latency of 1,000–2,000 ms — a user-visible timeout. The candidate set for reranking must be bounded. The standard is 100 candidates; the quality improvement from 100→500 candidates is marginal (the correct answer is almost always in the top-100 if recall@100 is above 90%).</p>
+<p><strong>3. Tuning RRF's k on the same dataset used for evaluation.</strong> k=60 is robust precisely because it is not tuned per-corpus. Teams that tune k on a dev set and report eval results on the same split overestimate improvements. The correct approach: treat k=60 as the default; only tune if a held-out test set (never seen during any development decision) shows a statistically significant improvement at a different k value.</p>
+<p><strong>4. Using the same embedding model for indexing and a different one for query encoding.</strong> Embedding models must be symmetric: the query encoder and the document encoder must produce vectors in the same embedding space. Using <code>text-embedding-3-small</code> to index and <code>text-embedding-3-large</code> to query produces garbage results because the cosine similarity between vectors from different models is not meaningful. This seems obvious but occurs in practice when an embedding model is upgraded for queries without re-embedding the corpus.</p>
+<p><strong>5. Applying MMR to factual Q&amp;A retrieval pipelines.</strong> MMR actively suppresses relevant documents that are similar to already-selected results. In a factual Q&amp;A system where the correct answer appears in 3 slightly different phrasings in the corpus, MMR will suppress 2 of the 3 most relevant documents in favor of diverse-but-less-relevant alternatives. MMR is for diversity-driven interfaces; never apply it to retrieval for generation tasks where redundancy in the candidate set is useful (it provides multiple perspectives for the LLM to synthesize).</p>
+<p><strong>6. Not validating the reranker on your specific domain before deployment.</strong> General-purpose cross-encoder models trained on MS MARCO (web search) or NLI datasets may have relevance criteria that conflict with your domain. A legal corpus defines relevance by precedent and jurisdiction; a medical corpus defines relevance by clinical specificity; a code corpus defines relevance by API signature match. A reranker that has never seen these domains may <em>hurt</em> precision by reranking based on surface-level similarity signals that do not match domain-specific relevance criteria. Always run a domain-specific eval (200+ human-judged queries from your production distribution) before declaring the reranker a net positive.</p>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p>Dense-only retrieval fails predictably on OOV terms, rare identifiers, and product codes; BM25-only fails on synonyms and paraphrase; production systems require both, fused via RRF (k=60 default, no normalization required) or weighted interpolation (normalize per-query, tune α on held-out set).</p>
+</li>
+<li>
+<p>RRF provides a 5–15% NDCG@10 improvement over the best single retriever; adding a cross-encoder reranker adds another 10–30% improvement at the cost of 50–200 ms latency on GPU — this is the standard quality-latency tradeoff that makes hybrid + reranking the default production retrieval architecture.</p>
+</li>
+<li>
+<p>Cross-encoders are O(n × d) and cannot be used for corpus-level retrieval; their accuracy advantage comes from joint query-document attention that is incompatible with pre-computation; constrain them to top-100 candidates retrieved by faster methods.</p>
+</li>
+<li>
+<p>ColBERT occupies the middle ground between bi-encoder (5–20 ms, single vector) and cross-encoder (50–200 ms, joint input): 20–50 ms latency via per-token MaxSim, at the cost of 100× storage vs. bi-encoder — suitable for precision-critical heads of large corpora, not for the full corpus.</p>
+</li>
+<li>
+<p>SPLADE replaces BM25 in the sparse path when offline index build time is acceptable: it uses a transformer to predict vocabulary activation weights, enabling learned vocabulary expansion beyond exact-match terms, while still running on an inverted index at query time with identical latency.</p>
+</li>
+<li>
+<p>The candidate set for reranking must be fixed at 100 (not 500, not 1000); reranker latency scales linearly with candidate count and the marginal recall improvement above 100 candidates is typically &lt;2 NDCG points; always bound this parameter explicitly.</p>
+</li>
+<li>
+<p>Operational signals that matter: <code>dense_sparse_overlap_rate</code> (15–40% is healthy; &lt;10% signals retrieval path divergence), <code>rerank_skipped_rate</code> (alert above 5%), <code>recall@100</code> (nightly eval, alert on &gt;2% drop), <code>index_lag_seconds</code> on both paths (alert above 60 seconds).</p>
+</li>
+<li>
+<p>Cost at scale is dominated by the reranker; a single A10G GPU running MiniLM handles ~200 QPS at $1.50/hr, vs. Cohere Rerank API at $1.00/1K queries; at 1M queries/day, self-hosting is 160× cheaper than the managed API — evaluate against the operational cost of managing GPU infrastructure for your specific org.</p>
+</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Retrieval Systems</a> in the <a href="../../">AI System Design Notes</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../03-indexing-algorithms-ann/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Indexing Algorithms (ANN/HNSW/IVF)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Indexing Algorithms (ANN/HNSW/IVF)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../05-chunking-strategies/" class="md-footer__link md-footer__link--next" aria-label="Next: Chunking Strategies">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Chunking Strategies
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

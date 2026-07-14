@@ -1,0 +1,7652 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/17-distributed-inference/02-disaggregated-prefill-decode/">
+      
+      
+        <link rel="prev" href="../01-tensor-and-pipeline-parallelism/">
+      
+      
+        <link rel="next" href="../03-speculative-decoding-at-scale/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Disaggregated Prefill/Decode - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#disaggregated-prefilldecode" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Disaggregated Prefill/Decode
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-phases-and-their-opposite-hardware-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Two Phases and Their Opposite Hardware Profiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Two Phases and Their Opposite Hardware Profiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-compute-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill: Compute-Bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode-memory-bandwidth-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode: Memory-Bandwidth-Bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-co-location-causes-interference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Co-Location Causes Interference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Why Co-Location Causes Interference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-head-of-line-blocking-from-long-prefills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Head-of-Line Blocking from Long Prefills
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-kv-cache-memory-pressure-spikes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. KV Cache Memory Pressure Spikes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-suboptimal-gpu-utilization-across-both-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Suboptimal GPU Utilization Across Both Phases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disaggregated-serving-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disaggregated Serving Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-kv-cache-transfer-central-cost-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The KV Cache Transfer: Central Cost Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The KV Cache Transfer: Central Cost Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-size-formula" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Size Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interconnect-selection-for-disaggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interconnect Selection for Disaggregation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hardware-heterogeneity-the-real-payoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware Heterogeneity: The Real Payoff
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hardware Heterogeneity: The Real Payoff">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-pool-compute-optimized" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill Pool: Compute-Optimized
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode-pool-bandwidth-optimized" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode Pool: Bandwidth-Optimized
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-cost-per-token-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Cost Per Token Argument
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-and-load-balancing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling and Load Balancing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduling and Load Balancing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-decode-capacity-ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill-Decode Capacity Ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-migration-and-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Migration and Reservation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fault-isolation-in-disaggregated-serving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fault Isolation in Disaggregated Serving
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#research-and-production-implementations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Research and Production Implementations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Research and Production Implementations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#splitwise-patel-et-al-2023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Splitwise (Patel et al., 2023)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distserve-zhong-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DistServe (Zhong et al., 2024)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mooncake-qin-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mooncake (Qin et al., 2024)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vllm-disaggregated-serving-mode-v06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vLLM Disaggregated Serving Mode (v0.6+)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-disaggregation-pays-off-vs-when-it-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Disaggregation Pays Off vs. When It Doesn't
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When Disaggregation Pays Off vs. When It Doesn&#39;t">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-quantitative-decision-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Quantitative Decision Framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-two-phases-and-their-opposite-hardware-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Two Phases and Their Opposite Hardware Profiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Two Phases and Their Opposite Hardware Profiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-compute-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill: Compute-Bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode-memory-bandwidth-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode: Memory-Bandwidth-Bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-co-location-causes-interference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Co-Location Causes Interference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Why Co-Location Causes Interference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-head-of-line-blocking-from-long-prefills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Head-of-Line Blocking from Long Prefills
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-kv-cache-memory-pressure-spikes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. KV Cache Memory Pressure Spikes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-suboptimal-gpu-utilization-across-both-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Suboptimal GPU Utilization Across Both Phases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disaggregated-serving-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disaggregated Serving Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-kv-cache-transfer-central-cost-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The KV Cache Transfer: Central Cost Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The KV Cache Transfer: Central Cost Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-size-formula" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Size Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interconnect-selection-for-disaggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interconnect Selection for Disaggregation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hardware-heterogeneity-the-real-payoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware Heterogeneity: The Real Payoff
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hardware Heterogeneity: The Real Payoff">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-pool-compute-optimized" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill Pool: Compute-Optimized
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decode-pool-bandwidth-optimized" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decode Pool: Bandwidth-Optimized
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-cost-per-token-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Cost Per Token Argument
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-and-load-balancing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling and Load Balancing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduling and Load Balancing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefill-decode-capacity-ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefill-Decode Capacity Ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-migration-and-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Migration and Reservation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fault-isolation-in-disaggregated-serving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fault Isolation in Disaggregated Serving
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#research-and-production-implementations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Research and Production Implementations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Research and Production Implementations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#splitwise-patel-et-al-2023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Splitwise (Patel et al., 2023)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distserve-zhong-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DistServe (Zhong et al., 2024)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mooncake-qin-et-al-2024" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mooncake (Qin et al., 2024)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vllm-disaggregated-serving-mode-v06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vLLM Disaggregated Serving Mode (v0.6+)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-disaggregation-pays-off-vs-when-it-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Disaggregation Pays Off vs. When It Doesn't
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When Disaggregation Pays Off vs. When It Doesn&#39;t">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-quantitative-decision-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Quantitative Decision Framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Distributed Inference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/17-distributed-inference/02-disaggregated-prefill-decode.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="disaggregated-prefilldecode">Disaggregated Prefill/Decode<a class="headerlink" href="#disaggregated-prefilldecode" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Every LLM inference request passes through two phases with opposite hardware profiles. Prefill processes the entire input prompt in a single compute-saturating forward pass. Decode generates one output token per forward pass in a memory-bandwidth-bound chain. These two phases want different hardware, compete for the same GPU resources when co-located, and create predictable interference patterns that degrade both TTFT and throughput at scale.</p>
+<p>Disaggregated serving is the architectural pattern that resolves this: separate the cluster into a prefill pool and a decode pool, each sized and optimized for its workload. The cost is a KV cache transfer between pools. Whether that cost is acceptable depends on context length, interconnect bandwidth, and traffic volume — and the analysis of that cost is the technical core of this chapter.</p>
+<p>See also: <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a> for the co-location interference problem in the context of scheduler design, <a href="../../15-model-serving/03-kv-cache-management/">KV Cache Management</a> for the KV cache arithmetic that governs transfer cost, and <a href="../../14-ai-infrastructure/02-the-inference-stack/">The Inference Stack</a> for where disaggregated serving sits in the four-layer stack.</p>
+<hr />
+<h2 id="the-two-phases-and-their-opposite-hardware-profiles">The Two Phases and Their Opposite Hardware Profiles<a class="headerlink" href="#the-two-phases-and-their-opposite-hardware-profiles" title="Permanent link">&para;</a></h2>
+<p>Before anything else, understand why prefill and decode are not just "two parts of the same operation" — they are two entirely different compute workloads that happen to run on the same hardware because most systems co-locate them.</p>
+<h3 id="prefill-compute-bound">Prefill: Compute-Bound<a class="headerlink" href="#prefill-compute-bound" title="Permanent link">&para;</a></h3>
+<p>Prefill processes all N input prompt tokens simultaneously in a single forward pass. For an N-token prompt:
+- The Q, K, V matrices are computed for all N tokens in parallel
+- Attention is computed between all token pairs (scaled dot-product, O(N²) memory but one large GEMM)
+- The FFN runs on all N tokens at once</p>
+<p>The result is a large <strong>matrix-matrix multiplication</strong>: the input <code>[N × hidden_dim]</code> multiplied by the weight matrix <code>[hidden_dim × 4×hidden_dim]</code> (for the FFN). Both dimensions are large. This operation has high arithmetic intensity (FLOPs per byte of memory read), placing it <strong>above the roofline ridge point</strong> — it is compute-bound, not bandwidth-bound.</p>
+<p><strong>Hardware profile for prefill:</strong>
+- High TFLOP/s (tensor cores)
+- Arithmetic intensity &gt;&gt; ridge point (e.g., 312 TFLOP/s on H100 / 3.35 TB/s = 93 FLOPs/byte ridge; prefill at N=4096 tokens easily exceeds this)
+- GPU utilization: 70–95% of theoretical compute
+- HBM bandwidth utilization: moderate (data is reused across the large GEMM)</p>
+<p>For a 4096-token prompt on a single H100, prefill time for Llama 3 70B BF16:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>FLOPs ≈ 2 × N × model_params = 2 × 4096 × 70×10⁹ ≈ 574 TFLOPs
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>H100 peak: 312 TFLOP/s (BF16 with sparsity), practical ~200 TFLOP/s
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Time ≈ 574 TFLOPs / 200 TFLOP/s ≈ 2.87 seconds
+</span></code></pre></div></p>
+<h3 id="decode-memory-bandwidth-bound">Decode: Memory-Bandwidth-Bound<a class="headerlink" href="#decode-memory-bandwidth-bound" title="Permanent link">&para;</a></h3>
+<p>Decode generates one token per forward pass. At each step:
+- The new token's Q is computed: <code>[1 × hidden_dim]</code> vector
+- Attention is computed between this one Q vector and all N cached K vectors: <code>[1 × N]</code> dot product
+- The FFN runs on a single token: <code>[1 × hidden_dim]</code> × <code>[hidden_dim × 4×hidden_dim]</code></p>
+<p>The critical operation is <code>[1 × hidden_dim]</code> × <code>[hidden_dim × 4×hidden_dim]</code> — a <strong>matrix-vector multiplication</strong>. The weight matrix is read from HBM to serve one token. The arithmetic intensity is 1 FLOP per byte of weight data read (approximately), placing it <strong>far below the roofline ridge point</strong> — it is memory-bandwidth-bound.</p>
+<p><strong>Hardware profile for decode:</strong>
+- High HBM bandwidth (GB/s)
+- Large HBM capacity (for weights + KV cache)
+- GPU tensor core utilization: 10–30% (underutilized because the bottleneck is data movement)
+- Decode throughput per GPU ceiling: approximately <code>HBM_bandwidth / model_size_bytes</code></p>
+<p>For Llama 3 70B BF16 on H100 at batch size 1:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Decode throughput ceiling = 3,350 GB/s / 140 GB ≈ 24 tokens/sec
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Each token ≈ 42 ms
+</span></code></pre></div></p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Roofline["Roofline Model: Prefill vs Decode Operating Points"]
+        subgraph Ridge["Hardware Roofline"]
+            PEAK["H100 Peak Compute\n312 TFLOP/s BF16\n993 TFLOP/s FP8"]
+            BW["H100 HBM Bandwidth\n3,350 GB/s\nRidge point: ~93 FLOPs/byte"]
+        end
+        subgraph Points["Workload Operating Points"]
+            PREFILL_PT["Prefill - N=4096 tokens\nArithmetic intensity &gt;&gt; 93 FLOPs/byte\nCOMPUTE-BOUND\nTensor cores saturated\nGPU util: 70-95 pct"]
+            DECODE_PT["Decode - 1 token\nArithmetic intensity approx 1 FLOPs/byte\nBANDWIDTH-BOUND\nTensor cores underutilized\nGPU util: 10-30 pct"]
+        end
+        PREFILL_PT -.-&gt;|"Above ridge\nwants more compute"| PEAK
+        DECODE_PT -.-&gt;|"Far below ridge\nwants more bandwidth"| BW
+    end
+    IMPLICATION["Implication:\nPrefill wants high TFLOP/s hardware\nDecode wants high HBM bandwidth hardware\nSame GPU serves both suboptimally\nDisaggregation lets each pool use right hardware"]</code></pre>
+<hr />
+<h2 id="why-co-location-causes-interference">Why Co-Location Causes Interference<a class="headerlink" href="#why-co-location-causes-interference" title="Permanent link">&para;</a></h2>
+<p>When prefill and decode run on the same GPU in the same batch, they create three forms of interference.</p>
+<h3 id="1-head-of-line-blocking-from-long-prefills">1. Head-of-Line Blocking from Long Prefills<a class="headerlink" href="#1-head-of-line-blocking-from-long-prefills" title="Permanent link">&para;</a></h3>
+<p>A 4096-token prefill on H100 takes ~2.9 seconds. Any decode requests in the same batch wait for this prefill to complete before their next decode step runs. If 20 interactive users are in mid-conversation, they all wait ~2.9 seconds for their next token — a visible TPOT spike — while one long-context request is prefilling.</p>
+<p>Even with chunked prefill (see <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a>), chunked prefill is a mitigation, not a solution: it reduces the per-chunk stall from 2.9s to ~300ms (at 512-token chunks), but the competition for GPU resources remains.</p>
+<h3 id="2-kv-cache-memory-pressure-spikes">2. KV Cache Memory Pressure Spikes<a class="headerlink" href="#2-kv-cache-memory-pressure-spikes" title="Permanent link">&para;</a></h3>
+<p>A 4096-token prefill generates the full KV cache for those tokens in one step. For Llama 3 70B BF16, that is:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>KV cache = 80 layers × 2 × 8 KV heads × 128 head_dim × 4096 tokens × 2 bytes
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>         = 327,680 bytes/token × 4096 tokens ≈ 1.3 GB
+</span></code></pre></div></p>
+<p>This 1.3 GB allocation happens instantaneously at the end of the prefill step. If the decode pool's KV cache is nearly full, the serving engine must:
+- Pre-evict existing decode sequences to make room (adding latency to those requests)
+- Or stall the new request until space is available (adding to TTFT)</p>
+<p>Long prompts (16K–128K tokens) create proportionally larger spikes: a 16K-token prompt generates ~5.3 GB of KV cache in one step.</p>
+<h3 id="3-suboptimal-gpu-utilization-across-both-phases">3. Suboptimal GPU Utilization Across Both Phases<a class="headerlink" href="#3-suboptimal-gpu-utilization-across-both-phases" title="Permanent link">&para;</a></h3>
+<p>A GPU optimized for decode (high HBM bandwidth, large HBM capacity — e.g., H200 with 4.8 TB/s) is under-utilized during prefill because prefill is compute-bound, not bandwidth-bound. The H200's bandwidth advantage over H100 (4.8 vs 3.35 TB/s) provides ~43% more decode throughput, but for prefill, what matters is TFLOP/s — where H200 and H100 are similar.</p>
+<p>Conversely, a compute-dense GPU optimized for prefill (A100 with 312 TFLOP/s BF16 but only 2 TB/s HBM) is wasteful for decode: its high compute is underutilized and its lower bandwidth becomes the bottleneck.</p>
+<p>Co-location forces a compromise GPU choice that is suboptimal for both workloads.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph ColocIntfer["Co-Located Serving: Three Interference Sources"]
+        subgraph TTFT["TTFT Degradation"]
+            TT1["Long prefill monopolizes GPU\nfor 2+ seconds"]
+            TT2["Decode steps for all\nother requests stall"]
+            TT3["TPOT spikes for\ninteractive users"]
+            TT1 --&gt; TT2 --&gt; TT3
+        end
+        subgraph MEM["KV Cache Memory Spikes"]
+            M1["Prefill completes\nInstant 1-5 GB KV allocation"]
+            M2["Decode pool VRAM\nnearly full"]
+            M3["Engine evicts active\ndecode sequences\nor stalls new request"]
+            M1 &amp; M2 --&gt; M3
+        end
+        subgraph HW["Hardware Mismatch"]
+            H1["Prefill is compute-bound\nwants TFLOP/s"]
+            H2["Decode is bandwidth-bound\nwants HBM GB/s"]
+            H3["Single GPU compromises both\nneither phase gets optimal HW"]
+            H1 &amp; H2 --&gt; H3
+        end
+    end
+    COUPLING["TTFT vs Throughput Coupling:\nOptimizing batch size for decode throughput\ndelays prefill start for new requests\nThese SLOs are in direct conflict when co-located"]</code></pre>
+<hr />
+<h2 id="disaggregated-serving-architecture">Disaggregated Serving Architecture<a class="headerlink" href="#disaggregated-serving-architecture" title="Permanent link">&para;</a></h2>
+<p>Disaggregation separates the cluster into two pools:
+- <strong>Prefill pool</strong>: Receives new requests, processes prompts, generates KV cache
+- <strong>Decode pool</strong>: Receives KV cache from prefill servers, generates all output tokens</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant C as Caller
+    participant LB as Load Balancer
+    participant PS as Prefill Server
+    participant KVN as KV Transfer Network
+    participant DS as Decode Server
+    participant KVM as KV Cache Manager
+
+    C-&gt;&gt;LB: New request with 4096-token prompt
+    LB-&gt;&gt;PS: Route to prefill pool
+    Note over PS: Prefill 4096 tokens\nSingle forward pass\n2-3 seconds\nHigh GPU utilization
+    PS-&gt;&gt;PS: Generate first output token
+    PS-&gt;&gt;KVM: Notify decode pool to reserve KV space
+    KVM--&gt;&gt;PS: Space reserved on decode server DS-07
+    PS-&gt;&gt;KVN: Transfer KV cache to DS-07\n1.3 GB for 4096-token context
+    KVN-&gt;&gt;DS: KV cache delivered\n26ms at InfiniBand 50 GB/s
+    Note over DS: Receive KV cache\nBegin decode iteration
+    DS--&gt;&gt;C: First token\nTTFT = prefill time + transfer time
+    loop Decode iterations
+        DS-&gt;&gt;DS: Generate next token\nMemory-bandwidth-bound\n42ms per token at batch 1
+        DS--&gt;&gt;C: Stream token
+    end
+    DS--&gt;&gt;C: Final token plus EOS</code></pre>
+<p>The sequence reveals the core cost: <strong>TTFT now includes the KV transfer latency</strong>. TTFT = prefill_time + transfer_time. For a 4096-token prompt at InfiniBand NDR: 2.9s prefill + 0.026s transfer = ~2.93s TTFT. The transfer adds 0.9% overhead for this context length. For a 16K-token context, the transfer cost grows proportionally.</p>
+<hr />
+<h2 id="the-kv-cache-transfer-central-cost-analysis">The KV Cache Transfer: Central Cost Analysis<a class="headerlink" href="#the-kv-cache-transfer-central-cost-analysis" title="Permanent link">&para;</a></h2>
+<p>The KV cache transfer from prefill server to decode server is the single most important cost to analyze in disaggregated serving. Everything else — hardware selection, scheduling policy, fault tolerance — follows from whether this transfer is acceptable.</p>
+<h3 id="kv-cache-size-formula">KV Cache Size Formula<a class="headerlink" href="#kv-cache-size-formula" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>KV_bytes = num_layers × 2 × num_kv_heads × head_dim × sequence_length × dtype_bytes
+</span></code></pre></div>
+<p>For Llama 3 70B BF16:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>KV_bytes = 80 × 2 × 8 × 128 × seq_len × 2 bytes
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>         = 327,680 bytes/token × seq_len
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>         ≈ 320 KB per token
+</span></code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Context length</th>
+<th>KV cache size</th>
+<th>NVLink 900 GB/s</th>
+<th>InfiniBand NDR 50 GB/s</th>
+<th>400GbE 40 GB/s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,024 tokens</td>
+<td>327 MB</td>
+<td>0.36 ms</td>
+<td>6.5 ms</td>
+<td>8.2 ms</td>
+</tr>
+<tr>
+<td>4,096 tokens</td>
+<td>1.3 GB</td>
+<td>1.4 ms</td>
+<td>26 ms</td>
+<td>33 ms</td>
+</tr>
+<tr>
+<td>16,384 tokens</td>
+<td>5.3 GB</td>
+<td>5.9 ms</td>
+<td><strong>106 ms</strong></td>
+<td><strong>132 ms</strong></td>
+</tr>
+<tr>
+<td>32,768 tokens</td>
+<td>10.6 GB</td>
+<td>11.8 ms</td>
+<td><strong>212 ms</strong></td>
+<td><strong>265 ms</strong></td>
+</tr>
+<tr>
+<td>128,000 tokens</td>
+<td>41.5 GB</td>
+<td>46 ms</td>
+<td><strong>830 ms</strong></td>
+<td><strong>1,037 ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The transfer costs are not hypothetical. A 16K-token context at InfiniBand NDR adds 106 ms to TTFT. For an interactive product with a 500 ms TTFT SLO, this is 21% of the budget consumed by a network transfer — before accounting for prefill time. At 128K context, the InfiniBand transfer alone is 830 ms, exceeding any interactive TTFT SLO.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph KVTransferCosts["KV Cache Transfer Cost vs Context Length\nLlama 3 70B BF16 - 320 KB per token"]
+        subgraph ShortCtx["Short Context 1K-4K tokens"]
+            S1["1K tokens: 327 MB\nNVLink: 0.36 ms\nInfiniBand: 6.5 ms\nCommentary: negligible overhead\nboth interconnects acceptable"]
+            S2["4K tokens: 1.3 GB\nNVLink: 1.4 ms\nInfiniBand: 26 ms\nCommentary: NVLink excellent\nInfiniBand adds 5 pct to 500ms SLO"]
+        end
+        subgraph LongCtx["Long Context 16K-128K tokens"]
+            L1["16K tokens: 5.3 GB\nNVLink: 5.9 ms\nInfiniBand: 106 ms\nCommentary: InfiniBand starts to hurt\nNVLink still excellent"]
+            L2["128K tokens: 41.5 GB\nNVLink: 46 ms\nInfiniBand: 830 ms\nCommentary: InfiniBand infeasible\nNVLink: acceptable but large"]
+        end
+    end
+    RULE["Key rule:\nIntra-node disaggregation via NVLink: always acceptable\nInter-node via InfiniBand: acceptable for context up to ~8K tokens\nInter-node via InfiniBand at 16K+: requires careful SLO analysis\nInter-node via Ethernet at 16K+: nearly always unacceptable for interactive"]</code></pre>
+<h3 id="interconnect-selection-for-disaggregation">Interconnect Selection for Disaggregation<a class="headerlink" href="#interconnect-selection-for-disaggregation" title="Permanent link">&para;</a></h3>
+<p>The choice of interconnect between prefill and decode servers determines what context lengths are viable:</p>
+<p><strong>NVLink (intra-node disaggregation):</strong> Place prefill and decode tasks on different GPUs within the same NVSwitch-connected DGX node. Transfer via NVLink at 900 GB/s. At this bandwidth, even 128K-token contexts add only 46 ms — acceptable for most applications. The constraint: prefill and decode share the node's HBM, GPU count, and cooling infrastructure. Not independently scalable.</p>
+<p><strong>InfiniBand NDR (inter-node, same rack):</strong> Most production disaggregation deployments target InfiniBand for independent scalability. NDR (400 Gb/s, ~50 GB/s effective) is the current standard. Viable for context lengths up to approximately 8K tokens without significant TTFT impact. For 16K+ contexts, the transfer cost must be weighed against the interference savings from disaggregation.</p>
+<p><strong>400GbE RoCEv2 (inter-node, Ethernet):</strong> 40 GB/s effective throughput after protocol overhead. 20% slower than InfiniBand NDR for the same context. Useful when InfiniBand infrastructure is not available, but requires careful context length budgeting.</p>
+<p><strong>The sweet spot:</strong> Intra-rack disaggregation with NDR InfiniBand, at context lengths ≤ 8K tokens, where transfer overhead is under 50 ms and disaggregation's interference-elimination benefits dominate. Scale prefill pool and decode pool independently based on measured traffic.</p>
+<hr />
+<h2 id="hardware-heterogeneity-the-real-payoff">Hardware Heterogeneity: The Real Payoff<a class="headerlink" href="#hardware-heterogeneity-the-real-payoff" title="Permanent link">&para;</a></h2>
+<p>The economic argument for disaggregation is hardware cost optimization. When prefill and decode run separately, each pool can use the GPU most cost-effective for its workload.</p>
+<h3 id="prefill-pool-compute-optimized">Prefill Pool: Compute-Optimized<a class="headerlink" href="#prefill-pool-compute-optimized" title="Permanent link">&para;</a></h3>
+<p>Prefill is compute-bound. The metric that matters is TFLOP/s per dollar, not HBM bandwidth per dollar.</p>
+<ul>
+<li><strong>A100 SXM (312 TFLOP/s BF16, 80 GB HBM):</strong> Excellent for prefill. The A100's lower HBM bandwidth (2 TB/s vs H100's 3.35 TB/s) is irrelevant for prefill's compute-bound operation. A100s can be significantly cheaper than H100s in secondary markets.</li>
+<li><strong>H100 SXM (312 TFLOP/s BF16, 80 GB HBM):</strong> Same peak compute as A100 for dense matrix operations; FP8 tensor cores (989 TFLOP/s) enable faster prefill with FP8 precision.</li>
+<li><strong>TPUv5 / Trainium:</strong> Google and AWS deploy custom silicon optimized for matrix multiplications — prefill is exactly this workload.</li>
+</ul>
+<h3 id="decode-pool-bandwidth-optimized">Decode Pool: Bandwidth-Optimized<a class="headerlink" href="#decode-pool-bandwidth-optimized" title="Permanent link">&para;</a></h3>
+<p>Decode is memory-bandwidth-bound. The metric that matters is HBM bandwidth per dollar.</p>
+<ul>
+<li><strong>H200 SXM (4.8 TB/s HBM3e, 141 GB):</strong> 43% more bandwidth than H100, enabling 43% more decode throughput per GPU. The 141 GB VRAM also holds more KV cache, directly translating to more concurrent sequences.</li>
+<li><strong>B200 SXM (8 TB/s NVLink 5.0, 192 GB):</strong> Nearly 2.4× H100's bandwidth. At 192 GB VRAM, a single B200 can serve hundreds of concurrent 4K-token sequences. Ideal for a decode pool.</li>
+<li><strong>H100 SXM (3.35 TB/s, 80 GB):</strong> Solid baseline. The 80 GB VRAM limits KV cache budget.</li>
+</ul>
+<pre class="mermaid"><code>flowchart LR
+    subgraph HeteroHW["Heterogeneous Hardware: Disaggregated Serving"]
+        subgraph PrefillPool["Prefill Pool\nCompute-Optimized"]
+            A100_1["A100 SXM\n312 TFLOP/s BF16\n80 GB HBM\nLower cost per TFLOP/s\nBandwidth not the bottleneck"]
+            A100_2["A100 SXM"]
+            A100_3["A100 SXM"]
+            A100_4["A100 SXM"]
+        end
+        subgraph DecodePool["Decode Pool\nBandwidth-Optimized"]
+            H200_1["H200 SXM\n4.8 TB/s HBM3e\n141 GB VRAM\n43 pct more decode throughput\nvs H100"]
+            H200_2["H200 SXM"]
+            B200_1["B200 SXM\n8 TB/s HBM\n192 GB VRAM\n2.4x H100 decode throughput"]
+        end
+        PrefillPool --&gt;|"KV cache transfer\nInfiniBand NDR"| DecodePool
+    end
+    ECON["Economic argument:\nA100 cluster for prefill: lower cost per TFLOP/s\nH200/B200 cluster for decode: optimized for bandwidth-bound work\nMixed cluster may be cheaper per token than uniform H100 fleet\nDistServe paper: 2x goodput improvement with heterogeneous pools"]</code></pre>
+<h3 id="the-cost-per-token-argument">The Cost Per Token Argument<a class="headerlink" href="#the-cost-per-token-argument" title="Permanent link">&para;</a></h3>
+<p>A uniform H100 fleet uses expensive compute for decode (memory-bound — HBM bandwidth is the bottleneck, not tensor cores) and uses relatively lower bandwidth for prefill (compute-bound — tensor cores are the bottleneck, not HBM). Both phases get suboptimal hardware.</p>
+<p>A heterogeneous disaggregated fleet matches hardware to workload:
+- Prefill pool: A100s or H100 PCIe variants (lower cost per TFLOP/s, higher TFLOP/s per dollar than H200)
+- Decode pool: H200s or B200s (higher HBM bandwidth per dollar for bandwidth-bound decode)</p>
+<p>DistServe (Zhong et al., 2024) demonstrated a 2× goodput improvement on real workloads by disaggregating with heterogeneous hardware, compared to a co-located uniform fleet.</p>
+<hr />
+<h2 id="scheduling-and-load-balancing">Scheduling and Load Balancing<a class="headerlink" href="#scheduling-and-load-balancing" title="Permanent link">&para;</a></h2>
+<p>Disaggregation introduces a new scheduling complexity: a request cannot start decoding until the prefill is complete AND the KV cache is transferred AND the decode server has reserved space. This three-phase coordination creates new failure modes and scheduling decisions.</p>
+<h3 id="prefill-decode-capacity-ratio">Prefill-Decode Capacity Ratio<a class="headerlink" href="#prefill-decode-capacity-ratio" title="Permanent link">&para;</a></h3>
+<p>The ratio of prefill capacity to decode capacity must match the traffic's input/output token ratio:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>required_prefill_throughput = avg_input_tokens × QPS
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>required_decode_throughput  = avg_output_tokens × QPS
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>ratio = required_prefill_throughput / required_decode_throughput
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>      = avg_input_tokens / avg_output_tokens
+</span></code></pre></div>
+<p><strong>Example: Code generation system</strong>
+- Average input: 1,000 tokens (code context + instruction)
+- Average output: 100 tokens (generated code snippet)
+- Ratio: 10× more prefill work than decode work
+- Configuration: 10 prefill servers per 1 decode server</p>
+<p><strong>Example: Long-form document generation</strong>
+- Average input: 200 tokens (brief description)
+- Average output: 2,000 tokens (generated document)
+- Ratio: 1 prefill to 10 decode
+- Configuration: 1 prefill server per 10 decode servers</p>
+<p>Measuring this ratio from production logs is essential before sizing the pools. A mismatch means one pool becomes the bottleneck while the other idles.</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph Scheduling["Disaggregated Scheduling Flow"]
+        REQ["New request arrives\nat load balancer"]
+        ROUTE["Route to least-loaded\nprefill server"]
+        PS_PROC["Prefill server processes prompt\nCompute-bound: 70-95 pct GPU util"]
+        RESERVE["Prefill server signals decode pool\nRequest KV cache space reservation"]
+        DEC_CHECK{"Decode pool\nhas free KV\ncache space?"}
+        DEC_CHECK --&gt;|"Yes"| RESERVE_OK["Decode server reserves pages\nSignal back to prefill server\nPrefill can start transfer"]
+        DEC_CHECK --&gt;|"No: pool at capacity"| WAITQ["Prefill server holds KV in local memory\nWait for decode slot to free\nTTFT increases\nThis is the key backpressure signal"]
+        RESERVE_OK --&gt; TRANSFER["KV cache transferred\nvia NVLink or InfiniBand"]
+        TRANSFER --&gt; DECODE_START["Decode server begins\ntoken generation"]
+        DECODE_START --&gt; STREAM["Token stream to caller"]
+        WAITQ --&gt;|"Space freed by completed request"| RESERVE_OK
+    end</code></pre>
+<h3 id="kv-cache-migration-and-reservation">KV Cache Migration and Reservation<a class="headerlink" href="#kv-cache-migration-and-reservation" title="Permanent link">&para;</a></h3>
+<p>The critical scheduling challenge: the decode server must have available KV cache pages before the prefill server begins the transfer. If the decode pool is under memory pressure, the prefill server generates the KV cache but cannot transfer it — the KV cache sits in the prefill server's VRAM, occupying space that could be used for the next prefill request.</p>
+<p><strong>Reservation-based scheduling:</strong> The decode server reserves KV cache pages (based on the request's input length and a predicted output length) <em>before</em> the prefill starts. If no space is available, the request waits in queue. This prevents the expensive "KV cache generated but cannot be transferred" state.</p>
+<p><strong>Output length prediction:</strong> To reserve the right amount of KV cache space, the scheduler needs to predict output length. For structured outputs (JSON with known schema, code with fixed signature), the output length is predictable. For open-ended chat, an output length distribution from historical data is used. Over-reservation wastes space; under-reservation causes mid-generation eviction.</p>
+<h3 id="fault-isolation-in-disaggregated-serving">Fault Isolation in Disaggregated Serving<a class="headerlink" href="#fault-isolation-in-disaggregated-serving" title="Permanent link">&para;</a></h3>
+<p>Disaggregation changes the failure boundaries:</p>
+<ul>
+<li>
+<p><strong>Prefill server failure</strong>: The KV cache for completed requests has already been transferred to decode servers. In-flight prefill requests are lost (must be retried), but existing decode sessions are unaffected. Recovery is limited to re-prefilling failed requests.</p>
+</li>
+<li>
+<p><strong>Decode server failure</strong>: All in-flight decode sessions on that server lose their KV cache and must restart from the beginning (re-prefill + decode from scratch). This is more severe than a prefill server failure.</p>
+</li>
+<li>
+<p><strong>Transfer failure</strong>: The KV cache transfer fails after prefill completes. The prefill work is wasted; the request must be retried. Retry means re-prefilling (expensive for long contexts).</p>
+</li>
+</ul>
+<p>Asymmetric failure impact: protect decode servers more aggressively (replication, health checks) than prefill servers, since a decode server failure has broader impact on in-flight user sessions.</p>
+<hr />
+<h2 id="research-and-production-implementations">Research and Production Implementations<a class="headerlink" href="#research-and-production-implementations" title="Permanent link">&para;</a></h2>
+<h3 id="splitwise-patel-et-al-2023">Splitwise (Patel et al., 2023)<a class="headerlink" href="#splitwise-patel-et-al-2023" title="Permanent link">&para;</a></h3>
+<p>The paper that systematically analyzed disaggregated prefill-decode. Key findings:
+- Co-located serving with mixed prefill-decode batches causes 12× higher TTFT variance compared to disaggregated serving at equivalent throughput
+- Disaggregated serving provides 1.4× higher throughput at the same TTFT SLO
+- The KV cache transfer overhead is tractable for context lengths up to 32K tokens on InfiniBand</p>
+<h3 id="distserve-zhong-et-al-2024">DistServe (Zhong et al., 2024)<a class="headerlink" href="#distserve-zhong-et-al-2024" title="Permanent link">&para;</a></h3>
+<p>Extended Splitwise with heterogeneous hardware pools:
+- Prefill pool: A100 (high TFLOP/s per dollar)
+- Decode pool: A100/H100 (higher HBM bandwidth options)
+- Demonstrated 2× goodput improvement vs. co-located serving on real workloads (ShareGPT traffic mix)
+- Key insight: hardware heterogeneity across pools is what makes disaggregation economically compelling, not just operational separation</p>
+<h3 id="mooncake-qin-et-al-2024">Mooncake (Qin et al., 2024)<a class="headerlink" href="#mooncake-qin-et-al-2024" title="Permanent link">&para;</a></h3>
+<p>Kimi (Moonshot AI)'s production disaggregated serving system for very long contexts (up to 1M tokens):
+- KV cache stored in a distributed KV cache store (multiple servers) rather than transferred in bulk
+- SSD-backed tiered KV cache: hot pages in GPU memory, warm in CPU DRAM, cold on NVMe
+- For 1M-token contexts, monolithic transfer is infeasible; paged transfer and prefetching are used
+- Demonstrates disaggregation at the extreme end of context length where the KV cache is itself a distributed data structure</p>
+<h3 id="vllm-disaggregated-serving-mode-v06">vLLM Disaggregated Serving Mode (v0.6+)<a class="headerlink" href="#vllm-disaggregated-serving-mode-v06" title="Permanent link">&para;</a></h3>
+<p>Production-ready implementation available in vLLM with:
+- Configurable prefill and decode server roles
+- KV cache transfer via RDMA (InfiniBand/RoCEv2) using nixl transfer engine
+- Prefix caching aware: shared KV cache pages are not re-transferred if already present on the decode server
+- Load balancing via a disaggregated serving scheduler that tracks pool capacity</p>
+<hr />
+<h2 id="when-disaggregation-pays-off-vs-when-it-doesnt">When Disaggregation Pays Off vs. When It Doesn't<a class="headerlink" href="#when-disaggregation-pays-off-vs-when-it-doesnt" title="Permanent link">&para;</a></h2>
+<p>Disaggregation adds operational complexity: two server pools, KV transfer infrastructure, coordination protocols, and asymmetric failure modes. This complexity is only worth it in specific conditions.</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph WhenDisagg["When to Disaggregate"]
+        PAYS["Disaggregation PAYS OFF when all of:"]
+        C1["Traffic volume is high enough\nthat co-location interference is measurable\nTypically: sustained 100+ concurrent users per GPU\nor TPOT SLO violations observed under mixed prefill-decode load"]
+        C2["Prompt lengths are variable and long\np99 input length exceeds 2K tokens\nLong prefills cause visible TPOT spikes\nfor concurrent decode sessions"]
+        C3["TTFT SLO is strict enough to matter\nInteractive use cases where TTFT variance\nhurts user experience\nNot batch-async where TTFT SLO is loose"]
+        C4["Interconnect between pools is fast enough\nIntra-node NVLink: always OK\nInfiniBand NDR: OK for up to 8K context\nContext-length-aware: transfer cost analysis shows\ntransfer overhead less than interference penalty"]
+        C5["Heterogeneous hardware available\nOr will be available in next procurement cycle\nCost savings from right-sizing each pool\njustify operational overhead"]
+        PAYS --&gt; C1 &amp; C2 &amp; C3 &amp; C4 &amp; C5
+    end
+    subgraph WhenNot["When Disaggregation Adds Complexity for No Gain"]
+        NOTPAYS["Disaggregation DOES NOT PAY when any of:"]
+        N1["Low traffic: 1-10 concurrent users per GPU\nCo-location interference is rare and acceptable\nOperational simplicity of one pool is more valuable"]
+        N2["Uniform short prompts only\nAll requests under 512 tokens\nPrefill is fast, no TPOT disruption\nKV transfer overhead proportionally large vs prefill time"]
+        N3["Cross-node InfiniBand with very long contexts\n128K token context: 830ms transfer at InfiniBand NDR\nThis exceeds any interactive TTFT SLO\nDisaggregation makes TTFT worse not better for long contexts over slow interconnect"]
+        N4["Single-GPU deployments or very small fleets\nDisaggregation requires minimum 2 pools\nSmall scale: just use co-location with chunked prefill"]
+        NOTPAYS --&gt; N1 &amp; N2 &amp; N3 &amp; N4
+    end</code></pre>
+<h3 id="the-quantitative-decision-framework">The Quantitative Decision Framework<a class="headerlink" href="#the-quantitative-decision-framework" title="Permanent link">&para;</a></h3>
+<p>Before disaggregating, measure these three quantities in production:</p>
+<p><strong>1. TPOT spike frequency:</strong> What fraction of decode steps are delayed by more than 2× the median step time? If this fraction exceeds 5%, a long prefill is likely causing it.</p>
+<p><strong>2. KV transfer overhead vs interference savings:</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>interference_cost = avg_prefill_duration × prefill_rate × decode_requests_in_batch
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>transfer_cost = KV_cache_size / interconnect_bandwidth
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>Disaggregate if: interference_cost &gt; transfer_cost + operational_overhead
+</span></code></pre></div></p>
+<p><strong>3. Prefill-decode ratio from traffic:</strong> Measure <code>avg_input_tokens / avg_output_tokens</code> from actual production logs, not synthetic workloads. This determines the pool sizing ratio.</p>
+<p><strong>Rule of thumb for when to disaggregate:</strong>
+- High traffic systems (≥ 1,000 concurrent users) with variable prompt lengths: almost always worth it
+- Medium traffic systems (100–1,000 concurrent users) with p99 input ≥ 4K tokens and strict TTFT SLOs: evaluate using the formula above
+- Low traffic systems (&lt; 100 concurrent users) or uniform short prompts: use chunked prefill instead</p>
+<hr />
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What is disaggregated prefill-decode, in one sentence?</strong></p>
+<p>Disaggregated prefill-decode is a serving architecture where the prompt processing phase (prefill) and the token generation phase (decode) run on separate GPU pools, each optimized for its distinct compute profile, with the KV cache transferred between pools after prefill completes.</p>
+<p><strong>Q: Why do prefill and decode have different hardware requirements?</strong></p>
+<p>Prefill processes all input tokens in parallel, creating large matrix-matrix multiplications that saturate GPU tensor cores — it is compute-bound, sitting above the roofline ridge point and benefiting from high TFLOP/s. Decode generates one token per step, performing matrix-vector multiplications where the GPU reads the entire model weight set from HBM for each single token — it is memory-bandwidth-bound, sitting far below the ridge point and benefiting from high HBM bandwidth. The same GPU optimized for one workload is suboptimal for the other.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Walk through the KV cache transfer arithmetic for a 16K-token context at InfiniBand NDR. Is 106 ms acceptable?</strong></p>
+<p>KV cache per token for Llama 3 70B BF16: 80 layers × 2 × 8 KV heads × 128 head_dim × 2 bytes = 327,680 bytes ≈ 320 KB/token. At 16,384 tokens: 320 KB × 16,384 = 5,242,880 KB ≈ 5.0 GB. At InfiniBand NDR effective throughput of 50 GB/s: 5.0 GB / 50 GB/s = 100 ms (approximately 106 ms including protocol overhead).</p>
+<p>Whether 106 ms is acceptable depends on the TTFT SLO. For a system with TTFT SLO of 500 ms: 106 ms is 21% of the budget, not counting the prefill time itself (~8 seconds for 16K tokens). The total TTFT would be 8s + 106ms = ~8.1s — well beyond any interactive SLO. For batch-async workloads with no TTFT SLO, it is irrelevant. The short answer: 106 ms is unacceptable for interactive serving at 16K context over InfiniBand. The solutions are: (a) use intra-node NVLink disaggregation where the same transfer takes ~6 ms; (b) use longer-context models that generate shorter KV caches per token (MLA architectures); (c) don't disaggregate for long contexts — keep co-location with chunked prefill.</p>
+<p><strong>Q: What is the prefill-decode capacity ratio and how do you calculate it for a given workload?</strong></p>
+<p>The prefill-decode ratio is <code>avg_input_tokens / avg_output_tokens</code> — the ratio of compute work each phase must handle per request. If your traffic has an average 1,000-token prompt and 100-token output: ratio = 10. For every 10 units of prefill capacity, you need 1 unit of decode capacity. In practice: measure from production logs the p50, p90, p99 of both input and output token counts, compute the ratio for the p50 workload, and size pools accordingly. Then add headroom for the tail. If your p99 input is 10× p50 input, your peak prefill demand is 10× higher than average — you either provision for the tail or implement request queuing on the prefill side.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the KV cache transfer protocol for disaggregated serving under InfiniBand NDR. What happens on transfer failure?</strong></p>
+<p>The transfer uses RDMA (via NCCL or nixl) to move KV cache pages directly from the prefill server's GPU memory to the decode server's GPU memory — bypassing both CPUs. The sequence:</p>
+<ol>
+<li>Prefill server completes the forward pass, generates KV cache in GPU memory</li>
+<li>Decode server has already reserved pages (reservation-based scheduling)</li>
+<li>Prefill server sends an RDMA write to the decode server's reserved pages</li>
+<li>Transfer proceeds at InfiniBand NDR bandwidth (~50 GB/s)</li>
+<li>Completion signal sent to decode server scheduler</li>
+</ol>
+<p>On transfer failure (link error, network congestion causing RDMA timeout):
+- The decode server's reserved pages are released back to the free pool
+- The request is marked as failed and placed back in the prefill queue for retry
+- The prefill server's KV cache for this request is freed from local VRAM
+- The request re-enters the prefill queue and is re-processed from scratch</p>
+<p>The retry cost is the full prefill time (expensive for long contexts). This motivates storing the KV cache in a separate KV cache store (Mooncake's approach) with durability, so that a transfer failure doesn't require re-prefilling — just re-initiating the transfer from the durable cache.</p>
+<p><strong>Q: A system has a prefill pool of 16 A100s and a decode pool of 32 H200s. Traffic arrives at 100 requests/second with average 800-token prompts and 200-token outputs. After three months, average prompt length grows to 2,000 tokens while output length stays 200 tokens. What changes, and what do you do?</strong></p>
+<p>Traffic shift: avg prompt grew from 800 to 2,000 tokens — 2.5× increase. Prefill work per request increased 2.5×: the prefill pool now does 2.5× more work per request. At 100 RPS, the prefill pool at 16 A100s was handling: 100 RPS × 800 tokens × prefill cost. Now at 2,000 tokens: the same 16 A100s must process 2.5× the total token load. If the original utilization was ~70%, it's now 175% — overloaded. The decode pool's ratio also changes: prefill work is 10× output work (2,000/200), but the decode pool was sized for 800/200 = 4× ratio. The prefill pool is now the bottleneck.</p>
+<p>Interventions: (1) Add prefill capacity — purchase or move 24 GPUs from decode to prefill (or add 24 new GPUs if budget allows). New ratio: 40 prefill GPUs × A100_throughput / (32 H200 GPUs × H200_throughput). (2) Enable prefix caching on the prefill servers — if the growth in prompt length is due to longer system prompts or shared document contexts, prefix caching eliminates the repeated prefill work for the shared prefix, recovering a fraction of the capacity. (3) Rate-limit long-prompt requests at the gateway to protect TTFT SLOs for short-prompt requests while the capacity expansion is underway.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the complete disaggregated serving architecture for a production RAG system with: 500 QPS, p50 context length 8K tokens (retrieved documents), p99 context length 64K tokens, TTFT SLO of 800 ms. Model: Llama 3 70B BF16. Available hardware: 64× H100 SXM5, 32× H200 SXM5. InfiniBand NDR interconnect.</strong></p>
+<p>First, compute KV transfer costs at the SLO-relevant context lengths:
+- 8K tokens: 320 KB/token × 8192 = 2.6 GB → 2.6 GB / 50 GB/s = 52 ms transfer
+- 64K tokens: 320 KB × 65536 = 20.9 GB → 20.9 GB / 50 GB/s = 418 ms transfer</p>
+<p>The 64K p99 context has a 418 ms InfiniBand transfer time alone — exceeding the 800 ms TTFT SLO when combined with prefill time (~32 seconds for 64K tokens). InfiniBand disaggregation is infeasible for 64K context interactive serving.</p>
+<p><strong>Architecture decision:</strong> Two-tier system.</p>
+<p>Tier 1 — Standard path (p50, up to 16K context): Disaggregated serving with H100 prefill pool and H200 decode pool.
+- Prefill pool: 32× H100 SXM5 (high TFLOP/s)
+- Decode pool: 32× H200 SXM5 (4.8 TB/s bandwidth, 141 GB VRAM for KV cache)
+- KV transfer at 8K context: 52 ms (6.5% of 800 ms SLO — acceptable)</p>
+<p>Tier 2 — Long-context path (p99, 16K–64K context): Co-located serving with chunked prefill on remaining H200s.
+- Co-located pool: 32× H200 SXM5 (high VRAM for long KV cache)
+- KV transfer infeasible at 64K over InfiniBand; chunked prefill mitigates TPOT impact
+- TTFT SLO for 64K: relaxed to 30 seconds (batch-async SLO, not interactive)</p>
+<p>Prefill-decode ratio for tier 1: 8K tokens / (avg output 200 tokens) = 40:1. Prefill capacity must be 40× decode capacity in terms of token-throughput. At 500 QPS with 80% on standard path: 400 RPS × 8K tokens = 3.2M tokens/sec of prefill demand. H100 prefill throughput for 70B BF16: approximately 2,000 tokens/sec per GPU. 32 H100s: 64,000 tokens/sec prefill. Need 3.2M / 64K = 50 GPUs of prefill capacity — more than available. Solution: use FP8 precision on H100s to get 2× prefill throughput (~4,000 tokens/sec/GPU), and implement queueing at the prefill gateway.</p>
+<hr />
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<p><strong>"You said disaggregation improves TTFT predictability. Quantify this. What does 'predictability' mean and what's the mechanism?"</strong></p>
+<p>Tests: whether the candidate can decompose a qualitative claim into a measurable quantity.</p>
+<p>TTFT variance is what disaggregation improves. In co-located serving, TTFT for a new request depends on whether a long-prefill request happens to be running when the new request arrives. If a 4096-token prefill is in progress, a new request waits ~2.9 seconds before its prefill starts — its TTFT is increased by 2.9 seconds. If no long prefill is running, its TTFT is just its own prefill time. The p99 TTFT is therefore the sum of (own prefill time + the worst-case concurrent prefill time), while the median is just the own prefill time. The TTFT distribution is heavy-tailed and depends on traffic patterns.</p>
+<p>In disaggregated serving, the decode server's TTFT = prefill time (on prefill server) + KV transfer time. Both components are deterministic for a given context length. There is no "waiting for another request's prefill to complete" interference on the decode server — the decode server only runs memory-bandwidth-bound steps, which are smooth and predictable. The TTFT distribution is narrower, with p99/p50 TTFT ratio close to 1.0 rather than 5–10× as in co-located serving.</p>
+<p><strong>"DistServe claims 2× goodput improvement. Under what conditions does this hold, and when would you expect smaller or larger gains?"</strong></p>
+<p>Tests: whether the candidate understands the conditions under which the paper's results generalize.</p>
+<p>DistServe's 2× result comes from two compounding effects: (1) removing interference between prefill and decode (which wastes GPU cycles through TPOT spikes and KV cache pressure); (2) using heterogeneous hardware to match workload to hardware profile. The gain is larger when:
+- Traffic has a bimodal distribution of prompt lengths (some very long, some short) — interference is worst in this case
+- The prefill/decode ratio is high (many more input than output tokens) — more prefill work competing with decode
+- Hardware pools use genuinely different GPU classes (A100 vs H200), amplifying the per-pool efficiency improvement
+- KV transfer overhead is small relative to the interference savings (short-to-medium context lengths at InfiniBand)</p>
+<p>The gain is smaller when:
+- Prompt lengths are uniform (no interference spikes from outliers)
+- Context lengths are very long and KV transfer dominates (the transfer cost approaches or exceeds the interference cost)
+- Hardware is uniform across pools (no per-pool hardware optimization possible)</p>
+<p><strong>"Mooncake uses a distributed KV cache store. When does a distributed KV store make disaggregation better, and when does it make things worse?"</strong></p>
+<p>Tests: understanding of when the distributed KV store adds complexity without benefit.</p>
+<p>A distributed KV store (KV pages stored independently of the prefill and decode servers, accessible by both) is beneficial when:
+- Context lengths exceed single-GPU VRAM capacity: a 1M-token context's KV cache (320 GB for Llama 3 70B) cannot live on any single GPU. The distributed store shards it across multiple memory tiers.
+- KV cache reuse across requests: if multiple users query the same document, the KV cache for that document can be stored once and served to all queriers from the cache. Without a distributed store, each prefill server would independently compute and locally cache the KV.
+- Fault tolerance for long-running sessions: a durable KV store enables decode servers to resume after failure without re-prefilling.</p>
+<p>The distributed KV store makes things worse when:
+- Context lengths are short (under 8K tokens): the overhead of distributed cache lookup, coordination protocol, and network indirection adds more latency than a direct point-to-point KV transfer.
+- KV cache is request-unique: no sharing is possible, so the distributed cache provides fault tolerance at the cost of network indirection with no reuse benefit.
+- The KV store becomes a bottleneck: at very high QPS, the KV cache store itself must scale; a centralized store becomes a hot-spot, and a sharded distributed store adds consistency management complexity.</p>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Using the wrong interconnect bandwidth figure for KV transfer latency.</strong> The theoretical InfiniBand NDR bandwidth is 400 Gb/s = 50 GB/s. The effective throughput after protocol overhead and software stack latency is 40–50 GB/s for large transfers, but can be 20–30 GB/s for small transfers (&lt; 1 MB) due to RDMA setup overhead. Always use measured effective bandwidth for the actual transfer size, not theoretical peak.</p>
+</li>
+<li>
+<p><strong>Sizing pools based on average token counts, not the p90/p99.</strong> If p50 prompt length is 500 tokens and p99 is 8,000 tokens, sizing the prefill pool for p50 results in the prefill pool being 16× underprovisioned at p99. The prefill pool must handle the tail of the input length distribution.</p>
+</li>
+<li>
+<p><strong>Forgetting that KV transfer adds to TTFT, not TPOT.</strong> The transfer happens once (between prefill and the first decode step), so it directly increases TTFT. TPOT is unaffected by the transfer — it is determined by the decode server's memory bandwidth. Engineers who optimize TPOT but ignore the transfer cost end up with good TPOT but poor TTFT.</p>
+</li>
+<li>
+<p><strong>Deploying disaggregation without measuring co-location interference first.</strong> The decision to disaggregate should be driven by measured TPOT spikes from prefill interference, not architectural preference. In many systems, chunked prefill eliminates 90% of the interference at much lower operational cost.</p>
+</li>
+<li>
+<p><strong>Setting the prefill-decode capacity ratio based on the product's feature spec, not traffic measurement.</strong> A document summarization feature might be expected to use 10K-token prompts, but actual users send 2K-token prompts on average. The ratio must come from measured logs, not assumptions.</p>
+</li>
+<li>
+<p><strong>Neglecting the asymmetric failure impact of decode server failures.</strong> A failed decode server loses all in-flight KV caches for active sessions. Unlike a prefill server failure (which only loses requests that were in the middle of prefilling), a decode server failure requires every in-flight session to re-prefill from scratch. Decode servers should have higher redundancy and faster failure detection than prefill servers.</p>
+</li>
+</ol>
+<hr />
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Prefill is compute-bound; decode is memory-bandwidth-bound.</strong> They fall on opposite sides of the GPU roofline ridge point, want different hardware, and interfere when co-located.</li>
+<li><strong>Co-location interference has three components:</strong> TPOT spikes from long-prefill head-of-line blocking, KV cache memory pressure spikes from instantaneous large allocations, and suboptimal hardware utilization across both phases.</li>
+<li><strong>The KV cache transfer is the central cost.</strong> For Llama 3 70B BF16: 320 KB per token. At 4K context: 1.3 GB; at 16K context: 5.3 GB. Over InfiniBand NDR (50 GB/s): 26 ms and 106 ms respectively. The transfer is acceptable for short-to-medium contexts; it becomes the bottleneck at long contexts over slow interconnects.</li>
+<li><strong>Intra-node disaggregation via NVLink (900 GB/s) eliminates the transfer problem</strong> for all practical context lengths. Cross-node disaggregation via InfiniBand is viable for contexts up to ~8K tokens.</li>
+<li><strong>Heterogeneous hardware is the economic argument</strong>: A100s for compute-bound prefill, H200/B200s for bandwidth-bound decode. Disaggregation is what makes hardware heterogeneity exploitable.</li>
+<li><strong>The prefill-decode capacity ratio</strong> = avg_input_tokens / avg_output_tokens. Measure from production logs, not feature specs. Code generation (1000 in / 100 out = 10:1 prefill-heavy); chat (200 in / 200 out = 1:1 balanced).</li>
+<li><strong>Disaggregation pays off for:</strong> high-traffic systems, variable long prompts, strict TTFT SLOs, available InfiniBand interconnect, heterogeneous hardware. It does not pay off for low-traffic systems, uniform short prompts, or very long contexts over InfiniBand where transfer overhead exceeds interference savings.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Distributed Inference</a> · <a href="../01-tensor-and-pipeline-parallelism/">Tensor &amp; Pipeline Parallelism</a> · <a href="../03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a> · <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a> · <a href="../../15-model-serving/03-kv-cache-management/">KV Cache Management</a> · <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/">GPU Fundamentals for AI Systems</a></em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../01-tensor-and-pipeline-parallelism/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tensor &amp; Pipeline Parallelism">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Tensor & Pipeline Parallelism
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03-speculative-decoding-at-scale/" class="md-footer__link md-footer__link--next" aria-label="Next: Speculative Decoding at Scale">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Speculative Decoding at Scale
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

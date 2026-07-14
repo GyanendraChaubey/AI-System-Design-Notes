@@ -1,0 +1,7815 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/17-distributed-inference/03-speculative-decoding-at-scale/">
+      
+      
+        <link rel="prev" href="../02-disaggregated-prefill-decode/">
+      
+      
+        <link rel="next" href="../../18-llmops/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Speculative Decoding at Scale - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#speculative-decoding-at-scale" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Speculative Decoding at Scale
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-serialization-problem-speculative-decoding-solves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Serialization Problem Speculative Decoding Solves
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-draft-and-verify-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Draft-and-Verify Mechanism
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Draft-and-Verify Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#full-mechanical-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full Mechanical Detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#losslessness-the-mathematical-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Losslessness: The Mathematical Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-rate-the-metric-that-determines-everything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance Rate: The Metric That Determines Everything
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Acceptance Rate: The Metric That Determines Everything">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#expected-tokens-per-round" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected Tokens Per Round
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speedup-formula-including-draft-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speedup Formula Including Draft Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-drives-acceptance-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Drives Acceptance Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measuring-acceptance-rate-in-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measuring Acceptance Rate in Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Model Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Draft Model Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-size-tradeoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Size Tradeoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speculative-decoding-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speculative Decoding Variants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Speculative Decoding Variants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-speculative-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Speculative Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#self-speculative-early-exit-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Speculative / Early-Exit Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#medusa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Medusa
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eagle-eagle-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EAGLE / EAGLE-2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lookahead-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lookahead Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-speculative-decoding-helps-vs-when-it-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Speculative Decoding Helps vs. When It Doesn't
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When Speculative Decoding Helps vs. When It Doesn&#39;t">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-batch-size-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Batch Size Threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads-where-speculative-decoding-clearly-helps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads Where Speculative Decoding Clearly Helps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads-where-speculative-decoding-doesnt-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads Where Speculative Decoding Doesn't Help
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system-level-production-concerns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System-Level Production Concerns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="System-Level Production Concerns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#batching-with-variable-speculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batching with Variable Speculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-management-with-speculative-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Management with Speculative Tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vram-budget-for-draft-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VRAM Budget for Draft Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cost-model-when-is-speculative-decoding-worth-deploying" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Model: When Is Speculative Decoding Worth Deploying?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-serialization-problem-speculative-decoding-solves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Serialization Problem Speculative Decoding Solves
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-draft-and-verify-mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Draft-and-Verify Mechanism
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Draft-and-Verify Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#full-mechanical-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full Mechanical Detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#losslessness-the-mathematical-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Losslessness: The Mathematical Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-rate-the-metric-that-determines-everything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance Rate: The Metric That Determines Everything
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Acceptance Rate: The Metric That Determines Everything">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#expected-tokens-per-round" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expected Tokens Per Round
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speedup-formula-including-draft-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speedup Formula Including Draft Overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-drives-acceptance-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Drives Acceptance Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measuring-acceptance-rate-in-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Measuring Acceptance Rate in Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Model Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Draft Model Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-size-tradeoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Size Tradeoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speculative-decoding-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Speculative Decoding Variants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Speculative Decoding Variants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-speculative-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Speculative Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#self-speculative-early-exit-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Speculative / Early-Exit Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#medusa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Medusa
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eagle-eagle-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EAGLE / EAGLE-2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lookahead-decoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lookahead Decoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-speculative-decoding-helps-vs-when-it-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Speculative Decoding Helps vs. When It Doesn't
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When Speculative Decoding Helps vs. When It Doesn&#39;t">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-batch-size-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Batch Size Threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads-where-speculative-decoding-clearly-helps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads Where Speculative Decoding Clearly Helps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads-where-speculative-decoding-doesnt-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads Where Speculative Decoding Doesn't Help
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system-level-production-concerns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System-Level Production Concerns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="System-Level Production Concerns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#batching-with-variable-speculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batching with Variable Speculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kv-cache-management-with-speculative-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KV Cache Management with Speculative Tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vram-budget-for-draft-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VRAM Budget for Draft Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cost-model-when-is-speculative-decoding-worth-deploying" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Model: When Is Speculative Decoding Worth Deploying?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Distributed Inference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/17-distributed-inference/03-speculative-decoding-at-scale.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="speculative-decoding-at-scale">Speculative Decoding at Scale<a class="headerlink" href="#speculative-decoding-at-scale" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Autoregressive generation is fundamentally sequential. Token N cannot be generated until token N-1 exists. Every output token requires a full forward pass through the model. For a 70B BF16 model on H100, that means reading 140 GB of weights per decode step, yielding a hard throughput ceiling of approximately 24 tokens/second at batch size 1 — directly derived from HBM bandwidth (3.35 TB/s ÷ 140 GB = 24 tokens/sec). This ceiling is not a software limitation; it is imposed by physics.</p>
+<p>Speculative decoding breaks this ceiling by generating multiple tokens per main model forward pass — trading additional compute for fewer sequential steps. It does not change what the model computes; it changes how many times the model must run to produce N output tokens. At high acceptance rates, this yields 2–4× latency reduction without altering the model's output distribution.</p>
+<p>This chapter covers the draft-and-verify mechanism in full mechanical detail, the acceptance rate metric that determines all speedup, the spectrum of draft model variants, and the system-level conditions where speculative decoding helps vs. where it actively hurts.</p>
+<p>See also: <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a> for how speculative decoding interacts with continuous batching, <a href="../../15-model-serving/05-multi-model-serving-and-routing/">Multi-Model Serving &amp; Routing</a> for draft model deployment as a multi-model serving problem, and <a href="../01-tensor-and-pipeline-parallelism/">Tensor &amp; Pipeline Parallelism</a> for how parallelism affects the main model's per-step cost.</p>
+<hr />
+<h2 id="the-serialization-problem-speculative-decoding-solves">The Serialization Problem Speculative Decoding Solves<a class="headerlink" href="#the-serialization-problem-speculative-decoding-solves" title="Permanent link">&para;</a></h2>
+<p>At batch size 1, each decode step costs approximately:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>step_time = model_size_bytes / HBM_bandwidth
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>           = 140 GB / 3,350 GB/s (H100 HBM3)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>           = 42 ms per token
+</span></code></pre></div>
+<p>To generate 200 output tokens: 200 × 42 ms = 8.4 seconds. These 200 steps are sequential — step 201 cannot start until step 200 completes. Even adding more GPUs via tensor parallelism speeds up each step (by dividing the memory bandwidth across more GPUs) but does not reduce the number of steps. The sequential dependency is the fundamental bottleneck.</p>
+<p>At larger batch sizes, the step time improves because the weight read cost is amortized over more requests. At batch=32, each step takes approximately 42 ms but produces 32 tokens simultaneously — throughput scales; per-request latency from sequential dependency remains.</p>
+<p>Speculative decoding attacks the <strong>number of steps</strong>, not the per-step cost. Instead of running N sequential main model steps to produce N tokens, it targets running N/k main model steps, where k is the average number of tokens generated per main model forward pass.</p>
+<hr />
+<h2 id="the-draft-and-verify-mechanism">The Draft-and-Verify Mechanism<a class="headerlink" href="#the-draft-and-verify-mechanism" title="Permanent link">&para;</a></h2>
+<h3 id="full-mechanical-detail">Full Mechanical Detail<a class="headerlink" href="#full-mechanical-detail" title="Permanent link">&para;</a></h3>
+<p>Speculative decoding operates in rounds. Each round consists of three phases: drafting, verification, and acceptance/rejection.</p>
+<p><strong>Phase 1 — Draft (k steps):</strong>
+A small draft model generates k candidate tokens autoregressively. The draft model is much smaller than the main (target) model — typically 8–20× fewer parameters. The draft tokens are speculative: they are the draft model's best guess at what the target model would have generated, but they may not match.</p>
+<p>For k=4 draft tokens with current context <code>[token_0, ..., token_t]</code>:
+- Draft generates: <code>[draft_1, draft_2, draft_3, draft_4]</code>
+- Draft runs 4 sequential forward passes (small model, fast)
+- Total draft cost: 4 × t_draft (where t_draft &lt;&lt; t_target)</p>
+<p><strong>Phase 2 — Verify (1 target model forward pass):</strong>
+The main (target) model processes the full context plus all k draft tokens in a single parallel forward pass. Because all k+1 positions are known (the k draft tokens plus the current token), this is a parallel evaluation — the same as a prefill pass over the k+1 tokens. The target model outputs probability distributions at each of the k+1 positions:
+- <code>p_target(position t+1)</code> — distribution over vocabulary at the first draft position
+- <code>p_target(position t+2)</code> — distribution at the second draft position
+- ...
+- <code>p_target(position t+k+1)</code> — distribution at position after all k draft tokens</p>
+<p><strong>Phase 3 — Accept/Reject:</strong>
+For each position i from 1 to k, compare the target model's probability for the draft's token against the draft model's probability:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Accept draft_i with probability: min(1, p_target(draft_i) / p_draft(draft_i))
+</span></code></pre></div>
+<p>Reject at the first rejection, resample at the rejection position from a <strong>corrected distribution</strong>:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>p_corrected(x) = normalize(max(0, p_target(x) - p_draft(x)))
+</span></code></pre></div></p>
+<p>After rejection, all subsequent draft tokens are discarded. If all k tokens are accepted, one additional token is sampled from <code>p_target(position t+k+1)</code> for free — giving k+1 tokens per round.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant D as Draft Model
+    participant T as Target Model
+    participant A as Accept/Reject
+
+    Note over D: Phase 1 - Draft\nk=4 tokens generated autoregressively
+    D-&gt;&gt;D: Forward pass 1 - generate draft_1
+    D-&gt;&gt;D: Forward pass 2 - generate draft_2
+    D-&gt;&gt;D: Forward pass 3 - generate draft_3
+    D-&gt;&gt;D: Forward pass 4 - generate draft_4
+    Note over D: 4 small-model forward passes\nFast but possibly wrong
+
+    Note over T: Phase 2 - Verify\n1 parallel forward pass over k+1 positions
+    D-&gt;&gt;T: Context + draft_1 + draft_2 + draft_3 + draft_4
+    T-&gt;&gt;T: Single forward pass\nComputes p_target at all k+1 positions
+    T-&gt;&gt;A: p_target at positions t+1 through t+5
+
+    Note over A: Phase 3 - Accept/Reject
+    A-&gt;&gt;A: Check draft_1 - accept prob min(1, p_target/p_draft)\nAccept
+    A-&gt;&gt;A: Check draft_2 - Accept
+    A-&gt;&gt;A: Check draft_3 - Accept
+    A-&gt;&gt;A: Check draft_4 - REJECT\np_target/p_draft ratio below 1
+    A-&gt;&gt;A: Resample position 4 from corrected distribution
+    Note over A: Result: 3 tokens accepted + 1 resampled = 4 tokens this round\nThen discard draft_5+ and start new draft round</code></pre>
+<h3 id="losslessness-the-mathematical-guarantee">Losslessness: The Mathematical Guarantee<a class="headerlink" href="#losslessness-the-mathematical-guarantee" title="Permanent link">&para;</a></h3>
+<p>The output distribution of speculative decoding is provably identical to the target model generating tokens one at a time. This is the property that makes it deployable without quality degradation.</p>
+<p><strong>Proof sketch:</strong> At each position i, a token x is accepted with probability <code>min(1, p_target(x) / p_draft(x))</code> when the draft model proposes it. The marginal probability that token x is accepted at position i is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>P(x accepted) = p_draft(x) × min(1, p_target(x) / p_draft(x))
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>              = min(p_draft(x), p_target(x))
+</span></code></pre></div>
+<p>When no acceptance occurs (rejection), the token is sampled from the corrected distribution:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>P(x from correction) = max(0, p_target(x) - p_draft(x)) / Z
+</span></code></pre></div>
+where Z is the normalization constant = <code>sum_x max(0, p_target(x) - p_draft(x))</code>.</p>
+<p>The combined marginal probability that token x is output at position i (either accepted or drawn from correction) can be shown to equal <code>p_target(x)</code>. The output is therefore a sample from the target model's distribution at every position, regardless of what the draft model proposed. Speculative decoding is lossless by construction.</p>
+<hr />
+<h2 id="acceptance-rate-the-metric-that-determines-everything">Acceptance Rate: The Metric That Determines Everything<a class="headerlink" href="#acceptance-rate-the-metric-that-determines-everything" title="Permanent link">&para;</a></h2>
+<p>The <strong>acceptance rate</strong> α is the fraction of draft tokens accepted by the target model, averaged across a token stream and a sequence position:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>α = E[number of accepted draft tokens / k]
+</span></code></pre></div>
+<p>Acceptance rate drives every other metric — speedup, compute overhead, and whether speculative decoding is beneficial at all.</p>
+<h3 id="expected-tokens-per-round">Expected Tokens Per Round<a class="headerlink" href="#expected-tokens-per-round" title="Permanent link">&para;</a></h3>
+<p>For k draft tokens with uniform acceptance rate α, the expected number of accepted tokens per round (including the bonus token when all k are accepted):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>E[tokens per round] = sum_{i=0}^{k-1} α^i × (i+1) × (1-α) + α^k × (k+1)
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                    = (1 - α^(k+1)) / (1 - α)    [geometric series simplification]
+</span></code></pre></div>
+<p>At α=1 (perfect draft): E = k+1 tokens per round (maximum speedup = k+1)
+At α=0 (useless draft): E = 1 token per round (no speedup — just extra overhead)</p>
+<table>
+<thead>
+<tr>
+<th>α</th>
+<th>k=3</th>
+<th>k=5</th>
+<th>k=7</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.95</td>
+<td>3.7 tokens/round</td>
+<td>5.5 tokens/round</td>
+<td>7.4 tokens/round</td>
+</tr>
+<tr>
+<td>0.85</td>
+<td>3.3 tokens/round</td>
+<td>4.5 tokens/round</td>
+<td>5.7 tokens/round</td>
+</tr>
+<tr>
+<td>0.70</td>
+<td>2.7 tokens/round</td>
+<td>3.3 tokens/round</td>
+<td>3.9 tokens/round</td>
+</tr>
+<tr>
+<td>0.50</td>
+<td>1.9 tokens/round</td>
+<td>2.0 tokens/round</td>
+<td>2.1 tokens/round</td>
+</tr>
+<tr>
+<td>0.30</td>
+<td>1.4 tokens/round</td>
+<td>1.4 tokens/round</td>
+<td>1.4 tokens/round</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart LR
+    subgraph SpeedupCurve["Expected Tokens Per Round vs Acceptance Rate"]
+        subgraph K3["k=3 draft tokens"]
+            A95_3["alpha=0.95: 3.7 tokens"]
+            A85_3["alpha=0.85: 3.3 tokens"]
+            A70_3["alpha=0.70: 2.7 tokens"]
+            A50_3["alpha=0.50: 1.9 tokens"]
+            A30_3["alpha=0.30: 1.4 tokens"]
+        end
+        subgraph K5["k=5 draft tokens"]
+            A95_5["alpha=0.95: 5.5 tokens"]
+            A85_5["alpha=0.85: 4.5 tokens"]
+            A70_5["alpha=0.70: 3.3 tokens"]
+            A50_5["alpha=0.50: 2.0 tokens"]
+            A30_5["alpha=0.30: 1.4 tokens"]
+        end
+    end
+    NOTE["Key observations:\nalpha greater than 0.70 needed for meaningful speedup\nAt alpha=0.50, k=5 gives only 2x speedup\nbut adds 5 small-model forward passes of overhead\nBreakeven alpha depends on draft/target model size ratio"]</code></pre>
+<h3 id="speedup-formula-including-draft-overhead">Speedup Formula Including Draft Overhead<a class="headerlink" href="#speedup-formula-including-draft-overhead" title="Permanent link">&para;</a></h3>
+<p>The actual speedup accounts for the time spent running the draft model. If the target model takes time T per step and the draft model takes time t_d per step:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>actual_speedup = E[tokens per round] / (k × t_d / T + 1)
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>               = [(1 - α^(k+1)) / (1 - α)] / [(k × t_d / T) + 1]
+</span></code></pre></div>
+<p>The denominator's <code>k × t_d / T</code> is the draft overhead expressed as a fraction of one target model step. When <code>t_d / T = 0.1</code> (draft model is 10× faster than target), this overhead is <code>k × 0.1</code>.</p>
+<p>Example: α=0.85, k=5, T/t_d=10 (target is 10× slower):
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Numerator: (1 - 0.85^6) / (1 - 0.85) = (1 - 0.377) / 0.15 = 4.15
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>Denominator: (5 × 0.1) + 1 = 1.5
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>Speedup: 4.15 / 1.5 = 2.77×
+</span></code></pre></div></p>
+<p>Example: α=0.70, k=5, T/t_d=20 (target is 20× slower):
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Numerator: (1 - 0.70^6) / (1 - 0.70) = (1 - 0.118) / 0.30 = 2.94
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Denominator: (5 × 0.05) + 1 = 1.25
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>Speedup: 2.94 / 1.25 = 2.35×
+</span></code></pre></div></p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph SpeedupMatrix["Actual Speedup: alpha vs T/t_d Ratio\nk=5 draft tokens"]
+        subgraph Ratio10["T/t_d = 10 - target 10x slower than draft"]
+            R10_95["alpha=0.95: speedup 4.1x"]
+            R10_85["alpha=0.85: speedup 2.8x"]
+            R10_70["alpha=0.70: speedup 1.9x"]
+            R10_50["alpha=0.50: speedup 1.3x"]
+        end
+        subgraph Ratio20["T/t_d = 20 - target 20x slower than draft"]
+            R20_95["alpha=0.95: speedup 4.7x"]
+            R20_85["alpha=0.85: speedup 3.2x"]
+            R20_70["alpha=0.70: speedup 2.4x"]
+            R20_50["alpha=0.50: speedup 1.5x"]
+        end
+        subgraph Ratio5["T/t_d = 5 - target only 5x slower"]
+            R5_95["alpha=0.95: speedup 3.2x"]
+            R5_85["alpha=0.85: speedup 2.1x"]
+            R5_70["alpha=0.70: speedup 1.4x"]
+            R5_50["alpha=0.50: speedup 0.9x - overhead exceeds benefit"]
+        end
+    end
+    NOTE2["At T/t_d=5 and alpha=0.50\nspeculative decoding SLOWS things down\nDraft overhead dominates at low acceptance rate\nand small target/draft size ratio"]</code></pre>
+<h3 id="what-drives-acceptance-rate">What Drives Acceptance Rate<a class="headerlink" href="#what-drives-acceptance-rate" title="Permanent link">&para;</a></h3>
+<p><strong>Distribution alignment:</strong> The draft model must predict tokens with a probability distribution similar to the target model's. Models trained on the same data with the same tokenizer, where the draft is a smaller version of the target, tend to have high alignment. Models from different families (e.g., using a Mistral draft for a Llama target) have lower alignment because their internal representations diverge despite similar surface-level outputs.</p>
+<p><strong>Task predictability:</strong> Tasks with narrow output distributions — where the "correct" next token is nearly forced — yield high acceptance rates. Examples:
+- <strong>Code completion</strong>: The next token in <code>for i in range(</code> is almost certainly <code>n</code> or a specific variable — the draft model easily predicts it.
+- <strong>JSON schema completion</strong>: Given <code>{"name": "</code>, the next token must be a string character — highly predictable.
+- <strong>Repeated templates</strong>: Fill-in-the-blank with a known template — near-deterministic.
+- <strong>Creative writing</strong>: The next word in a poem or story has many plausible options — draft accuracy is low.
+- <strong>Mathematical reasoning</strong>: Each reasoning step is logically constrained but verbose — moderate acceptance rate.</p>
+<p><strong>Temperature:</strong> At temperature=0 (greedy decoding), both the draft and target model produce peaked distributions concentrated on the single most likely token. Even a draft model with imperfect alignment will often agree with the target on the top token. At temperature=1.0, both models sample more broadly, increasing the probability of disagreement. High temperature → lower acceptance rate.</p>
+<h3 id="measuring-acceptance-rate-in-production">Measuring Acceptance Rate in Production<a class="headerlink" href="#measuring-acceptance-rate-in-production" title="Permanent link">&para;</a></h3>
+<p>Acceptance rate must be measured on actual production traffic, not synthetic benchmarks. The same system might achieve α=0.85 for code completion users and α=0.45 for creative writing users.</p>
+<p>Logging requirement: for every draft token position, log the outcome (accepted/rejected) and the position index (position 1, 2, 3, 4, 5 within the draft). This allows computing:
+- <strong>Per-position acceptance rate:</strong> α at position i (typically decreasing — draft tokens later in the sequence are harder to predict correctly)
+- <strong>Per-task acceptance rate:</strong> α segmented by task type (code vs. chat vs. structured output)
+- <strong>Per-temperature acceptance rate:</strong> α at different sampling temperatures
+- <strong>Draft efficiency metric:</strong> actual speedup vs. theoretical maximum (E[tokens/round] / k)</p>
+<hr />
+<h2 id="draft-model-selection">Draft Model Selection<a class="headerlink" href="#draft-model-selection" title="Permanent link">&para;</a></h2>
+<h3 id="the-size-tradeoff">The Size Tradeoff<a class="headerlink" href="#the-size-tradeoff" title="Permanent link">&para;</a></h3>
+<p>The draft model must be small enough to run fast (low draft overhead: small <code>t_d / T</code> ratio) but large enough to have high acceptance rate.</p>
+<p><strong>Representative model pairs with measured acceptance rates:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Draft model</th>
+<th>Target model</th>
+<th>Size ratio</th>
+<th>Task</th>
+<th>Acceptance rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Llama 3.2 1B</td>
+<td>Llama 3.1 8B</td>
+<td>8×</td>
+<td>Code completion</td>
+<td>~0.75</td>
+</tr>
+<tr>
+<td>Llama 3.2 3B</td>
+<td>Llama 3.1 8B</td>
+<td>2.7×</td>
+<td>Chat</td>
+<td>~0.65</td>
+</tr>
+<tr>
+<td>Llama 3.2 3B</td>
+<td>Llama 3.1 70B</td>
+<td>23×</td>
+<td>Code completion</td>
+<td>~0.80</td>
+</tr>
+<tr>
+<td>Llama 3.2 3B</td>
+<td>Llama 3.1 70B</td>
+<td>23×</td>
+<td>Chat</td>
+<td>~0.65</td>
+</tr>
+<tr>
+<td>Llama 3.2 1B</td>
+<td>Llama 3.1 70B</td>
+<td>70×</td>
+<td>Code completion</td>
+<td>~0.70</td>
+</tr>
+<tr>
+<td>Claude Haiku</td>
+<td>Claude Sonnet</td>
+<td>5–8×</td>
+<td>Mixed</td>
+<td>~0.75 (Anthropic production)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The same tokenizer requirement:</strong> Draft and target models must use identical tokenizers. Token IDs must correspond to the same bytes — if token ID 8421 means <code>" the"</code> in the draft model but <code>" The"</code> in the target, the accept/reject comparison at that position is comparing apples to oranges. This rules out using models from different families as draft/target pairs: a Gemma draft for a Llama target cannot work because their tokenizers differ.</p>
+<p><strong>The tokenizer check:</strong> Before deploying a draft-target pair, verify: <code>draft_tokenizer.vocab == target_tokenizer.vocab</code> and <code>draft_tokenizer.encode(test_string) == target_tokenizer.encode(test_string)</code> for a battery of test strings. This check should be part of the deployment CI.</p>
+<hr />
+<h2 id="speculative-decoding-variants">Speculative Decoding Variants<a class="headerlink" href="#speculative-decoding-variants" title="Permanent link">&para;</a></h2>
+<h3 id="standard-speculative-decoding">Standard Speculative Decoding<a class="headerlink" href="#standard-speculative-decoding" title="Permanent link">&para;</a></h3>
+<p>The baseline approach described above (Leviathan et al., 2023; Chen et al., 2023): separate draft model, k sequential drafts, one parallel target verification. Requires deploying and maintaining a separate draft model alongside the target.</p>
+<h3 id="self-speculative-early-exit-decoding">Self-Speculative / Early-Exit Decoding<a class="headerlink" href="#self-speculative-early-exit-decoding" title="Permanent link">&para;</a></h3>
+<p>Use the target model itself as the draft by running only a prefix of its layers. For a 80-layer model, the draft runs layers 1–20 and produces a token prediction from an intermediate hidden state, then the full model verifies by running all 80 layers.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph SelfSpec["Self-Speculative Decoding\nSingle Model Early Exit"]
+        LAYER1["Layers 1-20\nEarly exit token prediction\nDraft token generated from\nintermediate hidden state"]
+        LAYER2["Layers 21-80\nFull model continues\nVerifies early-exit prediction\nor produces its own token"]
+        LAYER1 --&gt;|"KV cache shared\nboth paths use same compute"| LAYER2
+    end
+    PROS["Advantages:\nNo separate model to deploy\nShared KV cache between draft and verify\nSimpler operational profile"]
+    CONS["Disadvantages:\nLower acceptance rate than\nwell-matched separate draft model\nEarly-exit token distribution less aligned\nwith full model distribution\nMust run partial forward passes efficiently\nrequires specific CUDA kernel support"]
+    SelfSpec --&gt; PROS &amp; CONS</code></pre>
+<p>Self-speculative decoding is valuable when model serving infrastructure does not support multi-model deployment, or when VRAM constraints prevent loading a separate draft model.</p>
+<h3 id="medusa">Medusa<a class="headerlink" href="#medusa" title="Permanent link">&para;</a></h3>
+<p><strong>Medusa (Cai et al., 2024)</strong> adds multiple additional prediction heads to the target model's final hidden state. Head 1 predicts position t+1 (the next token), head 2 predicts t+2, head 3 predicts t+3, etc. A single target model forward pass produces the current token plus k speculative future token predictions from the heads.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph MedusaArch["Medusa Architecture\nMultiple Prediction Heads on Target Model"]
+        INPUT["Input tokens\ncurrent context"]
+        TRANSFORMER["Target Model\nFull 80-layer transformer"]
+        HIDDEN["Final hidden state h_t\nbatch x hidden_dim"]
+        HEAD1["Medusa Head 1\nLinear layer\nPredicts position t+1"]
+        HEAD2["Medusa Head 2\nLinear layer\nPredicts position t+2"]
+        HEAD3["Medusa Head 3\nLinear layer\nPredicts position t+3"]
+        HEAD4["Medusa Head 4\nLinear layer\nPredicts position t+4"]
+        LMHEAD["LM Head\npredicts position t"]
+        INPUT --&gt; TRANSFORMER --&gt; HIDDEN
+        HIDDEN --&gt; HEAD1 &amp; HEAD2 &amp; HEAD3 &amp; HEAD4 &amp; LMHEAD
+        HEAD1 --&gt; CAND1["Candidate token t+1"]
+        HEAD2 --&gt; CAND2["Candidate token t+2"]
+        HEAD3 --&gt; CAND3["Candidate token t+3"]
+        HEAD4 --&gt; CAND4["Candidate token t+4"]
+    end
+    NOTE["Medusa generates k speculative tokens\nin the SAME forward pass as the current token\nNo separate draft model needed\nVerification is tree-based: multiple candidate\nsequences evaluated simultaneously"]</code></pre>
+<p><strong>Tree-based verification:</strong> Unlike standard speculative decoding where the draft is a single linear sequence, Medusa generates multiple candidate tokens at each future position (from the head's top-K predictions). This creates a token tree — each path through the tree is one candidate sequence. The target model verifies all tree paths simultaneously, using a tree attention mask. More paths → higher probability of finding a fully accepted sequence → higher effective acceptance rate.</p>
+<p><strong>Training cost:</strong> Medusa heads require fine-tuning. The base model's weights are frozen; only the Medusa heads (lightweight linear layers) are trained on a dataset, learning to predict future tokens from the current hidden state. Fine-tuning takes hours to days depending on dataset size.</p>
+<p><strong>Acceptance rate comparison:</strong> Medusa heads trained on the same data distribution as the target model typically achieve α ≈ 0.65–0.80 on in-distribution tasks — lower than a well-matched separate draft model of appropriate size (which can achieve α ≈ 0.80–0.90 on the same tasks) but higher than early-exit approaches. The gap exists because the Medusa head predicts from the current hidden state without seeing the future token's context; a separate draft model can condition on previous draft tokens.</p>
+<h3 id="eagle-eagle-2">EAGLE / EAGLE-2<a class="headerlink" href="#eagle-eagle-2" title="Permanent link">&para;</a></h3>
+<p><strong>EAGLE (Li et al., 2024)</strong> and <strong>EAGLE-2</strong> are the highest-quality draft model approaches currently in production. The core innovation: the draft model receives the target model's hidden states as input, not just the token sequence. This gives the draft model a much richer representation of what the target model is "thinking" — enabling draft predictions that are closely aligned with the target model's next-token distribution.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph EAGLEArch["EAGLE Architecture\nDraft Model with Target Hidden States"]
+        subgraph TargetFwd["Target Model Forward Pass\non current context"]
+            TLAYER["Target Model Layers\n80 layers"]
+            THIDDEN["Hidden states at each layer\nh_0 through h_80"]
+        end
+        subgraph DraftFwd["Draft Model Forward Pass\nConditioned on target hidden states"]
+            DLAYER["Draft Model\n4-8 layers\n10-20x smaller than target"]
+            DINPUT["Input: target hidden state h_t\nplus previous token embedding"]
+            DPRED["Draft token predictions\nfor positions t+1 to t+k"]
+        end
+        THIDDEN --&gt;|"h_t from last target layer"| DINPUT
+        DINPUT --&gt; DLAYER --&gt; DPRED
+    end
+    RESULT["EAGLE acceptance rates:\nCode completion: alpha approx 0.88-0.92\nChat: alpha approx 0.78-0.85\n3-4x speedup in practice on latency-bound serving\nEAGLE-2 adds dynamic draft length selection"]</code></pre>
+<p><strong>Why EAGLE works so well:</strong> The draft model has access to the target model's internal representation at position t, which encodes the semantic context much more richly than the output token sequence. The draft model effectively continues the target model's internal computation at lower cost, rather than starting fresh from just the token sequence.</p>
+<p><strong>EAGLE-2 improvements:</strong> Adds a context-aware acceptance rate predictor — rather than always generating k draft tokens, EAGLE-2 estimates the expected acceptance rate for the current context and adaptively sets k. For high-acceptance contexts (code), k is set high (k=8). For low-acceptance contexts (creative writing), k is set low (k=2) to avoid wasted draft computation.</p>
+<h3 id="lookahead-decoding">Lookahead Decoding<a class="headerlink" href="#lookahead-decoding" title="Permanent link">&para;</a></h3>
+<p><strong>Lookahead decoding (Fu et al., 2023)</strong> uses a Jacobi iteration approach to generate multiple candidate token sequences simultaneously, without a separate model. The insight: if we guess N tokens ahead, we can verify all N simultaneously in one target model forward pass with a special attention mask.</p>
+<p>Lookahead decoding achieves lower acceptance rates than draft model approaches (because it uses structured guesses, not a learned model) but has zero additional model deployment cost. It is useful when draft model deployment is not feasible and self-speculative decoding is not available.</p>
+<hr />
+<h2 id="when-speculative-decoding-helps-vs-when-it-doesnt">When Speculative Decoding Helps vs. When It Doesn't<a class="headerlink" href="#when-speculative-decoding-helps-vs-when-it-doesnt" title="Permanent link">&para;</a></h2>
+<p>This is the most important practical question, and the answer depends on two independent variables: batch size and acceptance rate.</p>
+<h3 id="the-batch-size-threshold">The Batch Size Threshold<a class="headerlink" href="#the-batch-size-threshold" title="Permanent link">&para;</a></h3>
+<p>At small batch sizes (batch=1 to ~16), each decode step is memory-bandwidth-bound:
+- The GPU spends most of the step reading model weights and KV cache from HBM
+- Compute units are underutilized
+- Reducing the number of steps directly reduces end-to-end latency</p>
+<p>Speculative decoding helps here: fewer sequential steps = lower latency, even if total compute increases.</p>
+<p>At large batch sizes (batch ≥ 32–64 for 70B models), each decode step becomes compute-bound:
+- The GPU tensor cores are saturated processing many requests in parallel
+- The weight read cost is amortized across many requests
+- Each target model step already produces many tokens (one per request in the batch)
+- <strong>Adding speculative decoding adds draft model compute overhead</strong> to an already compute-saturated GPU</p>
+<p>At compute-saturated large batches, speculative decoding increases total compute per token without reducing the number of target model steps proportionally. Throughput (tokens/second summed across all requests) can actually decrease.</p>
+<p><strong>The batch size transition point</strong> (where speculative decoding stops helping):
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>compute-bound transition ≈ HBM_bandwidth / (FLOP_per_step_per_token × tokens_per_step)
+</span></code></pre></div>
+For H100 serving 70B BF16 at batch=32: the step time is approximately <code>max(compute_bound, memory_bound)</code>. Compute cost per step per token: ~2 × model_params FLOPs. Memory bandwidth cost: ~140 GB per step regardless of batch size. The transition point is roughly where compute time ≥ memory-bandwidth time.</p>
+<p>For 70B BF16 on H100:
+- Memory bound: 140 GB / 3.35 TB/s = 42 ms
+- Compute bound at batch B: ~2 × 70×10⁹ × B FLOPs / 312 TFLOP/s = 0.45 ms × B
+- Transition: 42 ms = 0.45 ms × B → B ≈ 93</p>
+<p>At batch size ≥ 93, the step is compute-bound and speculative decoding begins to hurt throughput.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph OperatingRegimes["Speculative Decoding Operating Regimes\n70B BF16 Model on H100"]
+        subgraph BenefitZone["BENEFIT ZONE\nSmall batch, high acceptance rate"]
+            B1["Batch=1 to 32\nalpha greater than 0.70\nLatency-bound serving\nInteractive use cases\nCode completion\nSpeculative decoding: 2-4x speedup"]
+            B2["Batch=1 to 8\nalpha greater than 0.50\nVery latency-sensitive\nLow traffic API serving\nSpeculative decoding: 1.5-3x speedup"]
+        end
+        subgraph MarginalZone["MARGINAL ZONE\nModerate batch, moderate acceptance"]
+            M1["Batch=32 to 64\nalpha=0.60 to 0.80\nMeasure carefully\nSpeedup may be 1.2-2.0x\nOR overhead may dominate\nDepends on exact batch size and alpha"]
+        end
+        subgraph HurtZone["HURT ZONE\nLarge batch or low acceptance rate"]
+            H1["Batch greater than 64\nany acceptance rate\nCompute-bound\nDraft overhead adds compute\nwithout reducing sequential steps\nThroughput decreases"]
+            H2["Batch=1 to 32\nalpha less than 0.50\nDraft overhead exceeds\nsequential step savings\nNet latency INCREASES"]
+        end
+    end</code></pre>
+<h3 id="workloads-where-speculative-decoding-clearly-helps">Workloads Where Speculative Decoding Clearly Helps<a class="headerlink" href="#workloads-where-speculative-decoding-clearly-helps" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Workload</th>
+<th>Why it helps</th>
+<th>Typical speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Code completion (greedy or low temperature)</td>
+<td>Narrow token distribution, high draft accuracy</td>
+<td>2.5–4×</td>
+</tr>
+<tr>
+<td>JSON/structured output generation</td>
+<td>Schema constrains vocabulary severely</td>
+<td>3–5×</td>
+</tr>
+<tr>
+<td>RAG answer generation with fixed template</td>
+<td>Retrieved context predicts completion</td>
+<td>2–3×</td>
+</tr>
+<tr>
+<td>Document summarization (extractive style)</td>
+<td>Source document predicts output words</td>
+<td>2–3×</td>
+</tr>
+<tr>
+<td>SQL generation</td>
+<td>Fixed grammar, high predictability</td>
+<td>3–4×</td>
+</tr>
+</tbody>
+</table>
+<h3 id="workloads-where-speculative-decoding-doesnt-help">Workloads Where Speculative Decoding Doesn't Help<a class="headerlink" href="#workloads-where-speculative-decoding-doesnt-help" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Workload</th>
+<th>Why it doesn't help</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High-temperature creative writing</td>
+<td>Broad token distribution, low draft accuracy</td>
+<td>Overhead exceeds savings; latency increases</td>
+</tr>
+<tr>
+<td>Mathematical reasoning chains</td>
+<td>Each step is logical but verbose; draft accuracy ~50%</td>
+<td>Marginal benefit, not worth operational complexity</td>
+</tr>
+<tr>
+<td>Large-batch throughput serving</td>
+<td>Compute-saturated; adding draft compute decreases throughput</td>
+<td>Throughput reduction</td>
+</tr>
+<tr>
+<td>Multi-turn chat at high concurrency</td>
+<td>Large batch of concurrent conversations; compute-bound</td>
+<td>No benefit or negative</td>
+</tr>
+<tr>
+<td>Sampling at temperature ≥ 1.0 on open-ended tasks</td>
+<td>Draft accuracy falls below breakeven acceptance rate</td>
+<td>Net slowdown</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="system-level-production-concerns">System-Level Production Concerns<a class="headerlink" href="#system-level-production-concerns" title="Permanent link">&para;</a></h2>
+<h3 id="batching-with-variable-speculation">Batching with Variable Speculation<a class="headerlink" href="#batching-with-variable-speculation" title="Permanent link">&para;</a></h3>
+<p>In a continuous batch where 32 requests are being decoded simultaneously, some requests may accept 4 draft tokens in a given round while others accept only 1. After each verification round, requests have advanced by different numbers of tokens. This breaks the uniform step structure of standard continuous batching.</p>
+<p><strong>How vLLM handles this:</strong> Each request in the batch tracks its own draft state independently. The verify step runs for all requests simultaneously (one batched target model forward pass over all k+1 positions for all requests). Accepted tokens are appended per-request. For the next decode step, the batch may have requests at different sequence positions. vLLM handles this via the PagedAttention mechanism — each request's KV cache pages advance independently.</p>
+<p>The practical effect: batch-level speculative decoding is less efficient than single-request speculation because the batch's longest accepted sequence determines when the next round starts (or each request proceeds at its own rate with more complex scheduling). vLLM's production speculative decoding uses a fixed draft length k per round, with per-request accept/reject tracked independently.</p>
+<h3 id="kv-cache-management-with-speculative-tokens">KV Cache Management with Speculative Tokens<a class="headerlink" href="#kv-cache-management-with-speculative-tokens" title="Permanent link">&para;</a></h3>
+<p>Draft tokens generate speculative KV cache entries: the KV cache for positions t+1 through t+k must be computed during the draft phase (to enable the draft model to continue conditioning on previous draft tokens) and must be verified or freed based on the accept/reject outcome.</p>
+<p><strong>Speculative allocation:</strong> Before the draft phase, the KV cache manager allocates k pages speculatively — pages that will either be confirmed (if tokens are accepted) or freed (if tokens are rejected).</p>
+<p><strong>Partial free:</strong> After rejection at position i, the KV pages for positions i through k are returned to the free pool. Pages for positions 1 through i-1 are confirmed and retained.</p>
+<p>This speculative page lifecycle adds a new allocation pattern: pages are reserved before it is known if they will be used. In high-utilization systems where the KV cache pool is near-full, speculative page allocation can trigger unnecessary evictions. The solution is to account for speculative pages in the admission control budget: when estimating available KV space for a new request, subtract both confirmed and in-use speculative pages.</p>
+<h3 id="vram-budget-for-draft-model">VRAM Budget for Draft Model<a class="headerlink" href="#vram-budget-for-draft-model" title="Permanent link">&para;</a></h3>
+<p>Speculative decoding requires VRAM for the draft model alongside the target model:</p>
+<table>
+<thead>
+<tr>
+<th>Model pair</th>
+<th>Draft VRAM</th>
+<th>Target VRAM</th>
+<th>Total</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Llama 3.2 1B + Llama 3.1 8B</td>
+<td>1 GB (INT4)</td>
+<td>4 GB (INT4)</td>
+<td>5 GB</td>
+<td>Fits easily on any GPU</td>
+</tr>
+<tr>
+<td>Llama 3.2 3B + Llama 3.1 70B</td>
+<td>1.5 GB (INT4)</td>
+<td>35 GB (INT4)</td>
+<td>36.5 GB</td>
+<td>43.5 GB remaining for KV on H100</td>
+</tr>
+<tr>
+<td>Llama 3.2 3B + Llama 3.1 70B BF16</td>
+<td>1.5 GB (INT4)</td>
+<td>140 GB (BF16)</td>
+<td>141.5 GB</td>
+<td>Requires TP=2 minimum, KV cache tight</td>
+</tr>
+</tbody>
+</table>
+<p>For TP configurations, the draft model typically runs on one GPU (or TP=1) independently, while the target model runs with full TP. The draft model must be accessible to all TP ranks for the verification pass — this requires either replicating the small draft model on each TP GPU, or having one designated GPU run the draft.</p>
+<h3 id="cost-model-when-is-speculative-decoding-worth-deploying">Cost Model: When Is Speculative Decoding Worth Deploying?<a class="headerlink" href="#cost-model-when-is-speculative-decoding-worth-deploying" title="Permanent link">&para;</a></h3>
+<p>The net cost per request changes with speculative decoding:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>cost_per_token_normal = (T_target) × GPU_hourly_cost / tokens_per_step
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cost_per_token_spec   = (k × T_draft + T_target) × GPU_hourly_cost / E[tokens_per_round]
+</span></code></pre></div>
+<p>If <code>E[tokens_per_round] &gt; (1 + k × T_draft/T_target)</code>, speculative decoding reduces cost per token. This condition is equivalent to:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>(1 - α^(k+1)) / (1 - α) &gt; 1 + k × T_draft/T_target
+</span></code></pre></div>
+<p><strong>Breakeven acceptance rate</strong> (where cost is equal) for k=5, T_draft/T_target=0.1:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>(1 - α^6) / (1 - α) = 1 + 0.5 = 1.5
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Solving numerically: α ≈ 0.42
+</span></code></pre></div>
+<p>For acceptance rates above 0.42 with these parameters, speculative decoding reduces cost per token and reduces latency. Below 0.42, it increases cost per token and may increase latency.</p>
+<hr />
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What problem does speculative decoding solve, in one sentence?</strong></p>
+<p>Speculative decoding reduces the number of sequential target model forward passes needed to generate N output tokens by using a small draft model to propose k tokens at once, then verifying all k in a single target model forward pass — reducing latency proportionally to the acceptance rate without changing the output distribution.</p>
+<p><strong>Q: What is the acceptance rate and why is it the central metric?</strong></p>
+<p>The acceptance rate α is the fraction of draft tokens the target model agrees with, averaged across a token stream. It determines everything: at α=0.9 with k=5 drafts, the expected tokens per round is 4.9 (nearly 5× speedup); at α=0.3, it's only 1.4 (marginal benefit). The acceptance rate is determined by how well the draft model predicts the target model's output distribution for the specific task and temperature — it must be measured on actual production traffic.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Walk through the accept/reject algorithm and prove it doesn't change the output distribution.</strong></p>
+<p>For draft token <code>x_i</code> at position i: accept with probability <code>min(1, p_target(x_i) / p_draft(x_i))</code>. The draft model proposes <code>x_i</code> with probability <code>p_draft(x_i)</code>. The probability that token x is output at position i is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>P(output x) = p_draft(x) × min(1, p_target(x)/p_draft(x)) + P(rejection before position i) × p_corrected(x)
+</span></code></pre></div>
+<p>At the first rejection position, p_corrected(x) = max(0, p_target(x) - p_draft(x)) / Z where Z normalizes. One can show that this combined distribution equals p_target(x) at every position: the algorithm is an exact sample from the target model's distribution, regardless of draft quality. Good draft quality means higher acceptance rates (fewer rejections, faster throughput) but never changes correctness.</p>
+<p><strong>Q: Explain why speculative decoding hurts at large batch sizes.</strong></p>
+<p>At large batch sizes (say, batch=128 for a 70B model on H100), the decode step is compute-bound: the GPU tensor cores process 128 tokens simultaneously, keeping compute units busy. Each target model step already produces 128 tokens — one per request. Adding speculative decoding means: (1) run the draft model k times per round (extra compute); (2) run the target model once to verify k+1 positions per request (slightly more compute than the baseline 1 position per request, because verification is over k+1 tokens). The verification pass's compute cost scales with k — at large batch × k, this becomes a second full compute-intensive step, effectively doubling or more the compute per round. But the round only produces at most k+1 tokens per request. At high acceptance rate α=0.85 with k=5, a round produces ~4.5 tokens per request — but at ~2× the compute of a non-speculative step. Net throughput: ~4.5 / 2 = 2.25× the per-step output, compared to ~1× per step in the baseline. This sounds like a win, but the per-request latency for each token in the batch is now <code>1/2.25 ≈ 0.44×</code> the single-step time — an improvement. At very large batches where compute is already fully saturated and adding the draft model verification adds a meaningfully larger matrix multiply, the denominator grows faster than the numerator, and throughput actually falls.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design a speculative decoding deployment for a production coding assistant serving 500 RPS at p50 batch size=8, p99 batch size=64. Model: Llama 3.1 70B INT4 on 8× H100 with TP=8. What draft model do you choose and why?</strong></p>
+<p>At p50 batch=8: memory-bandwidth-bound → speculative decoding will help significantly. At p99 batch=64: approaching the compute-bound transition for 70B INT4 on TP=8 (weights are 35 GB, across 8 GPUs: 4.4 GB per GPU, decode step ≈ 35 GB / 3.35 TB/s ≈ 10 ms; at batch=64, compute per step ≈ 2 × 35×10⁹ × 64 / (8 × 312 TFLOP/s) ≈ 1.8 ms — still memory-bound → speculative decoding still helps at p99).</p>
+<p><strong>Draft model selection:</strong></p>
+<p>Option 1: Llama 3.2 3B INT4 (1.5 GB). Runs on a single H100 alongside the target model's TP group. Size ratio: 70/3 = 23×. Expected acceptance rate for code completion: ~0.80. At T_draft/T_target ≈ 1/23 ≈ 0.043, k=5:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Speedup = [(1 - 0.80^6) / 0.20] / [5 × 0.043 + 1] = [3.64] / [1.215] = 3.0×
+</span></code></pre></div>
+<p>Option 2: EAGLE with Llama 3.2 3B as the EAGLE draft (conditioned on target hidden states). Expected acceptance rate: ~0.88. Same overhead ratio. Speedup: <code>[(1 - 0.88^6) / 0.12] / [1.215] = [4.82] / [1.215] = 3.97×</code>. Better by 32%.</p>
+<p><strong>Recommendation:</strong> EAGLE with 3B draft model. The hidden state conditioning gives significantly higher acceptance rate for code tasks. VRAM: 35 GB target weights + 1.5 GB EAGLE draft + KV cache on the 8 H100s. Deploy the draft model on one H100 within the TP group (or replicate across all 8 for the hidden state transfer). EAGLE hidden state transfer is one 8192-dimensional vector per token per layer — negligible bandwidth.</p>
+<p><strong>Q: A team measured speculative decoding's acceptance rate at 0.85 in development, but it drops to 0.55 in production after 3 months. Diagnose what changed and what to do.</strong></p>
+<p>Dropping acceptance rate means the draft model's predictions are less aligned with the target model's outputs. Three most common causes:</p>
+<ol>
+<li>
+<p><strong>Model update without draft update:</strong> The target model was fine-tuned or updated (new RLHF batch, safety fine-tune, domain adaptation) while the draft model was not updated. The target model's distribution shifted; the draft model's predictions no longer match. Fix: retrain or fine-tune the draft model against the new target model's token distributions (distillation on a representative dataset from current traffic).</p>
+</li>
+<li>
+<p><strong>Traffic distribution shift:</strong> The product evolved and users now submit different types of requests. If code completion (α=0.85) was 80% of traffic and chat (α=0.55) grew to 50% of traffic, the blended α dropped. Fix: measure per-task acceptance rate separately; consider deploying different draft models or k values per task type.</p>
+</li>
+<li>
+<p><strong>Temperature change:</strong> The product changed its sampling temperature (e.g., from 0.2 to 0.8 for more creative outputs). Higher temperature → lower acceptance rate. Fix: reduce k at high temperature (lower effective k reduces overhead when α is low); or accept the lower acceptance rate if the temperature change was intentional.</p>
+</li>
+</ol>
+<p>Diagnostic steps: compare acceptance rate per task type before and after the drop to identify which segments changed. Diff the target model version against what was running when α=0.85. Audit temperature settings in the serving configuration.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the speculative decoding system for a multi-tenant API platform serving 10 different model families (Llama, Mistral, Phi, Gemma) with 50 different fine-tuned variants. How do you handle draft model management at this scale?</strong></p>
+<p>At 50 variants across 10 families, naive approaches (one draft model per variant) would require 50 additional draft models — each occupying VRAM and operational overhead. This doesn't scale.</p>
+<p><strong>Approach 1 — Family-level draft models:</strong> Deploy one draft model per model family (10 draft models instead of 50). Within a family, fine-tuned variants share the base model's output distribution for most tokens; the acceptance rate penalty from using a base draft model for a fine-tuned target is typically small (5–15% acceptance rate reduction). For variants where fine-tuning significantly shifted the distribution (domain-specific fine-tunes), allow opting out of speculative decoding.</p>
+<p><strong>Approach 2 — Draft model as a shared service:</strong> Run draft models as a separate microservice pool, separate from the target model serving fleet. The draft service exposes an API: given a sequence of k steps, return k token predictions and their probabilities. Target model servers call the draft service, then run verification locally. This allows the draft service to be a smaller pool (draft models are smaller), to be independently scaled, and to serve multiple target model variants simultaneously.</p>
+<p><strong>Approach 3 — EAGLE with shared backbone:</strong> If all variants in a family share the same base architecture, a single EAGLE draft model trained against the base model serves all variants with only modest acceptance rate reduction. The EAGLE draft's hidden state input comes from the specific variant (ensuring the draft gets the relevant context), and the draft model's output is compared against the specific variant for accept/reject.</p>
+<p><strong>Draft model lifecycle management:</strong>
+- Track acceptance rate per model variant per draft model per task type
+- Automatically disable speculative decoding (fall back to standard decoding) when acceptance rate falls below the breakeven threshold (e.g., α &lt; 0.45 for k=5 with 10× size ratio)
+- Re-enable speculative decoding after draft model updates via a canary deployment that measures acceptance rate on 1% of traffic before full rollout
+- Alert when any model variant's acceptance rate drops by more than 10 percentage points — likely indicating a model update without corresponding draft update</p>
+<hr />
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<p><strong>"Speculative decoding claims to be lossless — the output distribution is unchanged. But you're running two models. What could go wrong in practice that would make the distribution not exactly match the theoretical guarantee?"</strong></p>
+<p>Tests: understanding of where the theory-to-practice gap lies.</p>
+<p>The theoretical guarantee assumes exact computation of p_target and p_draft. In practice:</p>
+<ol>
+<li>
+<p><strong>Numerical precision:</strong> p_target and p_draft are computed in BF16 or FP8. Rounding errors in the probability ratio <code>p_target(x) / p_draft(x)</code> can cause tokens to be rejected slightly more or less often than theory predicts. The distribution of accepted tokens is approximately correct, not exactly correct.</p>
+</li>
+<li>
+<p><strong>Sampling implementation:</strong> The accept/reject comparison <code>U &lt; p_target(x) / p_draft(x)</code> where U is a uniform random variable requires consistent random number generation. If the random seed is shared differently between speculative and non-speculative paths, the resulting token streams have the same marginal distribution but differ in sample-to-sample output — a debugging issue, not a quality issue.</p>
+</li>
+<li>
+<p><strong>Mixed precision draft and target:</strong> If the target model runs in BF16 and the draft model runs in INT4, their logit distributions differ slightly beyond just the model quality gap — the draft's quantization errors introduce distribution shift that the accept/reject correction partially compensates for but cannot fully correct.</p>
+</li>
+<li>
+<p><strong>Long-context KV cache approximations:</strong> With very long contexts (128K+ tokens), some serving systems approximate the KV cache computation (e.g., sliding window attention, local attention). If the draft model uses full attention and the target model uses windowed attention (or vice versa), the draft is effectively a different model than what the theory assumes — the losslessness guarantee breaks.</p>
+</li>
+</ol>
+<p><strong>"What is the fundamental tradeoff between EAGLE's high acceptance rate and its added system complexity, and when would you use Medusa instead?"</strong></p>
+<p>Tests: ability to compare variants at a system engineering level, not just algorithm level.</p>
+<p>EAGLE achieves higher acceptance rates (~0.88 vs ~0.75 for Medusa on similar tasks) because it conditions the draft on the target model's hidden states — a richer input than Medusa's prediction heads operating on the same hidden state. The system costs of EAGLE:</p>
+<ul>
+<li>
+<p><strong>Hidden state transfer:</strong> After each target model forward pass, the hidden state must be sent to the draft model. For a single-GPU setup, this is a local copy (~8192 × batch × 2 bytes = manageable). For a TP=8 setup, the hidden state is distributed across 8 GPUs and must be gathered before being sent to the draft model — adding an all-gather operation per round.</p>
+</li>
+<li>
+<p><strong>Separate model deployment:</strong> EAGLE requires a separate trained draft model with hidden state conditioning — not available off-the-shelf, requires fine-tuning the draft head.</p>
+</li>
+<li>
+<p><strong>Tight coupling:</strong> The EAGLE draft model is specific to one target model version. When the target model is updated, the EAGLE draft must be retrained.</p>
+</li>
+</ul>
+<p>Use Medusa instead when:
+- The target model is updated frequently (Medusa heads are fine-tuned, not full model training)
+- Single-model deployment simplicity is valued over maximum acceptance rate
+- The TP=8 all-gather overhead for EAGLE's hidden state transfer is measured to be significant
+- The acceptance rate difference between Medusa and EAGLE on the specific task is small (e.g., both ~0.75 for chat tasks — not worth EAGLE's complexity)</p>
+<p>Use EAGLE when: the acceptance rate gap is large (code completion: 0.88 vs 0.75 = 17% speedup difference), the target model is stable between fine-tuning cycles, and the system can afford the hidden state transfer overhead.</p>
+<p><strong>"A customer asks for speculative decoding on their custom fine-tuned model, but the acceptance rate drops from 0.85 on the base model to 0.45 on their fine-tune. They want to fix this without retraining the draft model. What options do you give them?"</strong></p>
+<p>Tests: practical problem-solving in production constraints.</p>
+<p>The fine-tune shifted the model's output distribution — the draft model is now predicting tokens from the base model's distribution, not the fine-tuned model's distribution. Without retraining the draft:</p>
+<ol>
+<li>
+<p><strong>Reduce k:</strong> With α=0.45 and k=5, expected tokens per round = (1-0.45^6)/(1-0.45) = 1.78/0.55 = 3.24 — but the draft overhead is k=5 small-model forward passes. Reduce to k=2: (1-0.45^3)/0.55 = (1-0.091)/0.55 = 1.65 tokens/round with only 2 draft passes. Calculate the speedup for each k and pick the k that maximizes net throughput for their specific acceptance rate. At α=0.45, k=1 or k=2 typically gives better net performance than k=5.</p>
+</li>
+<li>
+<p><strong>Apply to high-acceptance subsets only:</strong> If certain request types still achieve α=0.75+ (e.g., the fine-tune didn't affect code completion behavior), enable speculative decoding only on those request types and disable for others.</p>
+</li>
+<li>
+<p><strong>Adjust the corrected distribution:</strong> The standard acceptance rule is optimal for producing p_target samples. If the customer's fine-tune emphasizes certain output styles and they accept a slight output quality change, a looser accept threshold (accept with probability <code>min(1, (p_target(x) / p_draft(x))^γ)</code> for γ &lt; 1) accepts more tokens, increasing throughput at the cost of a slightly shifted output distribution. This is no longer lossless — inform the customer explicitly.</p>
+</li>
+<li>
+<p><strong>Retrain Medusa heads:</strong> If full draft model retraining is infeasible, Medusa head fine-tuning is much cheaper — a few hours on a representative dataset of the fine-tuned model's outputs. Propose this as the medium-cost option that restores α to ~0.75.</p>
+</li>
+</ol>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Deploying speculative decoding without measuring acceptance rate on production traffic.</strong> Development benchmarks on curated datasets consistently over-estimate acceptance rate. The production workload may have different temperature settings, different task types, or different user prompt styles that reduce α by 20–30 percentage points. Always A/B test on real traffic before committing to the deployment.</p>
+</li>
+<li>
+<p><strong>Using a draft model from a different model family.</strong> The same-tokenizer requirement is hard. A Mistral draft for a Llama target: the tokenizers differ. Token ID 8421 is a different byte sequence in each tokenizer. The accept/reject comparison compares incompatible probability distributions. The output is not lossless; it may not even be sensible. Always verify tokenizer identity before pairing draft and target.</p>
+</li>
+<li>
+<p><strong>Enabling speculative decoding at high batch sizes.</strong> For 70B models on H100, the memory-to-compute transition happens around batch=90. At batch=128 with speculative decoding enabled, the draft model's verification pass adds compute to an already compute-saturated GPU, reducing throughput. Monitor GPU compute utilization and KV cache utilization separately; if compute utilization is high while enabling speculative decoding further increases it, disable it.</p>
+</li>
+<li>
+<p><strong>Ignoring the KV cache page management for rejected draft tokens.</strong> Draft tokens allocate KV cache pages speculatively. At high rejection rates, these pages are allocated and freed on every round — adding memory allocation overhead. Under-counting speculative KV pages in the admission control budget causes unexpected OOM errors when the draft occupies pages that weren't accounted for.</p>
+</li>
+<li>
+<p><strong>Setting k too high for the actual acceptance rate.</strong> At α=0.50, k=7 gives expected 2.0 tokens/round — the same as k=3 (expected 1.88 tokens/round). But k=7 runs 7 draft model forward passes vs. 3 for k=3. The higher draft overhead with no meaningful acceptance rate benefit makes k=7 worse than k=3 at α=0.50. The optimal k for a given α can be derived analytically from the speedup formula; always tune k based on measured α.</p>
+</li>
+<li>
+<p><strong>Assuming speculative decoding and continuous batching are orthogonal.</strong> They interact significantly: speculative decoding with variable acceptance rates across requests in a batch creates non-uniform token positions per request. The serving engine must handle requests at different positions simultaneously. Not all serving frameworks support this interaction cleanly — verify that your serving stack's speculative decoding implementation handles continuous batching correctly before production deployment.</p>
+</li>
+</ol>
+<hr />
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Speculative decoding attacks sequential steps, not per-step cost.</strong> It reduces the number of target model forward passes from N to approximately N/ᾱk, where ᾱ is the acceptance rate and k is the draft length.</li>
+<li><strong>Losslessness is a mathematical guarantee:</strong> the accept/reject algorithm samples exactly from p_target, regardless of draft quality. Higher acceptance rate means faster throughput, not different outputs.</li>
+<li><strong>Acceptance rate α determines everything.</strong> At α ≥ 0.70, speculative decoding provides meaningful speedup. Below α=0.45, it typically adds overhead without benefit. α must be measured on production traffic, not benchmarks.</li>
+<li><strong>The same tokenizer is a hard requirement.</strong> Draft and target must use identical tokenizers. Different model families cannot be paired.</li>
+<li><strong>Speculative decoding helps at small batch sizes (memory-bandwidth-bound regime) and hurts at large batch sizes (compute-bound regime).</strong> The transition batch size for 70B BF16 on H100 is approximately 90. Monitor compute utilization to determine which regime you're in.</li>
+<li><strong>EAGLE achieves the highest acceptance rates</strong> (~0.88 on code) by conditioning the draft on the target model's hidden states. Medusa is simpler to deploy (no separate model, just fine-tuned heads). Standard speculative decoding is the baseline that works without model modifications.</li>
+<li><strong>Production deployment requires:</strong> per-task acceptance rate monitoring, k tuned to measured α, KV cache page management for speculative tokens, and continuous A/B testing when the target model is updated.</li>
+<li><strong>Speculative decoding is a latency tool, not a throughput tool</strong> for most deployments. At high batch sizes and throughput-oriented serving, the economics favor larger batch sizes over speculative decoding.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Distributed Inference</a> · <a href="../01-tensor-and-pipeline-parallelism/">Tensor &amp; Pipeline Parallelism</a> · <a href="../02-disaggregated-prefill-decode/">Disaggregated Prefill/Decode</a> · <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a> · <a href="../../15-model-serving/05-multi-model-serving-and-routing/">Multi-Model Serving &amp; Routing</a></em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../02-disaggregated-prefill-decode/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Disaggregated Prefill/Decode">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Disaggregated Prefill/Decode
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../18-llmops/" class="md-footer__link md-footer__link--next" aria-label="Next: LLMOps">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                LLMOps
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

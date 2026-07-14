@@ -1,0 +1,7990 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/05-retrieval-systems/02-vector-databases/">
+      
+      
+        <link rel="prev" href="../01-embedding-models/">
+      
+      
+        <link rel="next" href="../03-indexing-algorithms-ann/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Vector Databases - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#vector-databases" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Vector Databases
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-purpose-built-vector-databases-emerged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Purpose-Built Vector Databases Emerged
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#distance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distance Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ann-index-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ANN Index Structures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payload-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payload / Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtering-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtering Strategies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#namespaces-and-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Namespaces and Collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedding-dimensions-and-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedding Dimensions and Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#consistency-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consistency Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-path-and-read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write Path and Read Path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Write Path and Read Path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detailed-write-path-and-read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Write Path and Read Path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-filtering-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Filtering Strategies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata Filtering Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pre-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-Filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-Filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-query-filter-acorn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-Query Filter (ACORN)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata-store-and-payload-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Store and Payload Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-query-from-text-to-top-k-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Query from Text to Top-K Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-models-and-multi-tenancy-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Models and Multi-Tenancy Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Models and Multi-Tenancy Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managed-saas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed SaaS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#self-hosted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Hosted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-tenancy-isolation-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Tenancy Isolation Strategies
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-right-vector-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Vector Database
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing the Right Vector Database">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#comparison-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-purpose-built-vector-databases-emerged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Purpose-Built Vector Databases Emerged
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#distance-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distance Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ann-index-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ANN Index Structures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payload-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payload / Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtering-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtering Strategies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#namespaces-and-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Namespaces and Collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedding-dimensions-and-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedding Dimensions and Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#consistency-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consistency Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-path-and-read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write Path and Read Path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Write Path and Read Path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detailed-write-path-and-read-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed Write Path and Read Path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-filtering-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Filtering Strategies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata Filtering Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pre-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-Filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-Filter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-query-filter-acorn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-Query Filter (ACORN)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata-store-and-payload-indexing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Store and Payload Indexing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-query-from-text-to-top-k-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Query from Text to Top-K Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-models-and-multi-tenancy-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Models and Multi-Tenancy Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Models and Multi-Tenancy Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managed-saas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed SaaS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#self-hosted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Hosted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-tenancy-isolation-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Tenancy Isolation Strategies
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-right-vector-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the Right Vector Database
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing the Right Vector Database">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#comparison-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Retrieval Systems
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/05-retrieval-systems/02-vector-databases.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="vector-databases">Vector Databases<a class="headerlink" href="#vector-databases" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>A vector database stores high-dimensional numeric vectors — typically <a href="../01-embedding-models/">embeddings</a> from ML models — and answers approximate nearest-neighbor (ANN) queries in milliseconds, even over billions of vectors. Unlike a relational database that matches rows by equality or range predicates, a vector database matches by geometric proximity in embedding space, making it the backbone of semantic search, retrieval-augmented generation, and recommendation systems. Modern systems combine ANN search with structured metadata filtering, hybrid keyword+vector queries, and multi-tenant namespace isolation inside a single managed service.</p>
+<hr />
+<h2 id="why-purpose-built-vector-databases-emerged">Why Purpose-Built Vector Databases Emerged<a class="headerlink" href="#why-purpose-built-vector-databases-emerged" title="Permanent link">&para;</a></h2>
+<p>Before specialized vector databases existed, teams tried to store embeddings in PostgreSQL <code>float[]</code> columns and compute similarity with a full table scan. At 100k vectors and 768 dimensions, a single cosine similarity scan takes ~200ms on a well-tuned Postgres instance. At 1M vectors it exceeds 2 seconds; at 10M it becomes untenable for real-time use. General-purpose search engines like Elasticsearch could invert keyword tokens but had no distance-based index for continuous vectors. The result was a hard ceiling: semantic search worked in proof-of-concept notebooks but could not survive production traffic at scale without an entirely different indexing strategy. Vector databases solve this by:</p>
+<ul>
+<li>Replacing the exact linear scan with an approximate index that trades a small recall loss (~2-5%) for 100-1000x speedup.</li>
+<li>Providing native metadata filter push-down so that ANN search and scalar predicates execute together rather than in two sequential passes.</li>
+<li>Offering a horizontal scaling story: shard the index, replicate shards, and add nodes without changing the query API.</li>
+</ul>
+<p>Without this, every embedding-powered feature degrades linearly with corpus size, making billion-scale retrieval for production RAG or recommendation impossible.</p>
+<p>In 2016-2019, the dominant approach was to run <a href="../03-indexing-algorithms-ann/">FAISS</a> (Facebook AI Similarity Search) as an in-process library: embed queries on the fly, call <code>index.search()</code>, and serve results. FAISS is blazing fast in a single process but offers no persistence, no metadata filtering, no multi-tenancy, and no horizontal scaling. Teams bolted on a relational database to store metadata and joined results post-hoc — a two-trip architecture with no index co-location. Elasticsearch added approximate KNN (HNSW via Lucene) in 7.x but it was an afterthought alongside text inverted indexes; filtering semantics were awkward, and memory overhead was high.</p>
+<p>The first generation of purpose-built vector databases (Pinecone 2021, Weaviate, Qdrant, Milvus) recognized that vectors are first-class citizens deserving their own storage engine with tight coupling between the ANN index and the payload store. They also packaged what FAISS could not: HTTP/gRPC APIs, serverless scaling, RBAC, multi-tenant namespaces, and operational tooling. The rise of LLMs in 2022-2023 and the explosion of RAG pipelines made vector databases the hottest infrastructure category, driving a proliferation of options from fully managed clouds to embeddable libraries like Chroma and LanceDB.</p>
+<p>A <strong>vector database</strong> is a purpose-built data store whose primary index is a high-dimensional vector index (commonly HNSW, IVF-PQ, or DiskANN) optimized for approximate nearest-neighbor search under a distance metric (cosine similarity, dot product, or L2). Each record ("point" or "document") pairs a floating-point vector of fixed dimensionality with an opaque payload of structured metadata. The system exposes upsert, delete, and query APIs; a query supplies a vector (or a text that is embedded server-side) and optional metadata predicates and returns the k most similar records ranked by distance, optionally post-processed by a reranker. Distributed deployments shard the index across nodes using consistent hashing and replicate shards for read availability, while providing eventual or strong consistency guarantees depending on the implementation.</p>
+<hr />
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<h3 id="distance-metrics">Distance Metrics<a class="headerlink" href="#distance-metrics" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Cosine similarity</strong>: angle between vectors; most common for NLP embeddings where magnitude is meaningless.</li>
+<li><strong>Dot product</strong>: magnitude-aware; used when embeddings are trained with dot-product loss (e.g., OpenAI <code>text-embedding-3</code>).</li>
+<li><strong>Euclidean (L2)</strong>: raw spatial distance; common in image embeddings and recommendation systems.</li>
+</ul>
+<h3 id="ann-index-structures">ANN Index Structures<a class="headerlink" href="#ann-index-structures" title="Permanent link">&para;</a></h3>
+<p>See <a href="../03-indexing-algorithms-ann/">Indexing Algorithms (ANN/HNSW/IVF)</a> for deep coverage. In brief:</p>
+<ul>
+<li><strong>HNSW</strong> (Hierarchical Navigable Small World): graph-based; excellent recall at low latency; high memory usage; used by Qdrant, Weaviate, pgvector, Elasticsearch.</li>
+<li><strong>IVF-PQ</strong> (Inverted File with Product Quantization): cluster-then-search; supports quantization to shrink RAM footprint; used by Milvus/Faiss.</li>
+<li><strong>DiskANN</strong>: graph-based but designed for NVMe-resident indexes; enables trillion-scale at reduced DRAM cost.</li>
+</ul>
+<h3 id="payload-metadata">Payload / Metadata<a class="headerlink" href="#payload-metadata" title="Permanent link">&para;</a></h3>
+<p>Each vector has a structured payload (JSON or schema-defined fields): author, date, document_id, language, tenant_id, etc. Metadata predicates filter the candidate pool before or after ANN search.</p>
+<h3 id="filtering-strategies">Filtering Strategies<a class="headerlink" href="#filtering-strategies" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Pre-filter</strong>: apply scalar filter first, then run ANN over the subset. Correct but slow when the subset is large (loses graph structure efficiency).</li>
+<li><strong>Post-filter</strong>: run ANN over the full index, then discard results failing the predicate. Fast but recall degrades when the filter is selective.</li>
+<li><strong>In-query / ACORN filter</strong>: the ANN graph traversal is filter-aware; it skips disqualified nodes during graph exploration. Qdrant and Weaviate implement variants of this. Best recall-latency tradeoff.</li>
+</ul>
+<h3 id="namespaces-and-collections">Namespaces and Collections<a class="headerlink" href="#namespaces-and-collections" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Collection</strong> (Weaviate: Class, Qdrant: Collection, Pinecone: Index): a logical container with a fixed vector dimension and distance metric. Separate indexes, no cross-collection ANN.</li>
+<li><strong>Namespace</strong> (Pinecone) / <strong>Partition</strong> (Qdrant): a logical shard within a collection sharing the same index. Enables multi-tenancy: tenant A queries only their namespace without scanning tenant B's data.</li>
+</ul>
+<h3 id="embedding-dimensions-and-memory">Embedding Dimensions and Memory<a class="headerlink" href="#embedding-dimensions-and-memory" title="Permanent link">&para;</a></h3>
+<p>Memory for a dense float32 HNSW index: <code>N × D × 4 bytes × (1 + HNSW overhead factor ~1.5)</code>.</p>
+<ul>
+<li>1M vectors × 1536 dims × 4 × 1.5 ≈ <strong>~9 GB RAM</strong> (pure index).</li>
+<li>In practice, with payload and segment overhead, plan for 12-15 GB per 1M vectors at 1536 dims.</li>
+<li>Quantization (int8 or binary) can reduce this to 3-5 GB at ~1-3% recall cost.</li>
+</ul>
+<h3 id="consistency-models">Consistency Models<a class="headerlink" href="#consistency-models" title="Permanent link">&para;</a></h3>
+<p>Most distributed vector databases use <strong>eventual consistency</strong> on writes: an upsert is acknowledged after writing to a WAL and a quorum of replicas, but the HNSW graph rebuild propagates asynchronously. Milvus uses a segment-based architecture with a log-broker (Pulsar/Kafka) for durability. Qdrant offers write consistency levels (one/majority/all). Strong consistency for vector search requires expensive quorum reads and is rarely needed for semantic retrieval.</p>
+<hr />
+<h2 id="write-path-and-read-path">Write Path and Read Path<a class="headerlink" href="#write-path-and-read-path" title="Permanent link">&para;</a></h2>
+<p>The write path takes a client upsert through normalization, WAL durability, shard routing, HNSW graph update, and segment sealing. The read path takes a query vector through ANN scatter-gather across shards, metadata filtering, merge, and reranking to return top-K results.</p>
+<h3 id="high-level-architecture">High-Level Architecture<a class="headerlink" href="#high-level-architecture" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    App["Application / RAG Pipeline"] --&gt;|"REST / gRPC"| API["Vector DB API Gateway"]
+    API --&gt; Auth["Auth &amp; Rate Limiter"]
+    Auth --&gt; Router["Request Router / Load Balancer"]
+    Router --&gt; IndexLayer["ANN Index Layer\n(HNSW / IVF shards)"]
+    Router --&gt; MetaStore["Metadata / Payload Store\n(RocksDB / SQLite / Postgres)"]
+    Router --&gt; ObjStore["Object Store\n(raw vectors, segments)\nS3 / GCS"]
+    IndexLayer --&gt; Merger["Result Merger &amp; Reranker"]
+    MetaStore --&gt; Merger
+    Merger --&gt;|"Top-k results + payloads"| App
+
+    style API fill:#1D4ED8,color:#fff
+    style IndexLayer fill:#B45309,color:#fff
+    style MetaStore fill:#15803D,color:#fff
+    style ObjStore fill:#6D28D9,color:#fff
+    style Merger fill:#B91C1C,color:#fff</code></pre>
+<h3 id="detailed-write-path-and-read-path">Detailed Write Path and Read Path<a class="headerlink" href="#detailed-write-path-and-read-path" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TB
+    subgraph WritePath["Write Path"]
+        direction LR
+        W1["Client Upsert\n(id, vector, payload)"] --&gt; W2["WAL / Commit Log\n(durability first)"]
+        W2 --&gt; W3["Shard Router\nconsistent hash on id"]
+        W3 --&gt; W4["Segment Buffer\n(in-memory accumulation)"]
+        W4 --&gt; W5["HNSW Graph Update\n(lazy, async)"]
+        W5 --&gt; W6["Segment Sealed\n→ Flush to Object Store"]
+        W6 --&gt; W7["Soft-Delete Tombstones\n(compacted periodically)"]
+    end
+
+    subgraph ReadPath["Read Path"]
+        direction LR
+        R1["Client Query\n(text or vector + filter)"] --&gt; R2["Embed Query\n(if text, ~5ms)"]
+        R2 --&gt; R3["Scatter to Shards\n(fan-out)"]
+        R3 --&gt; R4["ANN Search\nper shard (~10-50ms)"]
+        R4 --&gt; R5["Metadata Filter\n(pre/post/in-query, ~5ms)"]
+        R5 --&gt; R6["Merge &amp; Rerank\n(~2ms)"]
+        R6 --&gt; R7["Top-k Results\n+ Payloads returned"]
+    end
+
+    style WritePath fill:#1A252F,color:#ECF0F1
+    style ReadPath fill:#1A252F,color:#ECF0F1
+    style W2 fill:#B91C1C,color:#fff
+    style R4 fill:#B45309,color:#fff
+    style R5 fill:#15803D,color:#fff
+    style R6 fill:#6D28D9,color:#fff</code></pre>
+<p><strong>Component responsibilities along each path:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Owns</th>
+<th>Does NOT Own</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>API Gateway</strong></td>
+<td>Auth, rate limiting, request validation, TLS termination</td>
+<td>Business logic, embedding generation</td>
+</tr>
+<tr>
+<td><strong>Request Router</strong></td>
+<td>Consistent-hash-based shard routing, load balancing across replicas</td>
+<td>Index construction, query execution</td>
+</tr>
+<tr>
+<td><strong>ANN Index (HNSW/IVF)</strong></td>
+<td>Vector similarity computation, graph traversal, top-k selection</td>
+<td>Metadata predicates, payload retrieval</td>
+</tr>
+<tr>
+<td><strong>Payload / Metadata Store</strong></td>
+<td>Structured JSON payloads, scalar filter execution, attribute indexing</td>
+<td>Vector similarity math</td>
+</tr>
+<tr>
+<td><strong>WAL / Commit Log</strong></td>
+<td>Durability before acknowledgment, crash recovery, replica sync</td>
+<td>Query path</td>
+</tr>
+<tr>
+<td><strong>Segment Manager</strong></td>
+<td>In-memory buffer, segment sealing, compaction, soft-delete cleanup</td>
+<td>Embedding generation, ANN graph traversal</td>
+</tr>
+<tr>
+<td><strong>Object Store (S3/GCS)</strong></td>
+<td>Long-term segment persistence, backup, cross-AZ replication</td>
+<td>Low-latency query serving</td>
+</tr>
+<tr>
+<td><strong>Result Merger</strong></td>
+<td>Multi-shard top-k merge (k-way heap), optional reranking</td>
+<td>Initial ANN computation</td>
+</tr>
+<tr>
+<td><strong>Embedding Service</strong></td>
+<td>(Optional, external) vector generation from text</td>
+<td>Storage, indexing, retrieval</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="metadata-filtering-strategies">Metadata Filtering Strategies<a class="headerlink" href="#metadata-filtering-strategies" title="Permanent link">&para;</a></h2>
+<p>Metadata filtering is one of the most operationally significant design decisions in a vector database deployment. The strategy chosen determines both query recall and latency far more than ANN parameter tuning alone.</p>
+<h3 id="pre-filter">Pre-Filter<a class="headerlink" href="#pre-filter" title="Permanent link">&para;</a></h3>
+<p>Apply the scalar predicate first to build a candidate set, then run ANN over only those vectors. This is precise — every ANN candidate satisfies the filter — but slow when the filtered set is large. HNSW's navigational efficiency depends on the full graph structure; a pre-filtered subgraph may be poorly connected, forcing the traversal to take many more hops. Pre-filter works well only when the filter is highly selective (e.g., 0.1% of the corpus matches, leaving a small dense subgraph).</p>
+<h3 id="post-filter">Post-Filter<a class="headerlink" href="#post-filter" title="Permanent link">&para;</a></h3>
+<p>Run ANN over the full index first, fetching the top-k × oversampling factor (e.g., top-500 when you need top-10), then discard results failing the predicate. Fast, because the full graph structure is intact during traversal. However, recall degrades badly when the filter is selective: if only 5% of vectors match the filter, most of the top-500 ANN candidates may be discarded, leaving fewer than 10 valid results even though the true nearest matching neighbors exist in the corpus.</p>
+<h3 id="in-query-filter-acorn">In-Query Filter (ACORN)<a class="headerlink" href="#in-query-filter-acorn" title="Permanent link">&para;</a></h3>
+<p>The ANN graph traversal is filter-aware: it skips disqualified nodes during graph exploration while still using them as navigation waypoints when they are the best available path. Qdrant and Weaviate implement variants of this (Qdrant calls its implementation "filtered HNSW"; the general pattern is ACORN). This provides the best recall-latency tradeoff for most production filter selectivities (1%-50% of corpus), because the traversal can still navigate through nodes that fail the filter to reach nodes that pass it.</p>
+<p><strong>Rule of thumb:</strong> if your filter passes &gt;10% of the corpus, use in-query filter. If &lt;1%, pre-filter (the subgraph is small enough to be well-connected). Avoid pure post-filter unless the filter is very permissive (&gt;80%).</p>
+<h3 id="metadata-store-and-payload-indexing">Metadata Store and Payload Indexing<a class="headerlink" href="#metadata-store-and-payload-indexing" title="Permanent link">&para;</a></h3>
+<p>The metadata/payload store — typically LMDB, RocksDB, or a columnar store — holds structured fields alongside the vector. For in-query and pre-filter strategies to be fast, the metadata store must support fast scalar lookups. Qdrant allows explicit payload index creation (<code>create_payload_index</code>) on fields used in filters, converting filter evaluation from O(N) scan to O(log N) or O(1) hash lookup. Without payload indexing, even an in-query filter must evaluate the predicate on every candidate node visited during traversal.</p>
+<p><strong>Filtering latency and recall impacts (approximate, 10M vectors):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Latency (p50)</th>
+<th>Recall@10 (5% filter selectivity)</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pre-filter (no payload index)</td>
+<td>50-200ms</td>
+<td>95%+</td>
+<td>Filter selectivity &lt;1%, small corpus</td>
+</tr>
+<tr>
+<td>Pre-filter (with payload index)</td>
+<td>10-30ms</td>
+<td>95%+</td>
+<td>Filter selectivity &lt;1%</td>
+</tr>
+<tr>
+<td>Post-filter (10× oversample)</td>
+<td>10-20ms</td>
+<td>60-75%</td>
+<td>Filter selectivity &gt;50%</td>
+</tr>
+<tr>
+<td>In-query / ACORN</td>
+<td>15-40ms</td>
+<td>90-98%</td>
+<td>Filter selectivity 1%-50%</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart TD
+    Q([Query + Filter Predicate]) --&gt; SEL{Filter Selectivity?}
+    SEL --&gt;|"&lt; 1% matches"| PRE["Pre-Filter\nApply predicate first\nBuild candidate subset\nRun ANN on subset only\nNeeds payload index for O(log N) eval"]
+    SEL --&gt;|"1%–50% matches"| ACORN["In-Query Filter / ACORN\nFull HNSW graph intact\nSkips disqualified nodes but uses\nthem as navigation waypoints\nBest recall-latency tradeoff"]
+    SEL --&gt;|"&gt; 50% matches"| POST["Post-Filter\nANN over full index\nFetch 10× oversample\nDiscard non-matching results\nSimple but recall degrades &lt; 20%"]
+    PRE --&gt; OUT([ANN Results\nfiltered + ranked])
+    ACORN --&gt; OUT
+    POST --&gt; OUT</code></pre>
+<hr />
+<h2 id="a-query-from-text-to-top-k-results">A Query from Text to Top-K Results<a class="headerlink" href="#a-query-from-text-to-top-k-results" title="Permanent link">&para;</a></h2>
+<p>A user query travels through embedding generation, shard fan-out, ANN search, metadata filtering, reranking, and serialization before results reach the client. Each hop has a measurable latency budget.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant U as User / App
+    participant GW as API Gateway
+    participant Embed as Embedding Service
+    participant Router as Shard Router
+    participant S1 as Shard 1 (ANN)
+    participant S2 as Shard 2 (ANN)
+    participant Meta as Metadata Store
+    participant Merger as Merger / Reranker
+
+    U-&gt;&gt;GW: POST /query {text, filter, top_k=10}&lt;br/&gt;t=0ms
+    GW-&gt;&gt;Embed: Embed query text&lt;br/&gt;t=1ms
+    Embed--&gt;&gt;GW: vector[1536]&lt;br/&gt;t=6ms (+5ms)
+    GW-&gt;&gt;Router: route(vector, filter)&lt;br/&gt;t=6ms
+    Router-&gt;&gt;S1: ANN search k=50&lt;br/&gt;t=7ms
+    Router-&gt;&gt;S2: ANN search k=50&lt;br/&gt;t=7ms (parallel)
+    S1--&gt;&gt;Router: top-50 ids + distances&lt;br/&gt;t=32ms (+25ms)
+    S2--&gt;&gt;Router: top-50 ids + distances&lt;br/&gt;t=35ms (+28ms)
+    Router-&gt;&gt;Meta: fetch payloads for 100 ids&lt;br/&gt;t=36ms
+    Meta--&gt;&gt;Router: payloads + apply scalar filter&lt;br/&gt;t=41ms (+5ms)
+    Router-&gt;&gt;Merger: 80 remaining candidates&lt;br/&gt;t=42ms
+    Merger--&gt;&gt;GW: top-10 reranked results&lt;br/&gt;t=44ms (+2ms)
+    GW--&gt;&gt;U: 200 OK {results}&lt;br/&gt;t=45ms</code></pre>
+<p><strong>Latency budget (p50, 1M vectors, managed cloud):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Hop</th>
+<th>Latency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Embedding generation</td>
+<td>~5ms</td>
+</tr>
+<tr>
+<td>ANN search per shard (HNSW, ef=64)</td>
+<td>~10-50ms</td>
+</tr>
+<tr>
+<td>Metadata filter + payload fetch</td>
+<td>~5ms</td>
+</tr>
+<tr>
+<td>Multi-shard merge + rerank</td>
+<td>~2ms</td>
+</tr>
+<tr>
+<td>Network + serialization</td>
+<td>~3-5ms</td>
+</tr>
+<tr>
+<td><strong>Total p50</strong></td>
+<td><strong>~25-67ms</strong></td>
+</tr>
+<tr>
+<td><strong>Total p99</strong></td>
+<td><strong>&lt;100ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Note that because ANN search is fanned out to all shards in parallel, the total ANN latency is determined by the slowest shard (the max), not the sum. This makes the shard count a lever for managing index size, not latency. To improve p99, tune <code>ef_search</code> down (accepting slightly lower recall) or reduce shard memory pressure.</p>
+<hr />
+<h2 id="deployment-models-and-multi-tenancy-patterns">Deployment Models and Multi-Tenancy Patterns<a class="headerlink" href="#deployment-models-and-multi-tenancy-patterns" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    Start["Vector DB Selection\nDecision"] --&gt; Q1{"Scale of vectors?"}
+
+    Q1 --&gt;|"&lt; 1M, prototype"| P1["In-Process Library\nChroma / LanceDB / FAISS"]
+    Q1 --&gt;|"1M - 50M, production"| Q2{"Ops burden tolerance?"}
+    Q1 --&gt;|"50M - billions"| Q3{"Need full managed?"}
+
+    Q2 --&gt;|"Low ops, pay for managed"| P2["Managed Cloud\nPinecone / Weaviate Cloud\n/ Qdrant Cloud"]
+    Q2 --&gt;|"Own infra, control costs"| P3["Self-Hosted\nQdrant / Milvus / Weaviate\non Kubernetes"]
+
+    Q3 --&gt;|"Yes"| P4["Managed at Scale\nPinecone Enterprise\n/ Vertex AI Vector Search"]
+    Q3 --&gt;|"No, want SQL integration"| P5["pgvector + partitioning\nor Elasticsearch vector"]
+
+    P2 --&gt; MT{"Multi-tenant?"}
+    P3 --&gt; MT
+    MT --&gt;|"Yes, strict isolation"| MT1["One collection per tenant\n(hard isolation)"]
+    MT --&gt;|"Yes, shared index"| MT2["Namespace / partition\nper tenant\n(soft isolation)"]
+    MT --&gt;|"No"| MT3["Single collection,\nno isolation needed"]
+
+    style P1 fill:#15803D,color:#fff
+    style P2 fill:#1D4ED8,color:#fff
+    style P3 fill:#B45309,color:#fff
+    style P4 fill:#6D28D9,color:#fff
+    style P5 fill:#B91C1C,color:#fff</code></pre>
+<h3 id="managed-saas">Managed SaaS<a class="headerlink" href="#managed-saas" title="Permanent link">&para;</a></h3>
+<p><strong>Pinecone</strong> offers a serverless tier (~<span class="arithmatex">\(0.096/1M read units, ~\)</span>2/1M write units) and pod-based tiers (p1.x1 ≈ 1M vectors at ~$70/month). Zero ops burden; fully managed scaling, backups, and RBAC. Opaque internals; pricing at scale can exceed self-hosted by 5-10x.</p>
+<p><strong>Weaviate Cloud</strong> provides native hybrid BM25+vector search and multimodal support. Sandbox free for 14 days; paid from ~$25/month. Higher ops complexity than Pinecone even in the managed tier.</p>
+<p><strong>Zilliz</strong> (managed Milvus): enterprise-grade managed Kubernetes deployment. Best for teams already invested in Milvus semantics who want to offload cluster operations.</p>
+<h3 id="self-hosted">Self-Hosted<a class="headerlink" href="#self-hosted" title="Permanent link">&para;</a></h3>
+<p><strong>Qdrant</strong>: Rust-based, best performance per dollar self-hosted. Single node handles ~100M vectors with scalar quantization. Kubernetes Helm chart available; exposes Prometheus <code>/metrics</code>. Smaller ecosystem than Milvus but simpler cluster ops.</p>
+<p><strong>Weaviate</strong>: supports hybrid BM25+vector natively (not a bolt-on). Higher RAM overhead than Qdrant; better for teams needing GraphQL API or multimodal vectors.</p>
+<p><strong>Milvus</strong>: separated storage/compute (query nodes, index nodes, data nodes, log broker via Pulsar/Kafka). The most complex cluster to operate (8+ components) but battle-tested at hundreds of billions of vectors. Meta has reported 1 trillion vectors in research deployments.</p>
+<p><strong>pgvector / pgvectorscale</strong>: HNSW directly in Postgres. Free, ACID transactions, SQL joins. Single-threaded HNSW build; practical limit ~5-10M vectors per table without pgvectorscale partitioning.</p>
+<h3 id="multi-tenancy-isolation-strategies">Multi-Tenancy Isolation Strategies<a class="headerlink" href="#multi-tenancy-isolation-strategies" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Isolation</th>
+<th>Max Tenants</th>
+<th>Overhead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Collection per tenant</strong></td>
+<td>Hard — separate HNSW index, separate memory</td>
+<td>~100 large tenants</td>
+<td>High: one index manager per tenant</td>
+</tr>
+<tr>
+<td><strong>Namespace/partition per tenant</strong></td>
+<td>Soft — shared index, query-time routing</td>
+<td>~10,000 medium tenants</td>
+<td>Medium: one metadata object per namespace</td>
+</tr>
+<tr>
+<td><strong>Payload field + in-query filter</strong></td>
+<td>Soft — shared index, filter at traversal time</td>
+<td>Millions of users</td>
+<td>Low: no extra metadata objects</td>
+</tr>
+</tbody>
+</table>
+<p>Use collection-per-tenant for &lt;100 tenants with large datasets (hard isolation, no cross-tenant scan risk). Use namespaces/partitions within one collection for 100-100,000 small tenants (shared HNSW overhead amortized). For per-user isolation at millions of users, store <code>user_id</code> as a payload field and use in-query filtering with ACL enforcement at the application layer. See <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/">Multi-Tenancy for AI Platforms</a>.</p>
+<hr />
+<h2 id="choosing-the-right-vector-database">Choosing the Right Vector Database<a class="headerlink" href="#choosing-the-right-vector-database" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    A["Choose a Vector DB"] --&gt; B{"Already using Postgres?"}
+    B --&gt;|Yes| C{"Corpus &lt; 5M vectors?"}
+    C --&gt;|Yes| D["pgvector\nFree, SQL joins,\nno extra infra"]
+    C --&gt;|No| E["pgvector + partitioning\nor migrate to dedicated DB"]
+    B --&gt;|No| F{"Prototype / local dev?"}
+    F --&gt;|Yes| G["Chroma or LanceDB\nZero-ops, in-process"]
+    F --&gt;|No| H{"Need zero-ops managed?"}
+    H --&gt;|Yes| I{"Serverless pricing OK?"}
+    I --&gt;|Yes| J["Pinecone Serverless\n~$0.096/1M queries"]
+    I --&gt;|No| K["Pinecone Pod-based\nor Weaviate Cloud"]
+    H --&gt;|No| L{"Hybrid BM25+vector\nor multimodal?"}
+    L --&gt;|Yes| M["Weaviate\nnative hybrid, multimodal"]
+    L --&gt;|No| N{"Need Rust performance\n+ fine-grained control?"}
+    N --&gt;|Yes| O["Qdrant\nbest perf/$ self-hosted"]
+    N --&gt;|No| P["Milvus\nenterprise scale,\nKafka-backed"]
+
+    style D fill:#15803D,color:#fff
+    style G fill:#15803D,color:#fff
+    style J fill:#1D4ED8,color:#fff
+    style M fill:#B45309,color:#fff
+    style O fill:#6D28D9,color:#fff
+    style P fill:#B91C1C,color:#fff</code></pre>
+<h3 id="comparison-table">Comparison Table<a class="headerlink" href="#comparison-table" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Managed</th>
+<th>Scale</th>
+<th>Filtering</th>
+<th>Cost</th>
+<th>When it wins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pinecone</strong></td>
+<td>Yes (SaaS)</td>
+<td>Billions (managed)</td>
+<td>Namespace + payload</td>
+<td>High at scale</td>
+<td>Zero-ops requirement; sub-10ms p50 SLA</td>
+</tr>
+<tr>
+<td><strong>Qdrant</strong></td>
+<td>Self-hosted / cloud</td>
+<td>100M+ self-hosted</td>
+<td>ACORN in-query, best-in-class</td>
+<td>Best perf/$</td>
+<td>Self-hosted; Rust performance; fine-grained control</td>
+</tr>
+<tr>
+<td><strong>Weaviate</strong></td>
+<td>Self-hosted / cloud</td>
+<td>100M+ with cluster</td>
+<td>Native hybrid BM25+vector</td>
+<td>Medium</td>
+<td>Hybrid search; multimodal; GraphQL</td>
+</tr>
+<tr>
+<td><strong>Milvus</strong></td>
+<td>Self-hosted / Zilliz</td>
+<td>Billions self-hosted</td>
+<td>IVF-PQ pre/post filter</td>
+<td>High ops cost</td>
+<td>Enterprise Kubernetes; hundreds of billions of vectors</td>
+</tr>
+<tr>
+<td><strong>pgvector</strong></td>
+<td>Via Postgres (RDS, etc.)</td>
+<td>~5-10M per table</td>
+<td>SQL WHERE (pre-filter)</td>
+<td>Near zero</td>
+<td>Existing Postgres infra; ACID; SQL joins; small corpus</td>
+</tr>
+<tr>
+<td><strong>Chroma</strong></td>
+<td>No (in-process)</td>
+<td>~1M in-process</td>
+<td>Python predicate</td>
+<td>Free</td>
+<td>Local dev; prototypes; no horizontal scale needed</td>
+</tr>
+<tr>
+<td><strong>Elasticsearch</strong></td>
+<td>Yes (Elastic Cloud)</td>
+<td>50M+ with hardware</td>
+<td>BM25 + kNN hybrid</td>
+<td>High memory</td>
+<td>Existing ES cluster; BM25 + vector in one query</td>
+</tr>
+<tr>
+<td><strong>Redis (RediSearch)</strong></td>
+<td>Yes (Redis Cloud)</td>
+<td>~10M (RAM cost)</td>
+<td>In-memory filter</td>
+<td>High (RAM)</td>
+<td>Ultra-low latency; in-memory speed; hot vector subset</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="scalability">Scalability<a class="headerlink" href="#scalability" title="Permanent link">&para;</a></h2>
+<p><strong>Sharding via Consistent Hashing.</strong> A vector index cannot be naively split by row-range because ANN graph edges cross shard boundaries. Instead, distributed vector DBs (Milvus, Qdrant) assign a vector to a shard using consistent hashing on its ID, then replicate each shard to R nodes (typically R=2 for HA). A query fans out to all shards, each shard returns its local top-k, and a merger performs a k-way heap merge. This means adding shards requires data re-balancing (not cheap — plan sharding upfront).</p>
+<p><strong>Horizontal scale numbers:</strong></p>
+<ul>
+<li>Pinecone pods: p1.x1 = 1M vectors, p1.x8 = 8M vectors. Replicas multiply QPS linearly.</li>
+<li>Qdrant: tested at 1B vectors on a 100-node cluster. Single node handles ~100M with scalar quantization.</li>
+<li>Milvus: Meta reported 1 trillion vectors in research; production deployments in the hundreds of billions.</li>
+</ul>
+<p><strong>Quantization for scale:</strong> scalar quantization (float32 → int8) reduces index size 4x; binary quantization (float32 → 1 bit) reduces 32x but loses ~5-10% recall without re-scoring. Qdrant's oversampling + re-score pattern (fetch 10× candidates in quantized space, re-score top candidates in float32) recovers recall to &gt;99% with ~2x speedup.</p>
+<p><strong>Throughput benchmarks:</strong></p>
+<ul>
+<li>HNSW at 768 dims, ef=64: ~3,000-5,000 QPS per node on a 16-core machine.</li>
+<li>At 1536 dims: ~1,500-3,000 QPS per node (bandwidth-bound at high dims).</li>
+<li>With in-memory quantization: can reach 10,000 QPS per node at 768 dims.</li>
+</ul>
+<hr />
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<p><strong>Replication.</strong> All production-grade vector DBs support replica factor ≥ 2. A read quorum of 1 (any replica) achieves low read latency; a write quorum of majority ensures durability. Qdrant's <code>write_consistency_factor</code> and <code>read_consistency_type</code> are tunable per request.</p>
+<p><strong>Segment compaction and soft delete.</strong> Deleting a vector from an HNSW graph is expensive — removing a node can disconnect the graph. Instead, systems mark records as tombstones (soft delete) and lazily exclude them from search results. Periodic compaction rebuilds segments without tombstones. This means: (1) deleted vectors still consume RAM until the next compaction; (2) compaction is a background I/O-intensive operation — schedule it during off-peak hours. Re-indexing from scratch after a bulk delete requires a full segment rebuild, costing ~30-120 minutes per billion vectors.</p>
+<p><strong>Backup and recovery.</strong> Managed services (Pinecone, Weaviate Cloud) handle snapshots automatically. For self-hosted, Qdrant exposes a <code>/snapshots</code> API; Milvus integrates with MinIO. RTO depends on snapshot frequency and segment count; plan for 10-30 minutes to restore 100M vectors from object store.</p>
+<p><strong>Crash recovery.</strong> The WAL (write-ahead log) ensures that upserts acknowledged to the client survive node crashes. On restart, the node replays the WAL before rejoining the cluster. HNSW graphs are rebuilt from persisted segment files, not the WAL, so cold start can take minutes for large segments.</p>
+<hr />
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Authentication:</strong> API key (Pinecone, Qdrant), JWT, or mTLS. Always rotate keys; use short-lived credentials for production.</li>
+<li><strong>Authorization / Multi-tenancy isolation:</strong> Namespace-level isolation (Pinecone) ensures tenant A cannot query tenant B's vectors. Collection-per-tenant (Weaviate, Qdrant) provides stronger isolation with separate indexes. RBAC at collection granularity is available in Weaviate and Milvus enterprise.</li>
+<li><strong>Encryption at rest:</strong> AES-256 for managed services. For self-hosted, use encrypted volumes (AWS EBS, GCP PD).</li>
+<li><strong>Encryption in transit:</strong> TLS 1.2+ on all API endpoints. For internal cluster communication (Milvus, Weaviate cluster), configure inter-node TLS.</li>
+<li><strong>Data residency:</strong> Pinecone pods are region-pinned. For GDPR, ensure vectors and payloads (which may contain PII) stay in the target region. Use separate collections per data-residency zone.</li>
+<li><strong>Vector poisoning:</strong> an adversary who can inject vectors can manipulate retrieval (recall-based attack on RAG). Validate and sanitize document sources before embedding; log all upsert operations for audit.</li>
+</ul>
+<hr />
+<h2 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h2>
+<p><strong>Memory is the dominant cost driver.</strong> 1M vectors at 1536 dims float32 ≈ 6 GB raw; with HNSW overhead ≈ 9-12 GB RAM. On a cloud VM with 16 GB RAM (<span class="arithmatex">\(50-100/month on GCP/AWS), that's roughly **\)</span>50-100 per million dense vectors per month** self-hosted, fully loaded.</p>
+<p><strong>Managed pricing (as of 2025):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Pricing Model</th>
+<th>Approximate Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pinecone Serverless</td>
+<td>$0.096/1M read units; $2/1M write units</td>
+<td>~$50-200/month for 10M vectors + moderate traffic</td>
+</tr>
+<tr>
+<td>Pinecone Pod (p1.x1)</td>
+<td>~$70/month per pod (1M vectors, 1 replica)</td>
+<td>Scales linearly with pods</td>
+</tr>
+<tr>
+<td>Pinecone Pod (p1.x8)</td>
+<td>~$560/month per pod (8M vectors)</td>
+<td>$70/pod × 8</td>
+</tr>
+<tr>
+<td>Weaviate Cloud (Sandbox)</td>
+<td>Free for 14 days; paid from ~$25/month</td>
+<td>Usage-based</td>
+</tr>
+<tr>
+<td>Qdrant Cloud</td>
+<td>Free tier 1GB; ~$25-100/month for production clusters</td>
+<td>Based on RAM</td>
+</tr>
+<tr>
+<td>Self-hosted Qdrant (16GB VM)</td>
+<td>~$50-100/month VM cost</td>
+<td>+ Engineering ops time</td>
+</tr>
+<tr>
+<td>pgvector (on existing Postgres)</td>
+<td>$0 additional licensing</td>
+<td>Compute overhead only</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cost levers:</strong></p>
+<ol>
+<li><strong>Quantization</strong>: scalar int8 quantization cuts memory (and cost) by 4x with &lt;2% recall loss. Binary quantization cuts by 32x but requires re-scoring.</li>
+<li><strong>Dimension reduction</strong>: PCA or Matryoshka embeddings from 1536 → 512 dims cuts memory 3x; test recall impact on your data.</li>
+<li><strong>Tiered storage (DiskANN)</strong>: keep hot vectors in RAM, cold vectors on NVMe. Milvus supports this natively. Reduces cost for large corpora with skewed access patterns.</li>
+<li><strong>Right-size replicas</strong>: replicas multiply cost but only improve QPS. If p99 &lt; 100ms with 1 replica, don't add a second just for "HA" — use cross-AZ for HA at lower cost.</li>
+<li><strong>Namespace consolidation</strong>: running 1 collection with namespaces vs 100 collections has dramatically lower overhead (no per-collection index manager processes).</li>
+</ol>
+<hr />
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<p><strong>Key metrics to alert on:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Warning Threshold</th>
+<th>Critical Threshold</th>
+<th>What It Indicates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query latency p99</td>
+<td>&gt;80ms</td>
+<td>&gt;200ms</td>
+<td>Index fragmentation, hot shard, low ef</td>
+</tr>
+<tr>
+<td>ANN recall (offline eval)</td>
+<td>&lt;95%</td>
+<td>&lt;90%</td>
+<td>Index misconfiguration, heavy deletes</td>
+</tr>
+<tr>
+<td>Shard memory usage</td>
+<td>&gt;75%</td>
+<td>&gt;90%</td>
+<td>Approaching OOM, need scale-out</td>
+</tr>
+<tr>
+<td>Tombstone ratio</td>
+<td>&gt;10%</td>
+<td>&gt;20%</td>
+<td>Need compaction trigger</td>
+</tr>
+<tr>
+<td>Write queue depth</td>
+<td>&gt;1000</td>
+<td>&gt;5000</td>
+<td>Write amplification, slow indexing</td>
+</tr>
+<tr>
+<td>Replica lag</td>
+<td>&gt;5s</td>
+<td>&gt;30s</td>
+<td>Replica falling behind, stale reads</td>
+</tr>
+<tr>
+<td>Embedding service latency</td>
+<td>&gt;20ms</td>
+<td>&gt;100ms</td>
+<td>Upstream bottleneck affecting total query latency</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tooling:</strong></p>
+<ul>
+<li>Qdrant: <code>/metrics</code> Prometheus endpoint; Grafana dashboards available in official repo.</li>
+<li>Weaviate: Prometheus + Grafana; track <code>weaviate_vector_index_operations_total</code>.</li>
+<li>Pinecone: Dashboard metrics for QPS, latency, and pod fill ratio. No custom Prometheus scraping.</li>
+<li>Milvus: built-in Grafana dashboards via Milvus Operator; tracks segment states, compaction jobs, and proxy latency.</li>
+</ul>
+<p><strong>Recall monitoring.</strong> Latency is easy to measure; recall is not. Build an offline evaluation pipeline: maintain a small labeled query set with ground-truth nearest neighbors (computed via exact search on a sample corpus), run it daily, and alert if recall@10 drops below your SLA threshold (typically 95%). Recall can degrade silently as the index grows and HNSW parameters become suboptimal.</p>
+<hr />
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Size your index before you write.</strong> Compute <code>N × D × 4 × 1.5</code> and ensure your node has 2x that in RAM. Running HNSW with &lt;20% free RAM causes thrashing and latency spikes.</p>
+</li>
+<li>
+<p><strong>Use upsert, not insert + update.</strong> All major vector DBs handle idempotent upserts natively. Separate insert/update patterns cause double-writes and index bloat.</p>
+</li>
+<li>
+<p><strong>Batch upserts.</strong> Single-vector upserts have per-request overhead. Batch in groups of 100-500 vectors for 10-20x write throughput improvement.</p>
+</li>
+<li>
+<p><strong>Pre-filter is rarely the right choice for production.</strong> Unless your filter reduces the corpus to &lt;1% of total vectors, in-query filtering (Qdrant ACORN, Weaviate ACORN-like) or post-filter with oversampling (fetch 10× k then filter) gives better recall-latency tradeoffs.</p>
+</li>
+<li>
+<p><strong>Pin your embedding model version.</strong> Embedding model updates change the vector space entirely. If you update the embedding model without re-indexing all vectors, queries and stored vectors will be in different spaces and retrieval will silently degrade. See <a href="../01-embedding-models/">Embedding Models</a> for versioning strategies.</p>
+</li>
+<li>
+<p><strong>Tune ef_search, not m, for query-time recall.</strong> <code>m</code> (number of HNSW links per node) is set at index build time and cannot be changed without full re-index. <code>ef_search</code> (search exploration factor) is a per-query parameter: increase it for higher recall at the cost of latency, decrease for speed. A good default: <code>ef_search = 2 × top_k</code>.</p>
+</li>
+<li>
+<p><strong>Plan for compaction downtime.</strong> Major compaction (full segment rebuild after bulk deletes) blocks writes on single-node deployments. In clustered setups, roll compaction across replicas to avoid downtime.</p>
+</li>
+<li>
+<p><strong>Use separate collections for incompatible embedding spaces.</strong> If your system uses multiple embedding models (e.g., multilingual + English-only), store them in separate collections with separate indexes. Cross-model ANN search is meaningless.</p>
+</li>
+<li>
+<p><strong>Cross-lingual retrieval strategy.</strong> Option A: use a single multilingual embedding model (e.g., <code>multilingual-e5-large</code>) — simpler ops, slightly lower per-language recall (~2-5% vs. language-specific models). Option B: separate indexes per language with a language-detection router — higher recall but N-times the index maintenance. For most production systems, Option A is preferred; Option B is warranted only when per-language SLA precision is contractual.</p>
+</li>
+<li>
+<p><strong>Namespace vs. collection for multi-tenancy.</strong> For &lt;100 tenants with large datasets, use separate collections (hard isolation, no cross-tenant scan risk). For 100-100,000 small tenants, use namespaces/partitions within one collection (shared index overhead amortized). See <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/">Multi-Tenancy for AI Platforms</a>.</p>
+</li>
+</ol>
+<hr />
+<h2 id="real-world-examples">Real-World Examples<a class="headerlink" href="#real-world-examples" title="Permanent link">&para;</a></h2>
+<p><strong>Notion (RAG over workspace documents).</strong> Notion's AI uses pgvector on Aurora Postgres for their initial semantic search implementation (publicly discussed at PGConf). At their scale (~10M documents per large enterprise tenant), they partition the table by workspace and use partial indexes. This works because most workspace corpora fit within pgvector's practical limit; they do not need billion-scale retrieval. The integration with existing Postgres infrastructure (connection pooling, RLS for access control, existing backups) outweighed the performance benefits of a dedicated vector DB.</p>
+<p><strong>Shopify (product recommendations).</strong> Shopify's ML platform team (per public engineering blog) uses a managed vector DB to serve embedding-based product recommendations at Shopify scale (~1.7M merchants, billions of product impressions). They run embedding generation offline (batch), store vectors with product metadata as payload, and serve real-time ANN queries filtered by merchant_id namespace.</p>
+<p><strong>Slack / Salesforce (enterprise search).</strong> Enterprises deploying RAG over Slack archives face a classic multi-tenant problem: user A must not retrieve user B's private messages. The pattern is collection-per-workspace or namespace-per-user-group, with metadata payload containing channel visibility and ACL hashes, and post-retrieval ACL enforcement as a second filter. This double-filter pattern (vector filter + ACL check) is the production-safe approach even when the vector DB offers namespace isolation.</p>
+<hr />
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What is a vector database and why can't you just use a regular SQL database for similarity search?</strong></p>
+<p>A: A vector database is a data store optimized for finding records whose stored vectors are geometrically closest to a query vector, using an ANN index (commonly HNSW or IVF-PQ) rather than B-tree or hash indexes. A regular SQL database can store vectors as <code>float[]</code> columns but must perform a full sequential scan to compute distances — O(N) per query with no index pruning. At 1M vectors and 1536 dimensions, this is billions of multiply-accumulate operations per query, taking 1-5 seconds. A vector database with HNSW can answer the same query in 10-50ms by traversing a proximity graph that was built at index time, visiting only a tiny fraction of the corpus. SQL databases also lack native support for distance metrics (cosine, dot product) and metadata filter push-down during ANN traversal.</p>
+<p><strong>Q: What is the difference between ANN and exact nearest-neighbor search? When do you use each?</strong></p>
+<p>A: Exact nearest-neighbor (KNN) compares the query against every vector, guaranteeing the true top-k by distance. It is O(N × D) per query — only practical for corpora under ~100k vectors or when recall must be 100% (medical imaging, fraud detection where a near-miss is unacceptable). ANN trades a small recall loss (typically 2-5%, meaning ~95-98 of the true top-100 are returned) for 100-1000x speedup via graph or cluster-based pruning. For semantic search and RAG, 95%+ recall is perfectly acceptable — the downstream LLM handles imprecision, and the user-facing quality difference between 95% and 100% recall is undetectable. Use exact KNN only when you can prove your corpus will stay small or when the cost of a missed true-nearest-neighbor is catastrophic.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Explain pre-filter vs post-filter vs in-query filter for metadata filtering in vector search. What are the tradeoffs?</strong></p>
+<p>A: Pre-filter applies the scalar predicate first, building a candidate set, then runs ANN over only those vectors. This is precise but slow when the filtered set is large (you lose the graph structure efficiency of HNSW — the filtered subgraph may be poorly connected). It works well only when the filter is highly selective (e.g., 0.1% of the corpus matches). Post-filter runs ANN over the full index, fetches the top-k × oversampling factor (e.g., top-500 when you need top-10), then discards results failing the predicate. Fast, but recall degrades badly when the filter is selective (most of the top-500 may be filtered out, leaving fewer than 10 valid results). In-query filter (ACORN, implemented in Qdrant and Weaviate) modifies the HNSW graph traversal itself to skip disqualified nodes, maintaining good graph connectivity. This provides the best recall-latency tradeoff for most production filter selectivities (1%-50% of corpus). The rule of thumb: if your filter passes &gt;10% of the corpus, use in-query filter; if &lt;1%, pre-filter; avoid pure post-filter unless the filter is very permissive (&gt;80%).</p>
+<p><strong>Q: How does consistent hashing enable horizontal scaling of a vector index, and what are its limitations?</strong></p>
+<p>A: Each vector is assigned to a shard by hashing its ID (e.g., using jump consistent hash or rendezvous hashing) to produce a stable shard assignment without a centralized lookup table. Each shard holds a complete HNSW graph over its subset of vectors. On query, the coordinator fans out to all shards in parallel, each shard returns its local top-k, and a k-way heap merge produces the global top-k. This is linearly scalable for reads (add shards, add replicas per shard). Limitations: (1) cross-shard graph edges don't exist, so each shard's ANN is over its local subset — recall is slightly lower than a global index at the same ef setting; compensate by fetching top-k × shard_count from each shard. (2) Adding a new shard requires rebalancing (re-routing ~1/N of vectors to the new shard and rebuilding the affected shard's HNSW graphs) — this is operationally expensive. Size shards correctly upfront. (3) Hotspot shards can occur if ID distribution is skewed; prefer random UUIDs as IDs over sequential integers.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: You have a RAG system with 500M documents, p99 latency SLA of 100ms, multi-tenant (10,000 tenants), and budget of $5,000/month. Design the vector DB layer.</strong></p>
+<p>A: At 500M documents × 1536 dims float32, the raw index size is ~3 TB before HNSW overhead — far beyond single-node capacity. This requires a distributed, sharded deployment. Budget (<span class="arithmatex">\(5,000/month) eliminates Pinecone pod-based pricing (would cost ~\)</span>35,000/month for 500M vectors at p1 pods). Options: self-hosted Milvus or Qdrant on Kubernetes.</p>
+<p>Architecture: Qdrant cluster on Kubernetes (EKS/GKE), 10 shards × 3 replicas = 30 Qdrant nodes. Each shard holds 50M vectors. With scalar quantization (float32→int8), each shard needs ~50M × 1536 × 1 × 1.5 = ~112 GB RAM. Use nodes with 128 GB RAM; at ~<span class="arithmatex">\(0.75/GB-hour on-demand (AWS r6i.4xlarge ~\)</span>1.00/hour = <span class="arithmatex">\(720/month), 30 nodes = ~\)</span>21,600/month on-demand. To hit <span class="arithmatex">\(5,000: use 3-year reserved instances (~60% discount → ~\)</span>8,640/month) or Spot instances for read replicas (~70% discount). Realistically, this use case requires ~$8-15K/month self-hosted with reserved instances and 3 replicas, or accept higher risk with spot replicas.</p>
+<p>For multi-tenancy with 10,000 tenants: use namespace partitions (not separate collections) to avoid 10,000 separate HNSW indexes. Store <code>tenant_id</code> as a payload field, use in-query filter for tenant isolation. For the largest tenants (top 1% with millions of documents each), consider separate collections. P99 &lt;100ms: with 10 shards, each shard's ANN over 50M vectors takes ~20-40ms at ef_search=64 with quantization; parallel fan-out means total ANN latency ≈ shard latency, not sum. Add 5ms embed + 5ms merge + 5ms network = ~35-55ms p50, ~80-100ms p99. This is tight; tune ef_search down to 32 if needed (check recall impact).</p>
+<p><strong>Q: A bulk delete of 20% of your 100M-vector index has caused query latency to spike and recall to drop. Walk through the diagnosis and remediation.</strong></p>
+<p>A: The root cause is tombstone accumulation. HNSW does not physically remove deleted nodes — it marks them as tombstones and skips them during traversal. With 20M tombstones (20% of 100M), traversal must visit many more nodes to find 20M non-tombstoned neighbors, increasing latency. Additionally, the HNSW graph was built with those nodes as valid navigation waypoints; their logical absence creates connectivity gaps, degrading recall (the traversal path to some true nearest neighbors may go through a tombstoned node that is now skipped, leaving a dead end). Diagnosis: check the <code>tombstone_ratio</code> metric; query the segment stats API to confirm &gt;15% tombstones. Remediation: trigger a segment compaction/rebuild. In Qdrant, call <code>POST /collections/{name}/index</code> to rebuild the HNSW index from scratch on a schedule. In Milvus, compaction is triggered automatically but can be forced via the SDK. Plan for this during off-peak: rebuilding 80M live vectors takes 45-90 minutes on a 32-core machine. To prevent recurrence: for bulk deletes, prefer re-creating the collection from a re-ingestion pipeline rather than in-place deletion; soft-delete via a <code>deleted</code> payload flag and filter it at query time until a planned rebuild window.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Your cross-lingual RAG system serves 50 languages. A multilingual embedding model gives 3% worse recall than language-specific models. How do you decide whether to use one model or multiple, and what operational implications follow from each choice?</strong></p>
+<p>A: The decision framework has two axes: recall SLA and operational cost. A 3% recall gap means if your baseline precision@10 is 80%, the multilingual model gives 77.6% — likely imperceptible to users in most RAG contexts, where the LLM compensates for minor retrieval noise. However, for high-stakes retrieval (legal documents, medical records, contractual language) in non-English languages that are underrepresented in multilingual training data, 3% can be much larger in practice (the gap for low-resource languages like Swahili or Nepali can be 10-15% vs. a fine-tuned language-specific model).</p>
+<p>Single multilingual model: one collection, one ANN index, one set of infrastructure. Ingestion pipeline has one embedding step. Query path has no language detection. Recall gap tolerated. Operational cost: 1/N of the infrastructure of the multi-model approach.</p>
+<p>Per-language model approach: 50 embedding models (realistically, a small number cover 90% of traffic — 10 models for the top 10 languages, a 51st multilingual catch-all for the long tail). Each requires its own collection (incompatible vector spaces). The routing layer detects query language and routes to the right collection. Operational cost: 50x index maintenance, 50x storage, 50x compaction windows, 50x backup jobs. Cross-language queries (translate first, then retrieve) require an additional translation hop.</p>
+<p><strong>Recommendation for most production systems:</strong> use one high-quality multilingual model (e.g., <code>multilingual-e5-large</code>, <code>paraphrase-multilingual-mpnet-base-v2</code>) with a single shared collection. If recall for specific high-value languages is contractually required to exceed the multilingual model's capability, add language-specific sub-collections only for those languages (e.g., 2-3 languages), not all 50. Accept the multilingual model for the remaining long tail. This delivers 90% of the recall benefit at 10% of the operational complexity.</p>
+<hr />
+<h2 id="google-level-follow-up-questions">Google-Level Follow-Up Questions<a class="headerlink" href="#google-level-follow-up-questions" title="Permanent link">&para;</a></h2>
+<p><strong>1. The HNSW graph is built assuming the data distribution is approximately stationary. What happens when the embedding space distribution drifts over time (e.g., new topics emerge, the embedding model is updated), and how do you detect and mitigate it?</strong></p>
+<p>Distribution drift causes the HNSW graph's navigational shortcuts to no longer reflect the true nearest-neighbor structure of the current corpus. Detection: run weekly offline recall evaluations using a labeled query set; a drop in recall@10 of &gt;2% signals structural drift. Also monitor query latency creep (more nodes visited per query = slower traversal over time). Mitigation options: (1) incremental upserts tolerate modest drift — HNSW handles new points reasonably well as long as the graph is not too stale; (2) periodic full re-index during maintenance windows (e.g., monthly); (3) if the embedding model itself changes, full re-embedding and re-indexing of all documents is mandatory — there is no shortcut. Design ingestion pipelines to be idempotent upserts keyed on document ID so re-embedding is a replay operation. Consider Matryoshka embeddings to reduce the cost of re-embedding at a smaller dimension.</p>
+<p><strong>2. A FAISS-based system in a single process achieves 10ms p99 for 10M vectors. A distributed Qdrant cluster for the same corpus achieves 45ms p99. Why the latency difference and when would you accept it?</strong></p>
+<p>FAISS in-process: the query vector and the index are in the same process memory space. ANN traversal is direct memory access with no serialization, no network hop, no TLS, no HTTP parsing. The HNSW traversal at 10M vectors at ef=64 is ~2-5ms of pure compute. Qdrant cluster adds: (1) network RTT to the Qdrant node (~1-5ms); (2) HTTP/gRPC serialization/deserialization (~1-2ms); (3) shard fan-out coordination (~2-5ms); (4) result merge over the wire. For small corpora (&lt;10M vectors), the FAISS in-process latency advantage is real and matters for applications needing &lt;20ms end-to-end (e.g., autocomplete, real-time recommendation while a user is typing). Accept the higher Qdrant latency when: (1) corpus exceeds single-process memory; (2) multiple services need to share the index; (3) persistence, RBAC, and operational tooling are required; (4) write throughput from multiple writers is needed. A hybrid: use an in-process library (LanceDB, FAISS) as a local cache for the hottest 1M vectors, backed by a distributed DB for the full corpus.</p>
+<p><strong>3. A tenant in your multi-tenant vector DB has 10x more vectors than any other tenant and is causing "noisy neighbor" latency spikes for other tenants. How do you redesign the isolation model?</strong></p>
+<p>The immediate mitigation: move the large tenant to a dedicated collection (and potentially dedicated nodes) rather than sharing a namespace. In Qdrant, use separate collections with a routing layer; in Milvus, use resource groups to pin large tenant collections to specific query nodes. At the infrastructure level, implement query-level rate limiting per tenant in the API gateway (token bucket, 1000 QPS burst, 100 QPS sustained per tenant). For long-term architecture: adopt a "whale tenant" detection heuristic at onboarding — tenants exceeding N vectors or M QPS are placed on dedicated infrastructure tiers rather than the shared pool. This is the same pattern Google uses for BigQuery slot reservations and Snowflake multi-cluster warehouses: shared for small tenants, dedicated for large ones.</p>
+<p><strong>4. You need to serve vector search with &lt;5ms p99. What architectural changes make this achievable?</strong></p>
+<p>At &lt;5ms p99, network latency alone (across datacenters) consumes most of the budget. Requirements: (1) co-locate the vector DB node in the same AZ as the application server (ideally the same host for in-process); (2) use a smaller embedding dimension (256-384 dims instead of 1536 — use Matryoshka embeddings truncated at inference time); (3) use binary quantization with in-memory indexing (no disk I/O); (4) reduce ef_search to 16-32 (accept slightly lower recall); (5) pre-warm the HNSW graph in hugepages to minimize TLB misses; (6) use gRPC (not REST) with connection pooling to eliminate connection setup latency; (7) keep the query corpus to &lt;1M vectors per node (smaller graph = fewer hops). Achieving &lt;5ms p99 at 10M+ vectors typically requires in-process FAISS with HNSW, or a highly optimized embedded library like Turbopuffer or USearch, not an off-the-shelf managed vector DB.</p>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Using pgvector without testing at target scale.</strong> Teams add pgvector in development on a 10k-row table, see 2ms queries, and assume it will scale. At 5M vectors, without an HNSW index on the <code>embedding</code> column (and without <code>SET hnsw.ef_search</code>), queries fall back to sequential scan and take seconds. Always benchmark with production-scale data before committing to pgvector for large corpora.</p>
+</li>
+<li>
+<p><strong>Not re-indexing after bulk deletes.</strong> After removing 15%+ of vectors, tombstone accumulation silently degrades both latency and recall. Teams observe "the search is getting worse" months after a corpus refresh without realizing that soft-deletes have fragmented the graph. Monitor tombstone ratio and schedule compaction proactively.</p>
+</li>
+<li>
+<p><strong>Mismatched embedding models between ingestion and query.</strong> A common mistake during model upgrades: new documents are embedded with model v2, but queries still use model v1 (or vice versa), because the embedding service was updated independently of the ingestion pipeline. Vectors from different model versions are in incompatible spaces; the ANN results are garbage. Enforce embedding model version as metadata on every vector and validate at query time.</p>
+</li>
+<li>
+<p><strong>Ignoring the cold-start memory problem.</strong> Qdrant and Weaviate load HNSW graphs into RAM on startup. On a node with 100M vectors, this can take 5-15 minutes during which the node serves no queries. Teams deploying with rolling restarts fail to account for this warmup period, causing cascading latency spikes. Pre-warm replicas before removing the old node from the load balancer.</p>
+</li>
+<li>
+<p><strong>Using one namespace per user in a high-user-count system.</strong> Creating a namespace per user for 1M users results in 1M namespace/partition metadata objects. This creates significant coordinator overhead in Qdrant/Milvus and is not the intended use of namespaces. Namespaces are for tens-to-thousands of logical tenants. For per-user isolation, store <code>user_id</code> as a payload field and use in-query filtering, with ACL enforcement at the application layer.</p>
+</li>
+<li>
+<p><strong>Treating vector similarity as a ground truth relevance score.</strong> A cosine similarity of 0.92 does not mean 92% relevant. Similarity scores are not calibrated probabilities. Teams that threshold on raw similarity scores (e.g., "only return results with similarity &gt; 0.85") get brittle behavior that varies by embedding model, query length, and domain. Use a reranker (see <a href="../04-hybrid-search-and-reranking/">Hybrid Search &amp; Reranking</a>) or relative ranking, not absolute score thresholds.</p>
+</li>
+</ol>
+<hr />
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Vector databases exist because ANN search is fundamentally incompatible with B-tree/hash indexes.</strong> The only way to achieve sub-100ms similarity search at millions-to-billions scale is a purpose-built proximity graph or cluster index (HNSW, IVF-PQ, DiskANN).</li>
+<li><strong>Memory is the first-order cost driver.</strong> 1M vectors at 1536 dims float32 ≈ 9-12 GB RAM with HNSW overhead. Scalar quantization (int8) cuts this to 3-4 GB at &lt;2% recall loss — almost always worth it in production.</li>
+<li><strong>Metadata filtering strategy determines recall more than ANN parameters.</strong> Pre-filter destroys graph structure; post-filter loses recall on selective filters; in-query filtering (ACORN) is the production choice for 1-50% selectivity filters.</li>
+<li><strong>Soft-delete + periodic compaction is the universal delete pattern.</strong> No major vector DB supports efficient immediate node removal from HNSW. Monitor tombstone ratio and compact before it exceeds 15%.</li>
+<li><strong>Embedding model version pinning is non-negotiable.</strong> A model version mismatch between stored vectors and query vectors produces semantically random results with no error signal. Treat the embedding model as a schema version.</li>
+<li><strong>Multi-tenancy strategy depends on tenant count and isolation requirements.</strong> &lt;100 large tenants → separate collections. 100-100k small tenants → namespaces within one collection. &gt;100k users → payload field + in-query filter, not namespaces.</li>
+<li><strong>For cross-lingual retrieval, a good multilingual model beats operational complexity of per-language indexes</strong> for all but the most recall-sensitive, high-value language pairs. The operational cost of 50 separate indexes is rarely justified by a 2-5% recall improvement.</li>
+<li><strong>Choose the deployment model first, then the product.</strong> Prototype (&lt;1M vectors, no ops) → Chroma/LanceDB. SQL-ecosystem, &lt;5M vectors → pgvector. Managed, no ops, any scale → Pinecone. Self-hosted, best perf/$ → Qdrant. Enterprise Kubernetes, billions of vectors → Milvus.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Retrieval Systems</a> in the <a href="../../">AI System Design Notes</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../01-embedding-models/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Embedding Models">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Embedding Models
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03-indexing-algorithms-ann/" class="md-footer__link md-footer__link--next" aria-label="Next: Indexing Algorithms (ANN/HNSW/IVF)">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Indexing Algorithms (ANN/HNSW/IVF)
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

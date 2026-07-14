@@ -1,0 +1,7646 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/05-retrieval-systems/03-indexing-algorithms-ann/">
+      
+      
+        <link rel="prev" href="../02-vector-databases/">
+      
+      
+        <link rel="next" href="../04-hybrid-search-and-reranking/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Indexing Algorithms (ANN/HNSW/IVF) - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#indexing-algorithms-annhnswivf" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Indexing Algorithms (ANN/HNSW/IVF)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-exact-search-to-approximate-nearest-neighbor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Exact Search to Approximate Nearest Neighbor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hnsw-hierarchical-navigable-small-world" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNSW: Hierarchical Navigable Small World
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ivf-and-product-quantization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IVF and Product Quantization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diskann-and-ssd-resident-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DiskANN and SSD-Resident Indexes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recallk-the-only-metric-that-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall@K: The Only Metric That Matters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-build-and-query-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Build and Query Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#algorithm-selection-by-workload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm Selection by Workload
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recall-latency-and-memory-tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall, Latency, and Memory Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Google-Level Follow-Up Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-your-hnsw-index-achieves-098-recall10-in-offline-eval-but-only-091-in-ab-test-whats-happening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. "Your HNSW index achieves 0.98 Recall@10 in offline eval but only 0.91 in A/B test. What's happening?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-if-ivf-pq-recall-degrades-when-you-add-new-vectors-without-rebuilding-can-you-quantify-the-degradation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. "If IVF-PQ recall degrades when you add new vectors without rebuilding, can you quantify the degradation?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-how-would-you-guarantee-recall10-099-for-a-safety-critical-retrieval-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. "How would you guarantee Recall@10 ≥ 0.99 for a safety-critical retrieval system?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-diskann-claims-1b-vectors-in-64gb-ram-where-exactly-does-the-data-live-and-what-are-the-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. "DiskANN claims 1B vectors in &lt; 64GB RAM. Where exactly does the data live, and what are the failure modes?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../17-distributed-inference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/01-tensor-and-pipeline-parallelism/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../17-distributed-inference/03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-exact-search-to-approximate-nearest-neighbor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Exact Search to Approximate Nearest Neighbor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Concepts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hnsw-hierarchical-navigable-small-world" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNSW: Hierarchical Navigable Small World
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ivf-and-product-quantization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IVF and Product Quantization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diskann-and-ssd-resident-indexes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DiskANN and SSD-Resident Indexes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recallk-the-only-metric-that-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall@K: The Only Metric That Matters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#index-build-and-query-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Index Build and Query Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#algorithm-selection-by-workload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Algorithm Selection by Workload
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recall-latency-and-memory-tradeoffs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall, Latency, and Memory Tradeoffs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scalability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reliability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost Optimization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-up-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Up Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Google-Level Follow-Up Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-your-hnsw-index-achieves-098-recall10-in-offline-eval-but-only-091-in-ab-test-whats-happening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. "Your HNSW index achieves 0.98 Recall@10 in offline eval but only 0.91 in A/B test. What's happening?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-if-ivf-pq-recall-degrades-when-you-add-new-vectors-without-rebuilding-can-you-quantify-the-degradation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. "If IVF-PQ recall degrades when you add new vectors without rebuilding, can you quantify the degradation?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-how-would-you-guarantee-recall10-099-for-a-safety-critical-retrieval-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. "How would you guarantee Recall@10 ≥ 0.99 for a safety-critical retrieval system?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-diskann-claims-1b-vectors-in-64gb-ram-where-exactly-does-the-data-live-and-what-are-the-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. "DiskANN claims 1B vectors in &lt; 64GB RAM. Where exactly does the data live, and what are the failure modes?"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Retrieval Systems
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/05-retrieval-systems/03-indexing-algorithms-ann.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="indexing-algorithms-annhnswivf">Indexing Algorithms (ANN/HNSW/IVF)<a class="headerlink" href="#indexing-algorithms-annhnswivf" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Approximate Nearest Neighbor (ANN) search is the engine behind every production vector retrieval system: instead of scanning every vector to find the closest match, these algorithms trade a small amount of recall for orders-of-magnitude speedups. The three dominant families—graph-based (HNSW), cluster-based (IVF), and compression-based (PQ)—each make different tradeoffs across memory, latency, recall, and update frequency. Choosing the right algorithm for a given corpus size, query budget, and memory envelope is one of the highest-leverage infrastructure decisions in any AI-powered system.</p>
+<h2 id="from-exact-search-to-approximate-nearest-neighbor">From Exact Search to Approximate Nearest Neighbor<a class="headerlink" href="#from-exact-search-to-approximate-nearest-neighbor" title="Permanent link">&para;</a></h2>
+<p>Exact nearest neighbor search over a corpus of N vectors each with dimensionality d requires computing N distance calculations per query, each taking O(d) time—giving O(N×d) total work. At N=100M vectors with d=1536 (OpenAI text-embedding-3-large dimensions), that is 1.536×10¹¹ floating-point operations per query. At 1 GFLOP/s per CPU core, a single query takes ~153 seconds. Even with a 32-core server doing 32 GFLOPs/s, you are looking at ~5 seconds per query—completely infeasible for a latency-sensitive application. Additionally, storing 100M × 1536 × 4 bytes = 614 GB of float32 vectors exhausts the RAM of all but the largest servers, so exact search is doubly infeasible: too slow and too large to fit in memory. ANN algorithms solve both problems simultaneously.</p>
+<p>Early information retrieval used inverted indexes over token IDs (BM25); these are exact and cheap because token vocabularies are small. When dense embedding models began producing high-dimensional continuous vectors in the 2010s, practitioners first tried tree-based approaches: KD-trees and ball-trees partition the space recursively, giving O(log N) expected query time. This works well up to d≈20, but in high dimensions (d&gt;100) the partitioning degenerates—every query visits nearly all nodes ("curse of dimensionality")—so trees offer no speedup over brute force above ~100 dimensions.</p>
+<p>Locality Sensitive Hashing (LSH) was the next attempt: hash similar vectors into the same bucket so only bucket members need comparison. LSH works but requires many hash tables for good recall (memory-expensive) and performs poorly on modern GPU hardware. Around 2016, graph-based methods matured: the NSW (Navigable Small World) paper showed that a proximity graph with short- and long-range edges enables greedy nearest-neighbor routing in O(log N) hops. HNSW (2016, Malkov &amp; Yashunin) added a hierarchical layer structure that made the routing logarithmically efficient even as N grows. Simultaneously, FAISS (Johnson et al., 2017) made IVF-PQ a practical billion-scale baseline with GPU acceleration. By 2020, these two lineages—graph-based and quantization-based—dominated production deployments, with DiskANN (2019) adding an SSD-resident variant for datasets too large for DRAM.</p>
+<p>The fundamental recall-latency-memory triangle governs every ANN decision: you can improve any two axes only by sacrificing the third. Higher recall requires examining more candidates (higher latency) or storing more index structure (more memory). Lower latency requires examining fewer candidates (lower recall) or compressing the index (lower memory, but more quantization error). Every parameter in every algorithm is ultimately a point on this triangle.</p>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<p><strong>Distance metric</strong>: All ANN algorithms operate over a distance function. Inner product (IP) and L2 Euclidean are most common; cosine similarity reduces to IP after L2 normalization. The choice of metric is baked into the index at build time and cannot be changed without rebuilding.</p>
+<p><strong>Recall@K</strong>: The fraction of true top-K nearest neighbors returned by the ANN query. Recall@10 = 0.97 means 9.7 of the true 10 nearest neighbors are returned on average. This is the only quality metric that matters in production; latency and memory are constraint axes.</p>
+<p><strong>ef (exploration factor)</strong>: In HNSW, the number of candidate neighbors examined during the greedy search. Higher ef → higher recall → higher latency. This is the primary runtime knob to tune recall vs. latency.</p>
+<p><strong>M (max connections)</strong>: In HNSW, the maximum number of bi-directional edges per node in the graph. M=16 is the typical default; M=32 improves recall at 2x memory cost. Each edge is 8 bytes (int64 node ID), so M=16 adds 16×2×8 = 256 bytes of edge storage per vector (both directions), totaling ~50-100 bytes of graph overhead per vector depending on the layer distribution.</p>
+<p><strong>ef_construction</strong>: The exploration factor used during HNSW index build. Higher ef_construction → better-connected graph → higher recall at query time, but slower build. Typical values: 100–400.</p>
+<p><strong>nlist</strong>: In IVF, the number of Voronoi cells (clusters) from the k-means partitioning. Typical values: 1024–65536 depending on corpus size. The rule of thumb is <code>nlist ≈ sqrt(N)</code> for N vectors.</p>
+<p><strong>nprobe</strong>: The number of IVF clusters examined per query. nprobe=1 is fastest but lowest recall; nprobe=nlist is exact search. Recall@10 ≈ 0.97 is achievable with nprobe=64, nlist=2048 on typical text embedding corpora.</p>
+<p><strong>PQ (Product Quantization)</strong>: Splits the d-dimensional vector into m equal subspaces of d/m dimensions each, then quantizes each subspace to one of 256 centroids (8 bits). A 1536-dim float32 vector (6144 bytes) compressed with m=48 subspaces occupies 48 bytes—a 128x compression ratio. Codebooks are trained once on a representative sample (typically 10–100x nlist vectors).</p>
+<p><strong>FAISS</strong>: The de-facto reference library implementing Flat (brute-force), IVF, IVF-PQ, HNSW, and combinations. Provides both CPU and GPU backends; GPU IVF-PQ can sustain ~1M queries/second on a single V100.</p>
+<h2 id="hnsw-hierarchical-navigable-small-world">HNSW: Hierarchical Navigable Small World<a class="headerlink" href="#hnsw-hierarchical-navigable-small-world" title="Permanent link">&para;</a></h2>
+<p>HNSW is a graph-based index where vectors are nodes in a multi-layer proximity graph. It achieves O(log N) expected query time by combining a skip-list-like hierarchical structure with greedy graph traversal.</p>
+<p><strong>Layered graph structure</strong>: HNSW builds a hierarchy of graphs. The top layer (Layer 2 and above) is sparse, containing only ~1% of all nodes, with long-range edges that provide fast global navigation. The middle layers contain increasing fractions of nodes. Layer 0 (the bottom layer) contains all N nodes, each connected to M=16 neighbors via bidirectional edges. The probability of a node appearing in layer l decreases exponentially with l, controlled by a normalization factor (typically 1/ln(M)).</p>
+<p><strong>Construction</strong>: To insert a new vector, HNSW randomly assigns it a maximum layer (drawn from the exponential distribution). Starting from the entry point at the top layer, a greedy search finds the ef_construction=200-500 nearest existing neighbors at each layer, then connects the new node to the M=16 closest ones with bidirectional edges. The entry point (the single node at the highest layer) changes rarely—only when a new node is assigned a higher layer than the current entry point.</p>
+<p><strong>Query</strong>: A query starts at the entry point in the top layer. At each layer, greedy descent selects the neighbor closest to the query and moves there, repeating until no closer neighbor exists. At Layer 0, an ef_search=100-200 candidate priority queue explores the neighborhood more thoroughly before returning the top-K results. The multi-layer structure means long-range edges carry the search to the right region of space in O(log N) hops, and the dense Layer 0 provides fine-grained local search.</p>
+<p><strong>Key parameters</strong>:
+- M (neighbors per node): typically 16–64. M=16 is the default; M=32 doubles memory but improves recall ~1%.
+- ef_construction: typically 200–500. Higher values produce a better-connected graph but slow builds.
+- ef_search: typically 100–200. This is the primary runtime tuning knob; it can be changed without rebuilding.</p>
+<p><strong>Memory</strong>: O(M × N × 4 bytes) for graph edges, plus O(N × d × 4 bytes) for raw vectors. For 1M vectors with M=16 and d=1536: graph overhead ≈ 16 × 2 × 8 × 1M = 256 MB; raw vectors = 6 GB. Total ~6.25 GB for 1M vectors.</p>
+<p><strong>Query time</strong>: O(log N) expected hops across layers; in practice p50 is 1-5ms for N≤10M, rising slowly with N due to the logarithmic scaling.</p>
+<pre class="mermaid"><code>flowchart LR
+    A[Document Corpus&lt;br/&gt;text / images / code] --&gt; B[Embedding Model&lt;br/&gt;1536-dim float32 vectors]
+    B --&gt; C[Index Build Pipeline]
+    C --&gt; D[HNSW Graph Index&lt;br/&gt;~100 bytes/vector]
+    C --&gt; E[IVF Cluster Index&lt;br/&gt;coarse quantizer + lists]
+    C --&gt; F[PQ Codebook&lt;br/&gt;48 bytes/vector]
+    D &amp; E &amp; F --&gt; G[ANN Query Engine]
+    H[Query Vector] --&gt; G
+    G --&gt; I[Top-K Results&lt;br/&gt;Recall@10 ≥ 0.95]
+    I --&gt; J[Hybrid Search &amp; Reranking&lt;br/&gt;04-hybrid-search]
+
+    style A fill:#1e293b,color:#e2e8f0
+    style B fill:#1e293b,color:#e2e8f0
+    style C fill:#0f4c81,color:#e2e8f0
+    style D fill:#155724,color:#e2e8f0
+    style E fill:#155724,color:#e2e8f0
+    style F fill:#155724,color:#e2e8f0
+    style G fill:#0f4c81,color:#e2e8f0
+    style H fill:#1e293b,color:#e2e8f0
+    style I fill:#1e293b,color:#e2e8f0
+    style J fill:#1e293b,color:#e2e8f0</code></pre>
+<h2 id="ivf-and-product-quantization">IVF and Product Quantization<a class="headerlink" href="#ivf-and-product-quantization" title="Permanent link">&para;</a></h2>
+<p>IVF-PQ combines two orthogonal ideas: coarse partitioning via Inverted File Index (IVF) to narrow the search space, and Product Quantization (PQ) to compress vectors for memory-efficient distance computation.</p>
+<p><strong>IVF — Inverted File Index</strong>: The corpus is partitioned into nlist centroids (typically 4096) via k-means clustering, trained once offline on a representative sample. Each vector is assigned to its nearest centroid and stored in that centroid's inverted list. At query time, only nprobe nearest centroids (typically 64) are searched—so instead of scanning all N vectors, the query scans only nprobe × (N/nlist) ≈ 64 × (N/4096) ≈ 1.5% of the corpus. The coarse quantizer itself is cheap: finding the nearest centroid is a single brute-force scan over nlist centroids (not N vectors).</p>
+<p><strong>PQ — Product Quantization</strong>: Each 1536-dim float32 vector (6144 bytes) is split into 48 sub-vectors of 32 dimensions each. Each sub-vector is quantized to one of 256 centroids (trained separately per subspace), stored as 1 byte. Total: 48 bytes per vector—a 128x compression ratio versus the original 6144 bytes.</p>
+<p><strong>Combined IVF-PQ</strong>: Each inverted list stores only the 48-byte PQ codes (not the full 6144-byte float32 vectors). Query-time distance computation uses Asymmetric Distance Computation (ADC): precompute a 48×256 lookup table of distances between the query and all subspace centroids, then sum 48 table lookups per candidate—~48 additions instead of 1536 multiplications for exact distance, giving an additional ~30x compute speedup.</p>
+<p><strong>Recall tradeoff</strong>: nprobe=1 is fastest but lowest recall; nprobe=64 achieves Recall@10 ≈ 0.95+ on typical text embedding corpora; nprobe=nlist is the maximum recall achievable (equivalent to full IVF scan with PQ-level approximation). PQ compression introduces quantization error that caps recall even at nprobe=nlist; increasing m (more subspaces) reduces this error at the cost of higher memory.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph HNSW ["HNSW Graph Index"]
+        direction TB
+        L2["Layer 2 (top)&lt;br/&gt;sparse long-range edges&lt;br/&gt;~1% of nodes"]
+        L1["Layer 1 (mid)&lt;br/&gt;medium density&lt;br/&gt;~10% of nodes"]
+        L0["Layer 0 (bottom)&lt;br/&gt;dense graph, ALL nodes&lt;br/&gt;M=16 edges per node"]
+        L2 --&gt;|greedy descent| L1
+        L1 --&gt;|greedy descent| L0
+        EP["Entry Point&lt;br/&gt;single node,&lt;br/&gt;changes rarely"]
+        EP --&gt; L2
+    end
+
+    subgraph IVF ["IVF-PQ Index"]
+        direction TB
+        CQ["Coarse Quantizer&lt;br/&gt;k-means, nlist=2048 centroids&lt;br/&gt;trained once offline"]
+        IL1["Inverted List 1&lt;br/&gt;IDs + PQ codes&lt;br/&gt;48 bytes/vector"]
+        IL2["Inverted List 2&lt;br/&gt;..."]
+        ILN["Inverted List nlist&lt;br/&gt;..."]
+        CQ --&gt; IL1
+        CQ --&gt; IL2
+        CQ --&gt; ILN
+    end
+
+    subgraph PQ ["PQ Codebook"]
+        direction LR
+        S1["Subspace 1&lt;br/&gt;32-dim → 8 bits"]
+        S2["Subspace 2&lt;br/&gt;32-dim → 8 bits"]
+        SN["Subspace 48&lt;br/&gt;32-dim → 8 bits"]
+        CB["Codebook&lt;br/&gt;48 × 256 centroids"]
+        S1 &amp; S2 &amp; SN --&gt; CB
+    end
+
+    Q["Query Vector"] --&gt; HNSW
+    Q --&gt; IVF
+    IVF --&gt; PQ</code></pre>
+<h2 id="diskann-and-ssd-resident-indexes">DiskANN and SSD-Resident Indexes<a class="headerlink" href="#diskann-and-ssd-resident-indexes" title="Permanent link">&para;</a></h2>
+<p><strong>The problem</strong>: HNSW requires keeping the entire graph and raw vectors in RAM. For 1B vectors with M=16 and d=1536: graph overhead alone is 16 × 2 × 8 × 1B ≈ 256 GB RAM; raw vectors add another 6 TB. This is prohibitive for most production deployments.</p>
+<p><strong>Solution — Vamana graph on SSD</strong>: DiskANN (Microsoft Research, 2019) builds a Vamana graph (similar to HNSW's Layer 0 but optimized for SSD access patterns) and stores the full graph and raw vectors on NVMe SSD. Only two data structures live in RAM: (1) PQ-compressed codes for all nodes (~4-8 bytes/vector), used for fast candidate pruning without SSD reads; and (2) a hot-set cache of the most frequently traversed graph nodes (power-law access patterns mean ~10-20% of nodes cover ~80% of traversals).</p>
+<p><strong>Architecture</strong>:
+- Compressed adjacency list (graph edges + vector IDs) on SSD: ~64 bytes/vector
+- Full float32 vectors on SSD: 6144 bytes/vector (read only for final reranking of top candidates)
+- PQ codes in RAM: 4-8 bytes/vector for distance approximation during graph traversal
+- Hot-node cache in RAM: covers frequently visited nodes to reduce SSD seeks</p>
+<p><strong>Performance</strong>: Handles 10B+ vectors on a single server with &lt;64 GB RAM. Query latency is 10-100ms (dominated by NVMe seek latency of ~100 microseconds per random read × ~100-500 graph hops). Throughput is lower than HNSW or IVF-PQ in RAM, but the cost per vector is orders of magnitude lower.</p>
+<p><strong>When to use DiskANN</strong>: datasets too large for HNSW to fit in RAM (&gt;200M vectors for typical d=1536), where 10-100ms query latency is acceptable, and the use case can tolerate batch-only updates (DiskANN does not support online inserts; new vectors require a graph merge or full rebuild).</p>
+<p><strong>Component reference</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+<th>Key Parameters</th>
+<th>Memory Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flat (brute-force)</strong></td>
+<td>Exact search, O(N×d)</td>
+<td>—</td>
+<td>d × 4 bytes/vector (6 KB at d=1536)</td>
+</tr>
+<tr>
+<td><strong>HNSW graph</strong></td>
+<td>Multi-layer proximity graph, greedy routing</td>
+<td>M, ef_construction, ef</td>
+<td>~50-100 bytes overhead/vector (M=16)</td>
+</tr>
+<tr>
+<td><strong>IVF coarse quantizer</strong></td>
+<td>k-means partitioner, assigns vectors to clusters</td>
+<td>nlist</td>
+<td>nlist × d × 4 bytes (small)</td>
+</tr>
+<tr>
+<td><strong>Inverted lists</strong></td>
+<td>Per-cluster storage of vector IDs (+ PQ codes if using IVF-PQ)</td>
+<td>nlist, nprobe</td>
+<td>N × (4 + pq_bytes) bytes</td>
+</tr>
+<tr>
+<td><strong>PQ codebook</strong></td>
+<td>Subspace quantizer, compresses each vector to m bytes</td>
+<td>m (subspaces), nbits</td>
+<td>m × 2^nbits × (d/m) × 4 bytes</td>
+</tr>
+<tr>
+<td><strong>DiskANN graph</strong></td>
+<td>Graph index stored on SSD; RAM holds only compressed PQ vectors</td>
+<td>R (graph degree), L (search list)</td>
+<td>~4-8 bytes/vector in RAM; full vectors on SSD</td>
+</tr>
+<tr>
+<td><strong>ScaNN (Google)</strong></td>
+<td>Anisotropic quantization; scores candidate pool with exact distances</td>
+<td>num_leaves, num_leaves_to_search</td>
+<td>Similar to IVF-PQ</td>
+</tr>
+<tr>
+<td><strong>FAISS GPU index</strong></td>
+<td>IVF-PQ on GPU VRAM; ~1M QPS on V100</td>
+<td>nlist, nprobe, m</td>
+<td>VRAM-bound</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart LR
+    subgraph RAM ["RAM (~64 GB for 1B vectors)"]
+        PQ["PQ Codes\n4–8 bytes/vector\nFast distance approximation\nduring graph traversal"]
+        HOT["Hot-Node Cache\n~10–20% of nodes\nCovers ~80% of traversals\nPower-law access pattern"]
+    end
+    subgraph SSD ["NVMe SSD (5–10 TB for 1B vectors)"]
+        GRAPH["Vamana Graph\nCompressed adjacency list\n~64 bytes/vector\nGraph edges + vector IDs"]
+        VECS["Full Float32 Vectors\n6144 bytes/vector\nRead only for final reranking\nof top-K candidates"]
+    end
+    Q([Query Vector]) --&gt; PQDIST["PQ Distance Approx\nin RAM — fast"]
+    PQ --&gt; PQDIST
+    HOT --&gt; TRAV["Graph Traversal\nGreedy beam search\n100–500 hops"]
+    GRAPH --&gt; TRAV
+    PQDIST --&gt; TRAV
+    TRAV --&gt; RERANK["Exact Reranking\nRead full vectors from SSD\nfor top-50 candidates only"]
+    VECS --&gt; RERANK
+    RERANK --&gt; OUT(["Top-K Results\n10–100 ms latency\n&lt; 64 GB RAM for 1B+ vectors"])</code></pre>
+<h2 id="recallk-the-only-metric-that-matters">Recall@K: The Only Metric That Matters<a class="headerlink" href="#recallk-the-only-metric-that-matters" title="Permanent link">&para;</a></h2>
+<p><strong>Definition</strong>: Recall@K = |ANN_top_K ∩ exact_top_K| / K. It measures what fraction of the true K nearest neighbors (as determined by brute-force exact search) the ANN algorithm actually returns. Recall@10 = 0.97 means 9.7 of the true 10 nearest neighbors are returned on average.</p>
+<p><strong>Why not precision, F1, or latency alone</strong>: Precision@K equals Recall@K for symmetric top-K retrieval (both numerator and denominator are K), so it provides no additional information. F1 averages precision and recall but is misleading when the positive class is sparse. Latency alone tells you nothing about correctness—a system returning random results in 1ms has perfect latency and zero recall. The downstream ranker (see Hybrid Search &amp; Reranking) cannot recover results that were never retrieved; high recall is a prerequisite for all subsequent quality improvements.</p>
+<p><strong>Benchmarking process</strong>:
+1. Sample 10K representative queries from your production query log (not the ANN-Benchmarks datasets, which may not match your embedding geometry).
+2. Run exact brute-force KNN on all 10K queries against the full corpus; record the true top-10 for each query.
+3. Run your ANN algorithm on the same 10K queries; compare returned results to ground truth.
+4. Report Recall@10 as the average fraction overlap. Also report p5 and p95 to catch distribution tails.</p>
+<p><strong>Typical production targets</strong>: Recall@10 &gt; 0.95 for most RAG and search applications; Recall@10 &gt; 0.99 for safety-critical retrieval (medical, legal, compliance).</p>
+<p><strong>Impact of tuning parameters on recall</strong>:
+- HNSW: ef_search=50 → Recall@10 ≈ 0.90; ef_search=100 → ≈ 0.97; ef_search=200 → ≈ 0.99. Latency roughly doubles with each doubling of ef_search.
+- IVF-PQ: nprobe=16 → Recall@10 ≈ 0.80; nprobe=64 → ≈ 0.95; nprobe=256 → ≈ 0.99. Latency scales linearly with nprobe.
+- Both parameters are runtime-tunable without rebuilding the index—this is the cheapest way to improve recall in a running system.</p>
+<pre class="mermaid"><code>flowchart LR
+    PQL["Production Query Log\n10K representative queries\nNot ANN-Benchmarks datasets"] --&gt; EXACT
+    PQL --&gt; ANN
+
+    EXACT["Exact Brute-Force KNN\nO(N×d) over full corpus\nRecord true top-10 per query\n(ground truth)"]
+    ANN["ANN Search\nHNSW or IVF-PQ\nCurrent index config\nRecord returned top-10"]
+
+    EXACT --&gt; CMP["Compare Results\nRecall@10 = |ANN ∩ exact| / 10\nper query — then average"]
+    ANN --&gt; CMP
+
+    CMP --&gt; AGG["Aggregate\nMean Recall@10\n+ p5, p95 tails"]
+    AGG --&gt; CHECK{Meets target?}
+    CHECK --&gt;|"Recall@10 &lt; 0.95"| TUNE["Tune Parameters\nHNSW: ↑ ef_search\nIVF-PQ: ↑ nprobe\nNo index rebuild needed"]
+    TUNE --&gt; ANN
+    CHECK --&gt;|"Recall@10 ≥ 0.95"| OK(["Production Ready\nGeneral RAG / search"])
+    CHECK --&gt;|"Recall@10 ≥ 0.99"| SAFE(["Safety-Critical OK\nMedical / legal / compliance"])</code></pre>
+<h2 id="index-build-and-query-lifecycle">Index Build and Query Lifecycle<a class="headerlink" href="#index-build-and-query-lifecycle" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Client
+    participant IndexService
+    participant HNSWIndex
+    participant IVFPQIndex
+
+    Note over Client,IVFPQIndex: === INDEX BUILD PHASE (offline) ===
+
+    Client-&gt;&gt;IndexService: build_index(corpus, algo=HNSW, M=16, ef_construction=200)
+    Note over IndexService: Embed corpus: ~1s per 1K vectors (batch GPU)
+    loop For each vector (100M total)
+        IndexService-&gt;&gt;HNSWIndex: insert(vector_id, embedding)
+        Note over HNSWIndex: Greedy search to find neighbors&lt;br/&gt;Insert edges in O(log N) layers&lt;br/&gt;~100ms per node at ef_construction=200
+    end
+    Note over HNSWIndex: Total build: ~2-8 hours, 32 CPU cores&lt;br/&gt;Peak RAM: ~614 GB raw + index overhead
+
+    Client-&gt;&gt;IndexService: build_index(corpus, algo=IVF_PQ, nlist=2048, m=48)
+    IndexService-&gt;&gt;IVFPQIndex: train(sample 100K vectors)
+    Note over IVFPQIndex: k-means (nlist clusters): ~5-10 min&lt;br/&gt;PQ codebook training: ~2-5 min
+    IndexService-&gt;&gt;IVFPQIndex: add_with_ids(all 100M vectors)
+    Note over IVFPQIndex: Assign + compress: ~30-60 min on CPU&lt;br/&gt;or ~5-10 min on GPU&lt;br/&gt;Result: ~50 bytes/vector = ~5 GB total
+
+    Note over Client,IVFPQIndex: === QUERY PHASE (online) ===
+
+    Client-&gt;&gt;IndexService: search(query_text, top_k=10)
+    IndexService-&gt;&gt;IndexService: embed(query_text) [~10ms GPU, ~50ms CPU]
+
+    alt HNSW query path
+        IndexService-&gt;&gt;HNSWIndex: knn_query(query_vec, k=10, ef=100)
+        Note over HNSWIndex: Enter at top layer, greedy descend&lt;br/&gt;At Layer 0: expand ef=100 candidates
+        HNSWIndex--&gt;&gt;IndexService: top-10 IDs [p50: 1-5ms, p99: 15ms]
+    else IVF-PQ query path
+        IndexService-&gt;&gt;IVFPQIndex: search(query_vec, k=10, nprobe=64)
+        Note over IVFPQIndex: 1. Coarse quantizer: find nearest nprobe=64 clusters [&lt;1ms]&lt;br/&gt;2. Scan ~nprobe×(N/nlist) ≈ 3100 PQ-compressed vectors [&lt;2ms]&lt;br/&gt;3. ADC (Asymmetric Distance Computation) rerank [&lt;1ms]
+        IVFPQIndex--&gt;&gt;IndexService: top-10 IDs [p50: 1-3ms, p99: 10ms]
+    end
+
+    IndexService--&gt;&gt;Client: {ids, distances, metadata} [total e2e: ~20-60ms]</code></pre>
+<p><strong>Build phase</strong>: HNSW inserts vectors one at a time, constructing graph edges incrementally; each insert is O(log N) but the constant is large (ef_construction=200 candidate explorations per layer). IVF-PQ build has two stages: training (k-means for nlist centroids + PQ codebook, done on a sample) and indexing (assigning and compressing all N vectors). IVF-PQ builds 5-10x faster than HNSW for the same corpus.</p>
+<p><strong>Incremental insert</strong>: HNSW supports online inserts natively—new vectors get graph edges immediately and are visible to queries within milliseconds. IVF-PQ supports adding vectors to existing inverted lists (<code>faiss.add_with_ids</code>) but recall degrades over time as lists become imbalanced; a periodic full rebuild is required to restore recall.</p>
+<p><strong>Query phase</strong>: Both algorithms follow the same logical flow: embed the query text (~10ms GPU), search the index (1-5ms for HNSW or IVF-PQ at typical ef/nprobe), then pass results to post-filtering (metadata predicates) and reranking (cross-encoder or hybrid score fusion).</p>
+<h2 id="algorithm-selection-by-workload">Algorithm Selection by Workload<a class="headerlink" href="#algorithm-selection-by-workload" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    START([Choose ANN Algorithm]) --&gt; Q1{Corpus size?}
+
+    Q1 --&gt;|"&lt; 100K vectors"| FLAT[Flat / Brute-Force&lt;br/&gt;Recall@10 = 1.0&lt;br/&gt;&lt; 1ms query latency&lt;br/&gt;No build step needed]
+
+    Q1 --&gt;|"100K – 50M vectors"| Q2{Memory budget?}
+    Q2 --&gt;|"RAM available&lt;br/&gt;(~50-100 bytes/vec)"| Q3{Update frequency?}
+    Q3 --&gt;|"Incremental updates&lt;br/&gt;(streaming inserts)"| HNSW[HNSW&lt;br/&gt;Supports online inserts&lt;br/&gt;Recall@10 ≈ 0.98&lt;br/&gt;1-5ms query p50]
+    Q3 --&gt;|"Batch rebuild OK&lt;br/&gt;(nightly/weekly)"| Q4{GPU available?}
+    Q4 --&gt;|Yes| IVFPQ_GPU[IVF-PQ on GPU&lt;br/&gt;~1M QPS on V100&lt;br/&gt;Recall@10 ≈ 0.90-0.95]
+    Q4 --&gt;|No| IVFPQ_CPU[IVF-PQ on CPU&lt;br/&gt;~50 bytes/vector&lt;br/&gt;nprobe tunable at runtime]
+
+    Q2 --&gt;|"RAM constrained&lt;br/&gt;(need &lt; 10 bytes/vec)"| SCANN[ScaNN or IVF-PQ&lt;br/&gt;+ quantized storage&lt;br/&gt;Anisotropic quantization&lt;br/&gt;for inner product tasks]
+
+    Q1 --&gt;|"&gt; 50M vectors&lt;br/&gt;or dataset &gt; RAM"| Q5{Can afford SSD latency?}
+    Q5 --&gt;|"Yes (10-100ms ok)"| DISKANN[DiskANN&lt;br/&gt;1B+ vectors in &lt; 64GB RAM&lt;br/&gt;Graph on SSD, PQ in RAM&lt;br/&gt;10-100ms query latency]
+    Q5 --&gt;|"No (need &lt; 5ms)"| Q6{Budget for large RAM?}
+    Q6 --&gt;|Yes| HNSW_LARGE[HNSW + sharding&lt;br/&gt;Partition corpus across nodes&lt;br/&gt;Merge top-K results]
+    Q6 --&gt;|No| IVFPQ_LARGE[IVF-PQ sharded&lt;br/&gt;50 bytes/vector&lt;br/&gt;Horizontal scale-out]
+
+    style FLAT fill:#155724,color:#fff
+    style HNSW fill:#0f4c81,color:#fff
+    style IVFPQ_GPU fill:#0f4c81,color:#fff
+    style IVFPQ_CPU fill:#0f4c81,color:#fff
+    style SCANN fill:#5a2d82,color:#fff
+    style DISKANN fill:#7b3f00,color:#fff
+    style HNSW_LARGE fill:#0f4c81,color:#fff
+    style IVFPQ_LARGE fill:#0f4c81,color:#fff</code></pre>
+<p><strong>Decision criteria</strong>:
+- <strong>Dataset size</strong>: The single biggest factor. Under 100K vectors, brute-force Flat index is exact, trivially fast, and requires no build step. 100K–50M vectors: HNSW or IVF-PQ depending on memory and update pattern. 50M–1B: IVF-PQ (with GPU if throughput demands). Over 1B or dataset exceeds available DRAM: DiskANN.
+- <strong>Memory budget</strong>: HNSW at M=16 requires ~50-100 bytes of overhead per vector beyond raw vector storage. IVF-PQ compresses each vector to ~50 bytes total. DiskANN keeps only ~4-8 bytes/vector in RAM (PQ codes), storing the rest on SSD.
+- <strong>Latency requirement</strong>: HNSW and IVF-PQ deliver 1-5ms p50 in RAM. DiskANN delivers 10-100ms (SSD-bound). Brute-force is &lt;1ms for corpora under ~100K.
+- <strong>Update frequency</strong>: Streaming inserts → HNSW only (supports online inserts). Weekly batch rebuild → any algorithm, but IVF-PQ is preferred for memory efficiency.</p>
+<p><strong>Algorithm selection summary</strong>:
+- <strong>HNSW wins</strong>: ≤100M vectors, RAM available, streaming inserts needed, or highest possible recall required.
+- <strong>IVF-PQ wins</strong>: 100M–1B vectors, tight memory budget, GPU throughput required, or batch updates are acceptable.
+- <strong>DiskANN wins</strong>: &gt;1B vectors or dataset exceeds DRAM, and 10-100ms latency is acceptable.</p>
+<h2 id="recall-latency-and-memory-tradeoffs">Recall, Latency, and Memory Tradeoffs<a class="headerlink" href="#recall-latency-and-memory-tradeoffs" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    A([Start: Pick ANN Index]) --&gt; B{N &lt; 100K?}
+    B --&gt;|Yes| C[Flat/Brute-Force&lt;br/&gt;Exact, trivially fast]
+    B --&gt;|No| D{Needs online&lt;br/&gt;incremental inserts?}
+    D --&gt;|Yes| E{N &lt; 100M and&lt;br/&gt;RAM available?}
+    E --&gt;|Yes| F[HNSW&lt;br/&gt;Best recall, online updates&lt;br/&gt;High RAM, slow build]
+    E --&gt;|No| G[HNSW + sharding&lt;br/&gt;or DiskANN with&lt;br/&gt;periodic graph merge]
+    D --&gt;|No — batch rebuild OK| H{Memory constrained?}
+    H --&gt;|No: can afford 6KB/vec| I[IVF-Flat&lt;br/&gt;Exact within nprobe clusters&lt;br/&gt;High recall, high RAM]
+    H --&gt;|Yes: need &lt; 100 bytes/vec| J{1B+ scale or&lt;br/&gt;dataset &gt; RAM?}
+    J --&gt;|No| K[IVF-PQ&lt;br/&gt;50 bytes/vec, GPU-friendly&lt;br/&gt;Recall@10 ≈ 0.90-0.95]
+    J --&gt;|Yes| L[DiskANN&lt;br/&gt;SSD-resident graph&lt;br/&gt;Handles &gt; 1B vectors]
+
+    style C fill:#155724,color:#fff
+    style F fill:#0f4c81,color:#fff
+    style G fill:#0f4c81,color:#fff
+    style I fill:#155724,color:#fff
+    style K fill:#5a2d82,color:#fff
+    style L fill:#7b3f00,color:#fff</code></pre>
+<p><strong>HNSW parameter tuning — ef_search vs. recall vs. latency</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>ef_search</th>
+<th>Recall@10 (typical)</th>
+<th>Query Latency p50</th>
+<th>Query Latency p99</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>32</td>
+<td>~0.87</td>
+<td>~0.8ms</td>
+<td>~3ms</td>
+</tr>
+<tr>
+<td>64</td>
+<td>~0.93</td>
+<td>~1.2ms</td>
+<td>~5ms</td>
+</tr>
+<tr>
+<td>100</td>
+<td>~0.97</td>
+<td>~2ms</td>
+<td>~8ms</td>
+</tr>
+<tr>
+<td>200</td>
+<td>~0.99</td>
+<td>~4ms</td>
+<td>~15ms</td>
+</tr>
+<tr>
+<td>500</td>
+<td>~0.999</td>
+<td>~10ms</td>
+<td>~35ms</td>
+</tr>
+</tbody>
+</table>
+<p><strong>IVF-PQ parameter tuning — nprobe vs. recall</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>nprobe</th>
+<th>Fraction searched</th>
+<th>Recall@10 (typical)</th>
+<th>Query Latency p50</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0.05%</td>
+<td>~0.50</td>
+<td>&lt;0.5ms</td>
+</tr>
+<tr>
+<td>16</td>
+<td>0.8%</td>
+<td>~0.80</td>
+<td>~0.8ms</td>
+</tr>
+<tr>
+<td>64</td>
+<td>3.1%</td>
+<td>~0.95</td>
+<td>~2ms</td>
+</tr>
+<tr>
+<td>256</td>
+<td>12.5%</td>
+<td>~0.99</td>
+<td>~6ms</td>
+</tr>
+<tr>
+<td>nlist (4096)</td>
+<td>100%</td>
+<td>~0.99+ (PQ-limited)</td>
+<td>~30ms</td>
+</tr>
+</tbody>
+</table>
+<p>(All figures assume nlist=4096, N=10M, d=1536, m=48; actual numbers vary by dataset and hardware.)</p>
+<p><strong>Memory comparison across algorithms (100M vectors, d=1536)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Memory/Vector</th>
+<th>Total (100M vecs)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flat (float32)</strong></td>
+<td>6144 bytes</td>
+<td>614 GB</td>
+<td>Exact search; impractical for 100M vecs</td>
+</tr>
+<tr>
+<td><strong>HNSW (M=16)</strong></td>
+<td>~6244 bytes</td>
+<td>~625 GB</td>
+<td>Raw vectors + ~100 bytes graph overhead</td>
+</tr>
+<tr>
+<td><strong>IVF-Flat</strong></td>
+<td>~6148 bytes</td>
+<td>~615 GB</td>
+<td>Raw vectors in inverted lists; no PQ compression</td>
+</tr>
+<tr>
+<td><strong>IVF-PQ (m=48)</strong></td>
+<td>~50 bytes</td>
+<td>~5 GB</td>
+<td>128x compression; dominant choice for 100M+ scale</td>
+</tr>
+<tr>
+<td><strong>DiskANN</strong></td>
+<td>~8 bytes RAM + SSD</td>
+<td>~800 MB RAM + 600 GB SSD</td>
+<td>SSD cost ~<span class="arithmatex">\(0.10/GB/month vs. RAM ~\)</span>8/GB/month</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key advantages and disadvantages</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Recall@10</th>
+<th>Query Latency (p50)</th>
+<th>Memory/Vector</th>
+<th>Build Time (100M vecs)</th>
+<th>Online Updates</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flat</strong></td>
+<td>1.0 (exact)</td>
+<td>&lt;1ms (at 100K)</td>
+<td>6 KB (float32, 1536-dim)</td>
+<td>None</td>
+<td>Yes</td>
+<td>Small corpora &lt; 100K</td>
+</tr>
+<tr>
+<td><strong>HNSW</strong></td>
+<td>~0.98 (ef=100)</td>
+<td>1-5ms</td>
+<td>~50-100 bytes overhead</td>
+<td>2-8 hours (32 CPU cores)</td>
+<td>Yes (insert only)</td>
+<td>Medium corpus, streaming updates</td>
+</tr>
+<tr>
+<td><strong>IVF-Flat</strong></td>
+<td>~0.99 (nprobe=64)</td>
+<td>1-3ms</td>
+<td>6 KB</td>
+<td>30-60 min (k-means only)</td>
+<td>No (batch)</td>
+<td>When memory allows, high recall needed</td>
+</tr>
+<tr>
+<td><strong>IVF-PQ</strong></td>
+<td>~0.90-0.95</td>
+<td>1-3ms</td>
+<td>~50 bytes</td>
+<td>30-90 min</td>
+<td>No (batch)</td>
+<td>Billion-scale, GPU-accelerated</td>
+</tr>
+<tr>
+<td><strong>ScaNN</strong></td>
+<td>~0.97 (tuned)</td>
+<td>&lt;2ms</td>
+<td>~50 bytes</td>
+<td>Hours</td>
+<td>No</td>
+<td>Google-scale inner product search</td>
+</tr>
+<tr>
+<td><strong>DiskANN</strong></td>
+<td>~0.95</td>
+<td>10-100ms</td>
+<td>&lt;64 GB RAM for 1B vecs</td>
+<td>12-24 hours</td>
+<td>Partial (with merge)</td>
+<td>Datasets too large for RAM</td>
+</tr>
+</tbody>
+</table>
+<p><strong>HNSW key drawbacks</strong>:
+- Deletion requires marking nodes as deleted (tombstoning); no true in-place delete.
+- Memory scales with M: M=32 doubles graph memory vs. M=16.
+- Build is single-threaded per shard in most implementations; parallelism requires sharding.</p>
+<p><strong>IVF-PQ key drawbacks</strong>:
+- Recall degrades sharply if nprobe is too low; requires careful calibration per dataset.
+- Full rebuild required to add vectors cleanly (can do partial adds with FAISS <code>add_with_ids</code> but recall degrades as lists become unbalanced).
+- PQ compression introduces quantization error; inner product approximation is noisier than L2.</p>
+<h2 id="scalability">Scalability<a class="headerlink" href="#scalability" title="Permanent link">&para;</a></h2>
+<p><strong>Horizontal sharding</strong>: Both HNSW and IVF-PQ shard by vector ID ranges. A query fan-out sends the query vector to all shards; each shard returns local top-K; a merge layer selects global top-K. With S shards, build parallelizes linearly; query latency is shard latency + O(S×K) merge overhead (~1ms at K=10, S=100).</p>
+<p><strong>GPU acceleration</strong>: FAISS GPU IVF-PQ achieves ~1M queries/second on a single V100 (32 GB VRAM). The GPU holds the compressed vectors (50 bytes × 1B = ~50 GB—fits 2× V100 in a DGX) and uses CUDA for batched ADC distance computation. CPU-only IVF-PQ typically peaks at ~50-100K QPS per socket.</p>
+<p><strong>Quantized storage tiers</strong>: For 1B × 1536-dim float32 vectors:
+- Float32 raw: 1B × 6144 bytes = 6 TB (out of DRAM, impractical)
+- IVF-PQ (m=48): 1B × 50 bytes = 50 GB (fits in ~2× A100 VRAM, or ~1U RAM server)
+- DiskANN PQ-in-RAM: ~4-8 bytes/vector for in-RAM PQ codes = ~4-8 GB for 1B vectors; full graph on SSD</p>
+<p><strong>Build parallelism</strong>: HNSW build is embarrassingly parallelizable across shards but not within a shard (insertions serialize on graph state). With 32 shards across 32 CPUs, 100M vectors build in ~10-20 minutes wall-clock, each shard taking 2-8 hours on a single core, but shards finish in parallel.</p>
+<h2 id="reliability">Reliability<a class="headerlink" href="#reliability" title="Permanent link">&para;</a></h2>
+<p><strong>Index corruption</strong>: Both HNSW and IVF indices are mutable in-memory data structures. A crash during build leaves a partially written index. Production deployments write indices to object storage (S3, GCS) as immutable snapshots and swap the serving shard atomically on reload.</p>
+<p><strong>Consistency</strong>: Because IVF-PQ requires full rebuild to incorporate new vectors cleanly, the standard pattern is a dual-index setup: new vectors go into a small HNSW shadow index while the main IVF-PQ index serves the bulk corpus. Queries fan out to both and merge results. The shadow index is periodically folded into a full rebuild (nightly or weekly).</p>
+<p><strong>Recall regression testing</strong>: Every time index parameters change (nprobe, ef, M), a regression suite should run Recall@10 against a held-out ground-truth set. A drop of &gt;1% in Recall@10 should block deployment. Store Recall@10 metrics alongside each index snapshot.</p>
+<p><strong>Hot-swap deploys</strong>: Serving replicas hold the old index in memory; new index loads into standby. A single atomic pointer swap at the request router level achieves zero-downtime index updates.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<p><strong>Data isolation</strong>: Vector indices encode the semantic content of the original documents; an adversary with query access can reconstruct approximate document embeddings via model-inversion attacks. Treat index files as sensitive assets: encrypt at rest (AES-256) and in transit (TLS 1.3).</p>
+<p><strong>Namespace partitioning</strong>: Multi-tenant deployments must shard indices by tenant namespace. Cross-namespace query fan-out must be blocked at the application layer; the index layer itself has no tenant awareness.</p>
+<p><strong>Membership inference</strong>: A well-crafted query can test whether a specific document was included in an index (the query vector is the target document's embedding). Mitigate with query rate-limiting and query result rounding (return ranks, not raw distances).</p>
+<p><strong>Dependency pinning</strong>: FAISS is a C++ library with frequent updates. CVE patches in underlying BLAS/LAPACK libraries can silently change recall behavior. Pin FAISS versions in production and test Recall@10 on every version upgrade.</p>
+<h2 id="cost-optimization">Cost Optimization<a class="headerlink" href="#cost-optimization" title="Permanent link">&para;</a></h2>
+<p><strong>RAM vs. SSD cost tradeoff (100M vectors, 1536-dim)</strong>:
+- Float32 HNSW: ~614 GB RAM needed. At <span class="arithmatex">\(8/GB/month (cloud DRAM), that is ~\)</span>4,900/month just for vector storage.
+- IVF-PQ (m=48): ~5 GB RAM. At <span class="arithmatex">\(8/GB/month, that is ~\)</span>40/month.
+- DiskANN (1B vectors): ~50 GB DRAM for PQ codes + 400 GB NVMe SSD. NVMe SSD at $0.10/GB/month = $40/month; DRAM = <span class="arithmatex">\(400/month. Total ~\)</span>440/month vs. ~$49,000/month for full DRAM.</p>
+<p><strong>GPU vs. CPU query cost</strong>:
+- GPU IVF-PQ on V100 (8× ×P3.16xlarge, $24.48/hr): ~1M QPS → <span class="arithmatex">\(0.0000245 per query.
+- CPU IVF-PQ on c5.4xlarge (\)</span>0.68/hr): ~50K QPS → $0.0000136 per query. CPU is cheaper per query but cannot burst.
+- At &lt;100K QPS sustained, CPU is more cost-effective; above ~500K QPS, GPU instances win on $/query.</p>
+<p><strong>Build cost</strong>: HNSW build for 100M vectors on a 32-core r6i.8xlarge ($2.02/hr): 2-8 hours build time → <span class="arithmatex">\(4-\)</span>16 per full rebuild. IVF-PQ on the same instance: 1-2 hours → <span class="arithmatex">\(2-\)</span>4. Run full rebuilds only when corpus changes &gt;5% or recall drifts.</p>
+<p><strong>ef/nprobe tuning</strong>: Dropping ef from 200 to 100 in HNSW cuts latency by ~40% with only a ~0.5% Recall@10 drop. For many RAG use cases, Recall@10 = 0.95 is sufficient; operating at ef=64 instead of ef=200 can halve your serving fleet.</p>
+<h2 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h2>
+<p><strong>Golden signals</strong>:
+- <strong>Recall@10</strong> (via shadow evaluation against ground truth): alert if it drops &gt;1% from baseline.
+- <strong>p50/p95/p99 query latency</strong>: HNSW at ef=100 should stay &lt;5ms p99 for N≤10M. Alert at &gt;20ms p99.
+- <strong>QPS and queue depth</strong>: IVF-PQ is embarrassingly parallel; if queue depth rises, scale out replicas.
+- <strong>Index build lag</strong>: Time since last successful index build. Alert if &gt;2× the scheduled rebuild interval.
+- <strong>Memory pressure</strong>: HNSW graph memory can grow unexpectedly if tombstoned vectors accumulate. Track live vs. deleted vector count.</p>
+<p><strong>Operational metrics</strong>:
+- <code>ann_search_latency_ms</code> histogram, labeled by <code>{algorithm, ef_or_nprobe, shard_id}</code>
+- <code>ann_recall_at_10</code> gauge, updated by periodic shadow-evaluation jobs
+- <code>index_build_duration_seconds</code> and <code>index_build_success</code> counter
+- <code>vector_count_total</code>, <code>tombstone_count_total</code> (HNSW-specific)</p>
+<p><strong>Recall estimation in production</strong>: Because you don't know ground truth at query time, use a canary approach: 0.1% of queries also run against a Flat brute-force index on a small representative sample. Compare top-K overlap to get a running Recall@10 estimate without full ground-truth labeling.</p>
+<h2 id="production-best-practices">Production Best Practices<a class="headerlink" href="#production-best-practices" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Always measure Recall@10 on your actual data.</strong> Benchmarks (ANN-Benchmarks, FAISS wiki) use datasets like SIFT-1M; your embedding model's geometry may differ significantly. Run a 10K ground-truth eval before committing to an algorithm.</p>
+</li>
+<li>
+<p><strong>Start with HNSW (M=16, ef_construction=200, ef=100) as your baseline.</strong> It has the best recall out of the box, supports incremental inserts, and is easy to reason about. Move to IVF-PQ only when memory pressure forces it.</p>
+</li>
+<li>
+<p><strong>Set nlist ≈ sqrt(N) for IVF.</strong> For N=10M, nlist=3162 is a good starting point; round to a power of 2 (4096). Tune nprobe to hit your Recall@10 target—start at nprobe=nlist/32 and double until recall is acceptable.</p>
+</li>
+<li>
+<p><strong>Train PQ codebooks on a representative random sample</strong>, not the first N vectors (which may be temporally biased). Sample at least 40× nlist vectors; 100× is safer.</p>
+</li>
+<li>
+<p><strong>Never use cosine similarity without normalizing vectors to unit length first.</strong> Then use inner product (IP) metric; it is equivalent and faster (no sqrt in distance computation).</p>
+</li>
+<li>
+<p><strong>Implement dual-index for live corpora</strong>: serve queries from stable IVF-PQ index + small HNSW delta index. Merge periodically. This avoids serving-time rebuild downtime.</p>
+</li>
+<li>
+<p><strong>Size HNSW shards to fit in L3 cache when possible.</strong> A shard of ~5M vectors with HNSW overhead ≈ 500 MB fits in the L3 cache of modern Xeon CPUs, giving cache-friendly graph traversal and lower latency variance.</p>
+</li>
+<li>
+<p><strong>Pin FAISS to a specific version in CI</strong> and run a Recall@10 regression test on every FAISS version bump. Silent regressions from BLAS library changes are a real failure mode in production.</p>
+</li>
+</ol>
+<h2 id="real-world-examples">Real-World Examples<a class="headerlink" href="#real-world-examples" title="Permanent link">&para;</a></h2>
+<p><strong>Illustrative search platform (100M document corpus)</strong>:
+A platform serving dense retrieval over 100M news articles might use IVF-PQ (nlist=8192, nprobe=64, m=48) with FAISS on a GPU node, achieving Recall@10 ≈ 0.95 at 1-2ms query latency. Articles indexed in float32 (614 GB) are compressed to ~5 GB—a 120x reduction—making it feasible to serve the entire index from a single A100 GPU node.</p>
+<p><strong>Illustrative streaming recommendation system (incremental updates)</strong>:
+A recommendation platform ingesting millions of new user-item embeddings daily might use HNSW with M=32 and ef_construction=400 for high recall, accepting the 2x memory cost of M=32 over M=16 because the higher recall translates directly to click-through rate. Incremental inserts (FAISS <code>add</code> on HNSW) allow new embeddings to appear in the index within seconds of being created.</p>
+<p><strong>Illustrative trillion-parameter knowledge base (&gt; RAM)</strong>:
+A research retrieval system over 1B+ scientific paper embeddings might use DiskANN, storing the graph on NVMe SSDs with PQ-compressed vectors in RAM (~50 GB). Query latency is 20-50ms (SSD seek latency dominates), which is acceptable when paired with an initial HNSW layer over a hot-cache of the 10M most-queried papers.</p>
+<p><strong>ScaNN at Google</strong>:
+Google's ScaNN (Scalable Nearest Neighbors) uses anisotropic quantization—quantizing the components of a vector that contribute most to inner product error first, rather than treating all components equally as standard PQ does. This gives higher recall at the same compression ratio for inner-product workloads (semantic search over Google's embedding models), reportedly outperforming FAISS IVF-PQ by ~10-20% Recall@10 at equivalent latency.</p>
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Why can't we just do exact nearest neighbor search for all use cases?</strong>
+Exact nearest neighbor (brute-force / Flat search) requires O(N×d) distance computations per query. At N=100M, d=1536, this is ~1.5×10¹¹ FLOPs per query—approximately 5 seconds on a 32-core CPU. Additionally, storing 100M float32 vectors at 1536 dims requires 614 GB of RAM. ANN algorithms reduce query time to O(log N) or O(nprobe×N/nlist) at the cost of a small Recall@10 degradation (typically &lt;5%), making sub-5ms latency feasible.</p>
+<p><strong>Q: What is Recall@10 and why is it the metric that matters?</strong>
+Recall@K is the fraction of the true top-K nearest neighbors (as computed by brute-force exact search) that the ANN algorithm returns. Recall@10 = 0.97 means 9.7 out of 10 true neighbors are returned on average. It is the primary quality metric because it directly measures how much semantic signal is being lost in the approximation. Precision, F1, and MRR are secondary—without high recall, the downstream ranker (see <a href="../04-hybrid-search-and-reranking/">Hybrid Search &amp; Reranking</a>) has no chance to recover the missed results.</p>
+<p><strong>Q: What is the difference between HNSW and IVF-PQ at a high level?</strong>
+HNSW is a graph-based index: vectors are nodes in a multi-layer proximity graph, and queries traverse the graph greedily from a high layer to the bottom. It has high recall (~0.98), supports incremental inserts, but requires ~50-100 bytes of graph overhead per vector in RAM. IVF-PQ is a quantization-based index: vectors are partitioned into clusters (IVF), then each vector is compressed to ~50 bytes using product quantization (PQ). Queries check only nprobe clusters and compute approximate distances using lookup tables. IVF-PQ is more memory-efficient but requires periodic full rebuilds.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: How does HNSW achieve O(log N) query time?</strong>
+HNSW maintains a hierarchy of graphs. The top layer is sparse with long-range edges (only ~1% of nodes appear here). A query starts at the entry point in the top layer and performs a greedy descent: at each node, move to the neighbor that reduces the distance to the query most. When no neighbor is closer, descend to the next layer. The bottom layer (Layer 0) contains all nodes with M=16 edges each. The multi-layer structure is analogous to a skip list: long-range edges provide shortcuts that reduce the number of hops needed to reach the approximate nearest neighbors from O(N) to O(log N). The ef parameter controls how many candidates are maintained during Layer 0 exploration—higher ef finds more true neighbors but examines more nodes.</p>
+<p><strong>Q: When would you use nprobe=nlist in IVF-PQ, and what happens?</strong>
+Setting nprobe=nlist means every cluster is searched—equivalent to scanning the entire corpus. If PQ compression is used (IVF-PQ), it is not exact search (PQ introduces approximation error), but it is the maximum recall achievable with a given IVF-PQ index. This is useful for debugging: if Recall@10 does not improve when you increase nprobe to nlist, the bottleneck is PQ quantization error, not the coarse quantizer. The fix is to increase m (more subspaces, less compression, more accuracy) or reduce compression (use IVF-Flat instead of IVF-PQ).</p>
+<p><strong>Q: Why does PQ compress 1536-dim float32 vectors to only 48 bytes? Walk through the math.</strong>
+PQ splits the 1536-dimensional vector into m=48 subspaces of 1536/48 = 32 dimensions each. Each subspace is quantized to one of 2^8 = 256 centroids (trained via k-means). Each subspace assignment is stored as 8 bits (one byte). Total: 48 subspaces × 1 byte = 48 bytes per vector. The original float32 vector required 1536 × 4 = 6144 bytes. Compression ratio: 6144/48 = 128x. Query-time distance computation uses ADC (Asymmetric Distance Computation): precompute a lookup table of distances between the query and all 256 centroids for each of the 48 subspaces (48 × 256 lookups), then sum the 48 table lookups per candidate vector—approximately 48 additions vs. 1536 multiplications for exact distance, giving another ~30x speedup in distance computation.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: How would you implement a dual-index architecture for a corpus that receives streaming inserts while also needing to serve queries at &lt;10ms p99?</strong>
+Design: maintain two indices—a "warm" IVF-PQ index serving the bulk corpus (rebuilt nightly, immutable during serving), and a "hot" HNSW delta index holding vectors inserted in the last 24 hours. Queries fan out to both indices in parallel; the routing layer merges the top-K results from each and applies reranking. The HNSW delta index receives inserts in real time (FAISS HNSW supports concurrent inserts with a mutex per node). At rebuild time, a background job trains a new IVF-PQ index over the full corpus (including yesterday's delta), swaps the pointer atomically, and clears the delta HNSW. Key challenges: (1) ensuring query results are consistent during the swap (use read-write lock), (2) sizing the delta HNSW appropriately (keep it small enough that it doesn't dominate query latency—ideally &lt;5% of total corpus size), (3) monitoring Recall@10 separately for the two index paths to diagnose regressions.</p>
+<p><strong>Q: How would you debug a Recall@10 regression from 0.97 to 0.89 after a corpus update?</strong>
+Step 1: Run nprobe=nlist (exhaustive IVF scan) on the new corpus. If recall recovers to &gt;0.97, the problem is nprobe is too low for the new corpus distribution—increase nprobe or reduce nlist. Step 2: If nprobe=nlist still shows low recall, the PQ codebook is stale—the new vectors have drifted from the training distribution, so subspace centroids are no longer representative. Retrain the PQ codebook on a fresh sample from the updated corpus and rebuild. Step 3: If the corpus distribution is fine but recall is still low, check for inverted list imbalance: if some clusters have 10x more vectors than average, they are underprobed. Diagnose with <code>faiss.search_preassigned</code> to see per-list recall. Fix: increase nlist or use a hierarchical coarse quantizer. Step 4: Verify the embedding model version has not changed—a different embedding model produces vectors in a different geometry, invalidating all index structures.</p>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: You are building a vector search system for 50 billion product embeddings (d=1024). Queries must return top-50 at &lt;50ms p99. Monthly budget is $500K. What is your architecture?</strong>
+At 50B × 1024 × 4 bytes = 200 TB of float32 vectors, no RAM-only solution is feasible. The architecture is DiskANN-style with tiered storage. PQ-compressed vectors (m=32 → 32 bytes/vector): 50B × 32 bytes = 1.6 TB stored in RAM across a cluster. Full vectors (200 TB) on NVMe SSD (8× faster than HDD, &lt; <span class="arithmatex">\(0.20/GB/month on cloud). Graph edges (DiskANN with R=64): ~50B × 64 × 4 bytes = 12.8 TB on SSD. Architecture: 1600 nodes, each holding 32M vectors in RAM (50 GB PQ codes) + 160 GB of graph on local NVMe. Query routing uses consistent hashing; each query fans out to ~100 nodes in parallel (each node covers ~500M vectors). Per-node latency is 5-20ms (NVMe seek for graph traversal); fan-out latency is the max across shards. Merge layer: each shard returns top-50 local results; central merger picks global top-50 (O(shards × 50) ≈ 5ms). Cost: 1600 × r6id.2xlarge (\)</span>0.504/hr) = <span class="arithmatex">\(806/hr → ~\)</span>580K/month. Meets budget. Optimize by reducing fanout with a two-level routing: 1 super-shard of 100 coarse-quantizer nodes assigns query to 200 of 1600 nodes, reducing fan-out 8x → cost drops to ~$100K/month at the cost of some recall.</p>
+<p><strong>Q: How does ScaNN's anisotropic quantization differ from standard PQ, and when does it matter?</strong>
+Standard PQ minimizes reconstruction error uniformly across all vector components—it minimizes ||x - x̂||² averaged over the corpus. For inner product (IP) search, this is suboptimal: what matters is not the total reconstruction error but the error in the component of x̂ that is parallel to the query vector q (the component that determines the inner product ⟨q, x̂⟩). A large reconstruction error in a direction orthogonal to q has zero effect on the IP ranking. ScaNN's anisotropic quantization assigns more of its bit budget to the parallel component by weighting the quantization loss by the squared inner product between the residual direction and the query direction. In practice this means ScaNN's codebooks are biased toward preserving the top singular vector directions of the corpus (the directions most queries probe), at the cost of higher error on orthogonal directions that few queries care about. The result is 10-20% higher Recall@10 at equivalent compression ratio for IP-heavy workloads (semantic search, ad retrieval). For L2-metric workloads (image retrieval, some multimodal models), the benefit is smaller because no single direction dominates.</p>
+<h2 id="google-level-follow-up-questions">Google-Level Follow-Up Questions<a class="headerlink" href="#google-level-follow-up-questions" title="Permanent link">&para;</a></h2>
+<h3 id="1-your-hnsw-index-achieves-098-recall10-in-offline-eval-but-only-091-in-ab-test-whats-happening">1. "Your HNSW index achieves 0.98 Recall@10 in offline eval but only 0.91 in A/B test. What's happening?"<a class="headerlink" href="#1-your-hnsw-index-achieves-098-recall10-in-offline-eval-but-only-091-in-ab-test-whats-happening" title="Permanent link">&para;</a></h3>
+<p><strong>Discussion</strong>: The offline eval uses a static query set sampled from the training distribution. In production, query distribution shifts continuously as users change behavior, new topics trend, and the corpus grows. Vectors added after the offline eval was generated are not represented in the ground-truth computation—so the Recall@10 metric looks good, but the actual result quality has degraded for the new content. Additionally, HNSW with online inserts accumulates tombstoned deleted vectors that pollute the graph; the entry point (the highest-layer node) may no longer be globally optimal. Solutions: (1) run Recall@10 evals on rolling windows of recent queries rather than a static benchmark; (2) periodically rebuild the HNSW index from scratch to consolidate tombstones; (3) implement a feedback loop where actual user engagement (clicks) serves as a proxy for recall quality.</p>
+<h3 id="2-if-ivf-pq-recall-degrades-when-you-add-new-vectors-without-rebuilding-can-you-quantify-the-degradation">2. "If IVF-PQ recall degrades when you add new vectors without rebuilding, can you quantify the degradation?"<a class="headerlink" href="#2-if-ivf-pq-recall-degrades-when-you-add-new-vectors-without-rebuilding-can-you-quantify-the-degradation" title="Permanent link">&para;</a></h3>
+<p><strong>Discussion</strong>: When new vectors are added to existing inverted lists, the lists become unbalanced—the new vectors may cluster in regions not well-covered by the original nlist centroids (especially if the data distribution has drifted). Empirically, adding 10% new vectors to an IVF-PQ index without retraining shows Recall@10 degrading by 1-3% for in-distribution additions, but up to 10-15% for out-of-distribution additions (e.g., new product categories, new languages). The coarse quantizer assigns these OOD vectors to the "nearest" centroid even though it is a poor match; nprobe=64 may miss the true neighbors entirely because they map to centroids the coarse quantizer identifies as distant from the query. Mitigation: monitor per-cluster vector count distribution; alert when any cluster grows to &gt;5× its original size; trigger a rebuild before the degradation compounds.</p>
+<h3 id="3-how-would-you-guarantee-recall10-099-for-a-safety-critical-retrieval-system">3. "How would you guarantee Recall@10 ≥ 0.99 for a safety-critical retrieval system?"<a class="headerlink" href="#3-how-would-you-guarantee-recall10-099-for-a-safety-critical-retrieval-system" title="Permanent link">&para;</a></h3>
+<p><strong>Discussion</strong>: 0.99 Recall@10 is very demanding. HNSW at ef=500 typically achieves this for well-behaved embedding spaces but at 5-10ms latency. For adversarial guarantee, layer HNSW with a re-ranking step: first fetch top-100 from HNSW, then compute exact distances for those 100 candidates (100 × 1536 × 4 bytes = 600KB per query—fits in L2 cache). This hybrid approach guarantees that any vector HNSW misses in the top-10 due to graph routing errors is recovered if it was in the top-100 candidates. At typical HNSW miss rates, Recall@100 &gt; 0.9999 for ef=200, so the two-step approach reliably achieves Recall@10 &gt; 0.99. Additional strategies: ensemble two independent HNSW indices built with different random seeds (different entry points, different layer assignments), then union their candidate sets. The union of two independent 0.98 Recall@10 indices gives approximately 1 - (0.02)² = 0.9996 Recall@10.</p>
+<h3 id="4-diskann-claims-1b-vectors-in-64gb-ram-where-exactly-does-the-data-live-and-what-are-the-failure-modes">4. "DiskANN claims 1B vectors in &lt; 64GB RAM. Where exactly does the data live, and what are the failure modes?"<a class="headerlink" href="#4-diskann-claims-1b-vectors-in-64gb-ram-where-exactly-does-the-data-live-and-what-are-the-failure-modes" title="Permanent link">&para;</a></h3>
+<p><strong>Discussion</strong>: DiskANN stores the graph adjacency lists and full-precision vectors on NVMe SSD. In RAM, it caches the PQ-compressed vectors for all nodes (~4-8 bytes/vector) for fast candidate pruning, and aggressively caches the most frequently accessed graph nodes (a hot-set of ~10-20% of nodes covers ~80% of graph traversal steps, consistent with power-law access patterns). The failure modes are: (1) SSD wear: a write-heavy workload can exhaust NVMe write endurance; DiskANN graphs are typically built once and read-only during serving, so wear is low. (2) SSD latency tail: NVMe p99.9 latency spikes during background garbage collection can cause query latency to jump from 20ms to 200ms; mitigate by over-provisioning SSD capacity (keep &lt;70% full). (3) Cold cache degradation: after a pod restart, the in-memory hot-set is cold; first 10-30 minutes of serving have 5-10x higher latency. Mitigate with cache warming (replay recent query logs). (4) Graph staleness: DiskANN does not support online inserts; adding new vectors requires a graph merge or full rebuild, during which new vectors are invisible.</p>
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Using the wrong distance metric</strong>: Configuring the index with L2 metric when the embedding model expects cosine similarity (or inner product). Because FAISS metrics are set at build time, a mismatch silently produces wrong rankings—Recall@10 may look acceptable in offline eval on a balanced dataset but degrades badly on asymmetric queries. Always normalize vectors to unit length and use inner product.</p>
+</li>
+<li>
+<p><strong>Training PQ/IVF on the first N vectors</strong>: Data pipelines often fill a buffer until it reaches the training sample size, using the first vectors ingested. If data arrives in topic order (all news articles first, then product descriptions), the training sample is unrepresentative. Train on a random sample drawn uniformly across the full corpus.</p>
+</li>
+<li>
+<p><strong>Setting nprobe too low after an index rebuild</strong>: After rebuilding with a larger nlist (to handle corpus growth), the old nprobe value covers a smaller fraction of the search space. Recall@10 drops silently. Always re-tune nprobe after every rebuild and test against your ground-truth eval set.</p>
+</li>
+<li>
+<p><strong>Ignoring build-time memory spikes</strong>: HNSW build requires holding the entire graph in RAM plus the working set for ef_construction candidate lists. For 100M vectors with M=16, ef_construction=200, peak RAM during build is ~150-200 GB even if the final index is 10 GB. Provision build machines separately from serving machines.</p>
+</li>
+<li>
+<p><strong>Treating ANN recall as a query-time-only concern</strong>: Index quality degrades over time as new vectors are added (IVF list imbalance, HNSW tombstones, distribution drift). Teams that set ef once at launch and never revisit it routinely operate with Recall@10 10-20% below their initial benchmark within 6 months of corpus growth. Build a scheduled recall evaluation job that fires after every major corpus update.</p>
+</li>
+<li>
+<p><strong>Sharding HNSW by embedding content rather than by vector ID</strong>: Some engineers attempt to shard HNSW by semantic cluster (k-means partition the corpus first, then build one HNSW per cluster) hoping for faster routing. This creates hot shards when queries concentrate on popular topics. Shard by random vector ID range instead; all shards receive uniform query load.</p>
+</li>
+</ol>
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Brute-force search is O(N×d) and infeasible above ~100K vectors</strong> for 1536-dim embeddings; ANN algorithms reduce this to O(log N) or O(nprobe×N/nlist) at the cost of &lt;5% Recall@10 degradation.</li>
+<li><strong>HNSW is the best single algorithm</strong> when memory is available and incremental inserts are needed (Recall@10 ≈ 0.98, 1-5ms query, supports streaming inserts); use M=16 as the default and tune ef at query time.</li>
+<li><strong>IVF-PQ is the memory-efficiency champion</strong>: 1536-dim float32 vectors (6 KB each) compress to ~50 bytes—a 120x reduction—enabling billion-scale indices to fit in tens of GB of RAM; sacrifice is Recall@10 ≈ 0.90-0.95 and no online inserts.</li>
+<li><strong>nprobe in IVF and ef in HNSW are the primary runtime knobs</strong>: tuning these is the cheapest way to trade latency for recall without rebuilding the index; always characterize the recall-vs-latency curve for your specific dataset.</li>
+<li><strong>DiskANN extends billion-scale ANN to datasets that exceed DRAM</strong>: stores graph and full vectors on NVMe SSD, keeps PQ codes in RAM, and handles 1B+ vectors in &lt;64 GB at 10-100ms query latency.</li>
+<li><strong>Recall@10 must be measured on your actual data and your actual queries</strong>: published benchmarks (SIFT-1M, GLOVE) do not predict recall on production embedding spaces; run a ground-truth eval with at least 10K representative queries before and after every index rebuild.</li>
+<li><strong>Dual-index architecture (IVF-PQ + HNSW delta) is the standard pattern</strong> for live corpora: serve the bulk corpus from a stable IVF-PQ index, absorb new vectors into a small HNSW delta index, merge periodically.</li>
+<li><strong>GPU-accelerated IVF-PQ (FAISS) achieves ~1M QPS on a single V100</strong>, making it the right choice for high-throughput serving once corpus size forces away from HNSW; CPU IVF-PQ tops out at ~50-100K QPS per socket.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Retrieval Systems</a> in the <a href="../../">AI System Design Notes</a>.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../02-vector-databases/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Vector Databases">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Vector Databases
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../04-hybrid-search-and-reranking/" class="md-footer__link md-footer__link--next" aria-label="Next: Hybrid Search &amp; Reranking">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Hybrid Search & Reranking
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,7815 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Staff-level reference for designing, scaling, and shipping production AI systems — LLM architecture, RAG, agents, AI infrastructure, LLMOps, security, and 20 full system-design case studies (ChatGPT, Claude, Perplexity, Cursor, Glean, and more).">
+      
+      
+        <meta name="author" content="Gyanendra Chaubey">
+      
+      
+        <link rel="canonical" href="https://gyanendrachaubey.github.io/AI-System-Design-Notes/17-distributed-inference/01-tensor-and-pipeline-parallelism/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../02-disaggregated-prefill-decode/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tensor & Pipeline Parallelism - AI System Design Notes</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tensor-pipeline-parallelism" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AI System Design Notes" class="md-header__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AI System Design Notes
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tensor & Pipeline Parallelism
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AI System Design Notes" class="md-nav__button md-logo" aria-label="AI System Design Notes" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AI System Design Notes
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AI-System-Design-Notes
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../01-fundamentals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fundamentals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fundamentals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/01-introduction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to AI System Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/02-core-mental-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Mental Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/03-anatomy-of-an-ai-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anatomy of an AI System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-fundamentals/04-capacity-planning-primer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capacity Planning Primer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../02-llm-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/01-transformer-internals-for-systems-engineers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transformer Internals for Systems Engineers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/02-tokenization-and-vocabulary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenization & Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/03-context-windows-and-positional-encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Windows & Positional Encoding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/04-decoding-and-inference-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decoding & Inference Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../02-llm-architecture/05-model-families-and-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Families & Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../03-prompt-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompt Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/01-prompt-engineering-as-systems-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Engineering as Systems Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/02-prompt-templates-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Templates & Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/03-structured-output-and-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Output & Grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../03-prompt-architecture/04-prompt-injection-resilient-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt-Injection-Resilient Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../04-context-engineering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Context Engineering
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/01-what-is-context-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What Is Context Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/02-context-window-budgeting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Window Budgeting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/03-context-compression-and-summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Compression & Summarization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/04-long-context-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long Context vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/05-context-rot-and-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Rot & Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../04-context-engineering/06-knowledge-formats-and-interop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Formats & Interop (OKF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../05-retrieval-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retrieval Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Retrieval Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/01-embedding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/02-vector-databases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vector Databases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/03-indexing-algorithms-ann/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indexing Algorithms (ANN/HNSW/IVF)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/04-hybrid-search-and-reranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hybrid Search & Reranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/05-chunking-strategies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking Strategies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-retrieval-systems/06-knowledge-base-lifecycle-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base Lifecycle Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../06-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/01-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/02-rag-evaluation-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Evaluation Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/03-rag-failure-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Failure Modes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../06-rag/04-advanced-rag-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced RAG Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../07-graphrag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GraphRAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/01-graphrag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphRAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/02-knowledge-graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../07-graphrag/03-when-graphrag-beats-vector-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    When GraphRAG Beats Vector RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../08-agentic-rag/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agentic RAG
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/01-agentic-rag-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic RAG Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../08-agentic-rag/02-iterative-retrieval-and-self-correction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Iterative Retrieval & Self-Correction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../09-agents/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/01-agent-fundamentals-and-the-agent-loop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Fundamentals & the Agent Loop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/02-react-and-reasoning-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ReAct & Reasoning Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/03-tool-use-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Use Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/04-agent-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/05-agent-failure-modes-and-guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Failure Modes & Guardrails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../09-agents/06-human-in-the-loop-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-Loop Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../10-multi-agent-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-Agent Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/01-multi-agent-architecture-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Architecture Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/02-agent-communication-protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Communication Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../10-multi-agent-systems/03-coordination-failure-and-emergent-behavior/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coordination Failure & Emergent Behavior
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../11-planning-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Planning Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/01-task-decomposition-and-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Task Decomposition & Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/02-plan-and-execute-vs-react/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plan-and-Execute vs ReAct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../11-planning-systems/03-replanning-and-error-recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replanning & Error Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../12-memory-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Memory Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/01-memory-architecture-for-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Architecture for Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/02-short-term-vs-long-term-memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-Term vs Long-Term Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../12-memory-systems/03-memory-retrieval-and-forgetting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Retrieval & Forgetting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../13-tool-calling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Calling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tool Calling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/01-function-calling-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Function Calling Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/02-model-context-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol (MCP)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../13-tool-calling/03-tool-selection-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Selection at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../14-ai-infrastructure/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Infrastructure
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/01-ai-infrastructure-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Infrastructure Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/02-the-inference-stack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Inference Stack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/03-ai-data-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Data Pipelines: Ingestion, Quality, and Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/04-real-time-and-streaming-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-Time and Streaming AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../14-ai-infrastructure/05-ai-api-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI API Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../15-model-serving/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_16" id="__nav_16_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Serving
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/01-model-serving-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Serving Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/02-batching-and-continuous-batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batching & Continuous Batching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/03-kv-cache-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KV Cache Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/04-quantization-and-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization & Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../15-model-serving/05-multi-model-serving-and-routing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Model Serving & Routing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../16-gpu-systems/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Systems
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    GPU Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/01-gpu-fundamentals-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Fundamentals for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Sizing & Capacity Planning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Topologies & Interconnects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_18" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Distributed Inference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Distributed Inference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensor & Pipeline Parallelism
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-model-parallelism-is-necessary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Model Parallelism Is Necessary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tensor-parallelism-intra-layer-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tensor Parallelism: Intra-Layer Sharding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tensor Parallelism: Intra-Layer Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#column-parallel-linear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column-Parallel Linear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-parallel-linear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row-Parallel Linear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attention-head-parallelism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attention Head Parallelism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-megatron-lm-communication-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Megatron-LM Communication Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#communication-volume-the-nvlink-imperative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Communication Volume: The NVLink Imperative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tp-alignment-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TP Alignment Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-parallelism-inter-layer-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Parallelism: Inter-Layer Sharding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Parallelism: Inter-Layer Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-pipeline-bubble-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Pipeline Bubble Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#microbatching-filling-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Microbatching: Filling the Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1f1b-scheduling-for-training" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1F1B Scheduling for Training
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interleaved-pipeline-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interleaved Pipeline Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#communication-cost-of-pipeline-parallelism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Communication Cost of Pipeline Parallelism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pp-degree-and-latency-trade-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PP Degree and Latency Trade-off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-parallelism-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Parallelism for Inference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#expert-parallelism-for-mixture-of-experts-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expert Parallelism for Mixture-of-Experts Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3d-parallelism-combining-tp-pp-and-dp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3D Parallelism: Combining TP, PP, and DP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3D Parallelism: Combining TP, PP, and DP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deriving-the-optimal-3d-parallelism-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deriving the Optimal 3D Parallelism Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#representative-3d-parallelism-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Representative 3D Parallelism Configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-a-parallelism-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a Parallelism Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing a Parallelism Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worked-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02-disaggregated-prefill-decode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disaggregated Prefill/Decode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03-speculative-decoding-at-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speculative Decoding at Scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../18-llmops/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLMOps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/01-llmops-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLMOps Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/02-prompt-and-model-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt & Model Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/03-deployment-strategies-canary-shadow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Strategies: Canary & Shadow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/04-ci-cd-for-ai-systems/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD for AI Systems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/05-the-fine-tuning-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Fine-Tuning Engineering Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/06-ai-incident-response/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Incident Response
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../18-llmops/07-continual-learning-and-model-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Continual Learning and Model Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../19-evaluation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/01-llm-evaluation-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/02-offline-vs-online-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline vs Online Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/03-llm-as-judge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-as-Judge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/04-human-evaluation-and-annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human Evaluation & Annotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../19-evaluation/05-regression-testing-for-llms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regression Testing for LLMs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../20-observability/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Observability
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/01-ai-observability-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Observability Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/02-tracing-llm-calls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracing LLM Calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/03-cost-and-token-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost & Token Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-observability/04-drift-and-quality-monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift & Quality Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../21-ai-security/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/01-ai-security-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Security Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/02-prompt-injection-and-jailbreaks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt Injection & Jailbreaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/03-data-exfiltration-and-tool-abuse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Exfiltration & Tool Abuse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/04-guardrails-and-content-safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guardrails & Content Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../21-ai-security/05-supply-chain-and-model-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply Chain & Model Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../22-enterprise-ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Enterprise AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/01-enterprise-ai-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise AI Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/02-multi-tenancy-for-ai-platforms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy for AI Platforms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/03-data-governance-and-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Governance & Compliance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/04-sso-permissions-and-rag-acl-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSO, Permissions & RAG ACL Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/05-pii-and-privacy-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII and Privacy Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../22-enterprise-ai/06-bias-fairness-and-responsible-ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bias, Fairness, and Responsible AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_24" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../23-staff-level-architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Staff-Level Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_24" id="__nav_24_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Staff-Level Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/01-how-staff-engineers-think/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How Staff Engineers Think
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/02-build-vs-buy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build vs Buy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/03-open-source-vs-closed-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open Source vs Closed Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/04-fine-tuning-vs-rag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fine-Tuning vs RAG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/05-single-agent-vs-multi-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Single-Agent vs Multi-Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/06-multi-tenant-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/07-cost-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/08-latency-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Latency Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/09-reliability-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reliability Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../23-staff-level-architecture/10-ai-governance-and-platform-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Governance & Platform Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../24-interview-prep/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interview Prep
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Interview Prep
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/01-how-ai-system-design-interviews-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How AI System Design Interviews Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/02-the-whiteboarding-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Whiteboarding Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/03-estimation-and-capacity-planning-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estimation & Capacity Planning Drills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/04-company-specific-focus-areas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Company-Specific Focus Areas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../24-interview-prep/05-common-mistakes-and-red-flags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common Mistakes & Red Flags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_26" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../25-case-studies/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Case Studies
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_26" id="__nav_26_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Case Studies
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/01-chatgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ChatGPT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/02-claude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/03-gemini/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gemini
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/04-perplexity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perplexity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/05-cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/06-github-copilot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Copilot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/07-deep-research-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep Research Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/08-enterprise-rag-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise RAG Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/09-ai-customer-support-platform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Customer Support Platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/10-ai-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/11-ai-voice-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Voice Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/12-ai-tutor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Tutor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/13-ai-healthcare-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Healthcare Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/14-ai-meeting-assistant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Meeting Assistant
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/15-ai-search-engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Search Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/16-multi-agent-research-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Agent Research System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/17-autonomous-software-engineer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autonomous Software Engineer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/18-ai-recruiter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Recruiter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/19-ai-sdr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI SDR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-case-studies/20-glean-enterprise-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glean-Style Enterprise Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-model-parallelism-is-necessary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Model Parallelism Is Necessary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tensor-parallelism-intra-layer-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tensor Parallelism: Intra-Layer Sharding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tensor Parallelism: Intra-Layer Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#column-parallel-linear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column-Parallel Linear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-parallel-linear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row-Parallel Linear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attention-head-parallelism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attention Head Parallelism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-megatron-lm-communication-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Megatron-LM Communication Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#communication-volume-the-nvlink-imperative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Communication Volume: The NVLink Imperative
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tp-alignment-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TP Alignment Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-parallelism-inter-layer-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Parallelism: Inter-Layer Sharding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pipeline Parallelism: Inter-Layer Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-pipeline-bubble-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Pipeline Bubble Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#microbatching-filling-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Microbatching: Filling the Pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#1f1b-scheduling-for-training" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1F1B Scheduling for Training
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interleaved-pipeline-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interleaved Pipeline Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#communication-cost-of-pipeline-parallelism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Communication Cost of Pipeline Parallelism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pp-degree-and-latency-trade-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PP Degree and Latency Trade-off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-parallelism-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Parallelism for Inference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#expert-parallelism-for-mixture-of-experts-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expert Parallelism for Mixture-of-Experts Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3d-parallelism-combining-tp-pp-and-dp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3D Parallelism: Combining TP, PP, and DP
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3D Parallelism: Combining TP, PP, and DP">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deriving-the-optimal-3d-parallelism-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deriving the Optimal 3D Parallelism Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#representative-3d-parallelism-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Representative 3D Parallelism Configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-a-parallelism-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a Parallelism Strategy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing a Parallelism Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worked-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interview-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interview Questions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interview Questions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#senior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Senior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#staff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#google-level-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google-Level Follow-Ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-takeaways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Takeaways
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Distributed Inference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes/edit/main/docs/17-distributed-inference/01-tensor-and-pipeline-parallelism.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="tensor-pipeline-parallelism">Tensor &amp; Pipeline Parallelism<a class="headerlink" href="#tensor-pipeline-parallelism" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Model parallelism is not a performance optimization for large models — it is a physical requirement. A Llama 3 70B model in BF16 occupies 140 GB of memory. A single H100 SXM5 has 80 GB of HBM3. The model does not fit. You cannot serve it, fine-tune it, or even load it on a single GPU. Before you think about batching strategies, KV cache optimizations, or quantization schemes, you must solve the basic problem of getting the model's parameters into GPU memory. That is what tensor parallelism and pipeline parallelism do.</p>
+<p>This chapter covers the two primary model parallelism strategies at full mechanical depth — how weight matrices are sharded, what communication happens at each step, what it costs in bandwidth and latency, and how to choose between them for a given model size, GPU count, and interconnect topology. It then covers how all three parallelism strategies (adding data parallelism) compose into the 3D parallelism that runs the largest clusters in production.</p>
+<p>See also: <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/">Multi-GPU Topologies &amp; Interconnects</a> for the NVLink and InfiniBand bandwidth numbers this chapter depends on, and <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/">GPU Sizing &amp; Capacity Planning</a> for the GPU count arithmetic that sets the minimum parallelism degree.</p>
+<hr />
+<h2 id="why-model-parallelism-is-necessary">Why Model Parallelism Is Necessary<a class="headerlink" href="#why-model-parallelism-is-necessary" title="Permanent link">&para;</a></h2>
+<p>The minimum number of GPUs required to serve a model is not determined by throughput or latency — it is determined by memory. Until the model's weights fit in GPU memory, no other optimization applies.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GPU count (minimum) = ⌈model_size_bytes / GPU_VRAM_bytes⌉
+</span></code></pre></div>
+<p>Working through the arithmetic for current models:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Precision</th>
+<th>Size</th>
+<th>H100 (80 GB)</th>
+<th>H200 (141 GB)</th>
+<th>B200 (192 GB)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Llama 3 8B</td>
+<td>BF16</td>
+<td>16 GB</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+</tr>
+<tr>
+<td>Llama 3 8B</td>
+<td>INT4</td>
+<td>4 GB</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+</tr>
+<tr>
+<td>Llama 3 70B</td>
+<td>BF16</td>
+<td>140 GB</td>
+<td>2 GPUs</td>
+<td>1 GPU*</td>
+<td>1 GPU*</td>
+</tr>
+<tr>
+<td>Llama 3 70B</td>
+<td>INT4</td>
+<td>35 GB</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+<td>1 GPU</td>
+</tr>
+<tr>
+<td>Llama 3 405B</td>
+<td>BF16</td>
+<td>810 GB</td>
+<td>11 GPUs</td>
+<td>6 GPUs</td>
+<td>5 GPUs</td>
+</tr>
+<tr>
+<td>Llama 3 405B</td>
+<td>INT4</td>
+<td>202 GB</td>
+<td>3 GPUs</td>
+<td>2 GPUs</td>
+<td>2 GPUs</td>
+</tr>
+</tbody>
+</table>
+<p>*Weights just fit but leave no room for KV cache — unusable in practice without quantization.</p>
+<p>The H200's 141 GB is barely larger than the 70B BF16 model's 140 GB. With zero memory remaining for KV cache, activations, and CUDA overhead, you cannot serve a single request. In practice, you need at least 2× H200s at BF16 to leave room for KV cache.</p>
+<p>The 405B BF16 model at 810 GB requires at minimum 11× H100s — and that is weight memory only. A 4096-token batch generates approximately 500 GB of KV cache on top. Sizing for just weights is the floor, not the ceiling.</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph MemoryArith["Why Model Parallelism Is a Physical Requirement"]
+        W1["Llama 3 70B BF16\n70B params x 2 bytes = 140 GB"]
+        W2["H100 SXM5 VRAM\n80 GB HBM3"]
+        W3["140 GB does not fit in 80 GB\nMinimum: 2x H100"]
+        W4["After weights on 2x H100\n2 x 80 GB = 160 GB total\n160 GB - 140 GB = 20 GB for KV cache\nOnly 10 GB per GPU - tight for production"]
+        W5["Practical: TP=8 (one node)\n8 x 80 GB = 640 GB\n140 GB weights + 500 GB for KV cache\nProduction-ready concurrency"]
+        W1 --&gt; W2
+        W2 --&gt; W3
+        W3 --&gt; W4
+        W4 --&gt; W5
+    end
+    subgraph M405["Llama 3 405B BF16"]
+        P1["405B params x 2 bytes = 810 GB weights alone"]
+        P2["Minimum: 11x H100 just for weights"]
+        P3["At TP=8 per node: need 2 NVSwitch nodes\n16 GPUs = 1,280 GB total VRAM\n810 GB weights + 470 GB remaining"]
+        P1 --&gt; P2 --&gt; P3
+    end</code></pre>
+<hr />
+<h2 id="tensor-parallelism-intra-layer-sharding">Tensor Parallelism: Intra-Layer Sharding<a class="headerlink" href="#tensor-parallelism-intra-layer-sharding" title="Permanent link">&para;</a></h2>
+<p>Tensor parallelism (TP) splits individual weight matrices across multiple GPUs. Each GPU holds a fraction of each layer's weights and computes a partial result. The results are aggregated via collective communication operations. The key property: the communication happens within a layer, not between layers.</p>
+<h3 id="column-parallel-linear">Column-Parallel Linear<a class="headerlink" href="#column-parallel-linear" title="Permanent link">&para;</a></h3>
+<p>A linear layer computes <code>Y = X × W</code> where <code>X</code> is the input (batch × seq × hidden_dim) and <code>W</code> is the weight matrix (hidden_dim × output_dim). In column-parallel TP with degree N, the weight matrix is split column-wise:</p>
+<ul>
+<li>GPU 0 holds <code>W[:, 0 : output_dim/N]</code></li>
+<li>GPU 1 holds <code>W[:, output_dim/N : 2*output_dim/N]</code></li>
+<li>GPU i holds <code>W[:, i*output_dim/N : (i+1)*output_dim/N]</code></li>
+</ul>
+<p>Each GPU receives the same full input <code>X</code> (this requires an all-gather or broadcast at the layer's input) and computes its partial output <code>Y_i = X × W_i</code>. The outputs are then column-partitioned: GPU i holds output columns <code>[i*output_dim/N : (i+1)*output_dim/N]</code>. No aggregation is needed after a column-parallel layer — each GPU's output is already a valid partial result that feeds the next row-parallel layer.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph ColPar["Column-Parallel Linear: W split column-wise across 4 GPUs"]
+        INPUT["Input X\nhidden_dim x batch\nBROADCAST to all GPUs"]
+        subgraph G0["GPU 0"]
+            W0["W cols 0 to ffn/4\nlocal matmul"]
+            Y0["Output Y0\ncols 0 to ffn/4"]
+        end
+        subgraph G1["GPU 1"]
+            W1["W cols ffn/4 to ffn/2\nlocal matmul"]
+            Y1["Output Y1\ncols ffn/4 to ffn/2"]
+        end
+        subgraph G2["GPU 2"]
+            W2["W cols ffn/2 to 3ffn/4\nlocal matmul"]
+            Y2["Output Y2\ncols ffn/2 to 3ffn/4"]
+        end
+        subgraph G3["GPU 3"]
+            W3["W cols 3ffn/4 to ffn\nlocal matmul"]
+            Y3["Output Y3\ncols 3ffn/4 to ffn"]
+        end
+        INPUT --&gt; W0
+        INPUT --&gt; W1
+        INPUT --&gt; W2
+        INPUT --&gt; W3
+        W0 --&gt; Y0
+        W1 --&gt; Y1
+        W2 --&gt; Y2
+        W3 --&gt; Y3
+    end
+    NOTE["No all-reduce needed after column-parallel\nEach GPU's output is a column shard\nFeeds directly into row-parallel layer"]</code></pre>
+<h3 id="row-parallel-linear">Row-Parallel Linear<a class="headerlink" href="#row-parallel-linear" title="Permanent link">&para;</a></h3>
+<p>A row-parallel linear layer splits the weight matrix row-wise:</p>
+<ul>
+<li>GPU i holds <code>W[i*hidden_dim/N : (i+1)*hidden_dim/N, :]</code></li>
+<li>GPU i's input is the corresponding column shard of the activation (output of the previous column-parallel layer)</li>
+<li>Each GPU computes a partial dot product: <code>Y_partial_i = X_i × W_i</code></li>
+<li>The full output Y = sum(Y_partial_i) — this requires an <strong>all-reduce</strong> across all N TP GPUs</li>
+</ul>
+<p>The all-reduce aggregates the partial dot products into the correct full output tensor. This is the communication event that must be hidden inside the compute time.</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph RowPar["Row-Parallel Linear: Requires All-Reduce"]
+        subgraph R0["GPU 0"]
+            X0["Input shard X0\n(from column-parallel output)"]
+            RW0["W rows 0 to hidden/4\npartial matmul"]
+            P0["Partial output P0"]
+        end
+        subgraph R1["GPU 1"]
+            X1["Input shard X1"]
+            RW1["W rows hidden/4 to hidden/2\npartial matmul"]
+            P1["Partial output P1"]
+        end
+        subgraph R2["GPU 2"]
+            X2["Input shard X2"]
+            RW2["W rows hidden/2 to 3hidden/4"]
+            P2["Partial output P2"]
+        end
+        subgraph R3["GPU 3"]
+            X3["Input shard X3"]
+            RW3["W rows 3hidden/4 to hidden"]
+            P3["Partial output P3"]
+        end
+        X0 --&gt; RW0 --&gt; P0
+        X1 --&gt; RW1 --&gt; P1
+        X2 --&gt; RW2 --&gt; P2
+        X3 --&gt; RW3 --&gt; P3
+        P0 &amp; P1 &amp; P2 &amp; P3 --&gt; AR["ALL-REDUCE\nP0+P1+P2+P3\nEach GPU gets full Y"]
+    end</code></pre>
+<h3 id="attention-head-parallelism">Attention Head Parallelism<a class="headerlink" href="#attention-head-parallelism" title="Permanent link">&para;</a></h3>
+<p>For the attention mechanism, TP splits attention heads across GPUs. With <code>num_heads</code> total heads and TP degree N, GPU i processes heads <code>[i * num_heads/N : (i+1) * num_heads/N]</code>. Each GPU computes its assigned heads' Q, K, V projections and the full attention computation for those heads, then an all-reduce combines the results.</p>
+<p>For <strong>GQA (Grouped Query Attention)</strong> models like Llama 3 70B — which use 64 query heads but only 8 KV heads — the TP split must respect the GQA grouping. Each TP rank must receive the KV heads corresponding to its query heads. At TP=8 with 8 KV heads, each GPU gets exactly 1 KV head. At TP=4 with 8 KV heads, each GPU gets 2 KV heads. At TP=16 with 8 KV heads, there are not enough KV heads to split equally — TP degree cannot exceed <code>num_kv_heads</code>. This is a hard architectural limit on the maximum TP degree for GQA models.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph AttnTP["Attention Head TP with GQA - Llama 3 70B\n64 query heads, 8 KV heads, TP=8"]
+        GPU0["GPU 0\nQuery heads 0-7\nKV head 0\nFull attention for those heads"]
+        GPU1["GPU 1\nQuery heads 8-15\nKV head 1\nFull attention for those heads"]
+        GPU2["GPU 2-7\nSimilar pattern\n..."]
+        AR2["ALL-REDUCE across TP group\nAggregate attention outputs from all 8 GPUs"]
+        GPU0 &amp; GPU1 &amp; GPU2 --&gt; AR2
+    end
+    CONSTRAINT["GQA TP ceiling:\nTP degree cannot exceed num_kv_heads = 8\nLlama 3 70B: max TP = 8\nLlama 3 8B: 8 KV heads, max TP = 8\nMistral 7B: 8 KV heads, max TP = 8"]</code></pre>
+<h3 id="the-megatron-lm-communication-pattern">The Megatron-LM Communication Pattern<a class="headerlink" href="#the-megatron-lm-communication-pattern" title="Permanent link">&para;</a></h3>
+<p>The Megatron-LM paper (Shoeybi et al., 2019) established the standard TP pattern for transformer layers. Each transformer layer consists of two sub-layer pairs — the attention sub-layer and the FFN sub-layer. In the Megatron-LM pattern:</p>
+<ul>
+<li><strong>Attention block</strong>: Column-parallel QKV projection (broadcast input) → attention computation (no comm) → row-parallel output projection → <strong>all-reduce</strong> (one communication event)</li>
+<li><strong>FFN block</strong>: Column-parallel first linear → activation function (no comm) → row-parallel second linear → <strong>all-reduce</strong> (one communication event)</li>
+</ul>
+<p>This gives exactly <strong>4 all-reduces per transformer layer</strong> (2 per attention block + 2 per FFN block, combined into 1 each by fusing the column-parallel all-gather and row-parallel all-reduce into single operations).</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph TransLayer["One Transformer Layer: 4 All-Reduces Total"]
+        subgraph AttnBlock["Attention Block"]
+            INP["Input X\nBroadcast to all TP GPUs"]
+            QKV["Column-Parallel QKV\nEach GPU: partial Q,K,V"]
+            ATTN["Local Attention Compute\nOn assigned heads\nNo communication"]
+            OPROJ["Row-Parallel Output Proj\nPartial outputs"]
+            AR_ATTN["ALL-REDUCE 1\nAggregate attention output"]
+        end
+        subgraph FFNBlock["FFN Block"]
+            FF1["Column-Parallel Linear 1\nhidden -&gt; 4x hidden\nBroadcast input"]
+            ACT["Activation Function\nLocal, no comm"]
+            FF2["Row-Parallel Linear 2\n4x hidden -&gt; hidden\nPartial outputs"]
+            AR_FFN["ALL-REDUCE 2\nAggregate FFN output"]
+        end
+        INP --&gt; QKV --&gt; ATTN --&gt; OPROJ --&gt; AR_ATTN
+        AR_ATTN --&gt; FF1 --&gt; ACT --&gt; FF2 --&gt; AR_FFN
+        AR_FFN --&gt; NEXT["Next Layer\nor output"]
+    end
+    TOTAL["Total per layer: 2 all-reduces\nTotal for 80-layer model: 160 all-reduces\nPer forward pass with continuous batching"]</code></pre>
+<h3 id="communication-volume-the-nvlink-imperative">Communication Volume: The NVLink Imperative<a class="headerlink" href="#communication-volume-the-nvlink-imperative" title="Permanent link">&para;</a></h3>
+<p>The communication volume per all-reduce determines whether tensor parallelism is viable at a given interconnect bandwidth. The formula:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>volume_per_allreduce = 2 × batch_size × sequence_length × hidden_dim × dtype_bytes
+</span></code></pre></div>
+<p>The factor of 2 accounts for the all-reduce pattern: ring-allreduce sends <code>2 × tensor_size / N</code> bytes per link, but from the per-layer latency perspective, the relevant quantity is the full tensor size that must be communicated.</p>
+<p>For a concrete production example (TP=8 on H100s, serving Llama 3 70B, batch=32, seq=512, BF16):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>volume = 2 × 32 × 512 × 8192 × 2 bytes = 537 MB per all-reduce
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Interconnect</th>
+<th>Effective BW</th>
+<th>Time per all-reduce</th>
+<th>× 4 per layer × 80 layers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NVLink 4.0 with NVSwitch</td>
+<td>~450 GB/s</td>
+<td>~1.2 ms</td>
+<td><strong>384 ms</strong></td>
+</tr>
+<tr>
+<td>InfiniBand NDR (inter-node)</td>
+<td>~50 GB/s</td>
+<td>~10.7 ms</td>
+<td><strong>~3,430 ms</strong></td>
+</tr>
+<tr>
+<td>PCIe 5.0 (no NVLink)</td>
+<td>~100 GB/s effective</td>
+<td>~5.4 ms</td>
+<td><strong>~1,728 ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The difference between NVLink and PCIe is not a latency penalty — it is the difference between a working system and a system where communication overhead exceeds compute time by a factor of 4. Without NVLink, tensor parallelism across 4+ GPUs becomes the primary bottleneck.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph CommCompare["All-Reduce Cost Comparison: 537 MB at Different Interconnects"]
+        NVL["NVLink 4.0 with NVSwitch\n450 GB/s effective\n537 MB / 450 GBps = 1.2 ms per all-reduce\n4 per layer x 80 layers = 384 ms total\nAcceptable: decode step is 42 ms per token\n384 ms / 42 ms = 9 communication steps\nbut OVERLAPPED with compute across layers"]
+        IB["InfiniBand NDR inter-node\n50 GB/s\n537 MB / 50 GBps = 10.7 ms per all-reduce\n4 x 80 = 320 x 10.7 ms = 3,424 ms\nRED: 3.4 seconds of comm for one forward pass\nDO NOT run TP across InfiniBand"]
+        PCIE["PCIe 5.0 only - no NVLink\n100 GB/s effective\n537 MB / 100 GBps = 5.4 ms per all-reduce\n320 x 5.4 ms = 1,728 ms total\nRED: TP collapses at TP=4+\nOK for TP=2 at small batches only"]
+    end</code></pre>
+<p><strong>The TP ceiling rule:</strong> Run tensor parallelism only within a single NVSwitch-connected node. For H100/H200 DGX nodes, that means TP ≤ 8. For PCIe-only nodes (H100 PCIe, A10G, L40S), TP ≤ 2 is the practical limit, and even that should be verified by load testing. For TP=16 across two NVSwitch nodes, the inter-node InfiniBand is the all-reduce path — the numbers above show why this fails.</p>
+<h3 id="tp-alignment-requirements">TP Alignment Requirements<a class="headerlink" href="#tp-alignment-requirements" title="Permanent link">&para;</a></h3>
+<p>Not all TP degrees work for all model architectures. The tensor dimensions being split must be exactly divisible by the TP degree.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Requirement</th>
+<th>Failure mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_attention_heads</code></td>
+<td>Must be divisible by TP degree</td>
+<td>Non-divisible heads cannot be split evenly</td>
+</tr>
+<tr>
+<td><code>num_kv_heads</code> (GQA)</td>
+<td>TP degree ≤ num_kv_heads</td>
+<td>Can't split fewer heads than TP GPUs</td>
+</tr>
+<tr>
+<td>FFN intermediate dim</td>
+<td>Must be divisible by TP degree</td>
+<td>Non-divisible FFN hidden size requires padding</td>
+</tr>
+</tbody>
+</table>
+<p>For Llama 3 70B: <code>num_heads = 64</code>, <code>num_kv_heads = 8</code>, <code>ffn_intermediate = 28,672</code>. Valid TP degrees: 1, 2, 4, 8 (all divide 64 and 8, and 28,672 is divisible by 1, 2, 4, 8). TP=16 is invalid: 8 KV heads / 16 GPUs &lt; 1.</p>
+<p>For Mistral 7B: <code>num_heads = 32</code>, <code>num_kv_heads = 8</code>. Valid TP degrees: 1, 2, 4, 8. TP=16: invalid.</p>
+<hr />
+<h2 id="pipeline-parallelism-inter-layer-sharding">Pipeline Parallelism: Inter-Layer Sharding<a class="headerlink" href="#pipeline-parallelism-inter-layer-sharding" title="Permanent link">&para;</a></h2>
+<p>Pipeline parallelism (PP) assigns consecutive transformer layers to different GPUs. GPU 0 runs layers 1 through L/PP, GPU 1 runs layers L/PP+1 through 2L/PP, and so on. Activations flow from stage to stage via point-to-point transfers. The key property: the communication happens between layers, not within layers — which means it crosses node boundaries at a fraction of the frequency that tensor-parallel all-reduces do.</p>
+<h3 id="the-pipeline-bubble-problem">The Pipeline Bubble Problem<a class="headerlink" href="#the-pipeline-bubble-problem" title="Permanent link">&para;</a></h3>
+<p>In a naive single-microbatch pipeline, only one GPU is active at any given moment. While GPU 0 processes a batch and hands off activations to GPU 1, GPUs 2 and 3 wait. While GPU 3 processes and hands back (for backprop in training, or for the next request's first stage in inference), GPU 0 sits idle. The <strong>pipeline bubble</strong> is this idle time.</p>
+<p>For PP=4 stages with a single microbatch:
+- GPU 0 runs at steps: 1, 5, 9, 13... (every 4th step)
+- GPUs 1, 2, 3 run at offset steps
+- <strong>Bubble fraction = (PP - 1) / PP = 3/4 = 75%</strong> — three-quarters of each GPU's time is idle</p>
+<pre class="mermaid"><code>flowchart LR
+    subgraph BubbleVis["Pipeline Execution: PP=4 Stages, M=4 Microbatches\nTime flows left to right"]
+        subgraph Row0["Stage 0"]
+            S0T1["M1"]
+            S0T2["M2"]
+            S0T3["M3"]
+            S0T4["M4"]
+            S0B1["IDLE"]
+            S0B2["IDLE"]
+            S0B3["IDLE"]
+            S0T1 --&gt; S0T2 --&gt; S0T3 --&gt; S0T4 --&gt; S0B1 --&gt; S0B2 --&gt; S0B3
+        end
+        subgraph Row1["Stage 1"]
+            S1B1["IDLE"]
+            S1T1["M1"]
+            S1T2["M2"]
+            S1T3["M3"]
+            S1T4["M4"]
+            S1B2["IDLE"]
+            S1B3["IDLE"]
+            S1B1 --&gt; S1T1 --&gt; S1T2 --&gt; S1T3 --&gt; S1T4 --&gt; S1B2 --&gt; S1B3
+        end
+        subgraph Row2["Stage 2"]
+            S2B1["IDLE"]
+            S2B2["IDLE"]
+            S2T1["M1"]
+            S2T2["M2"]
+            S2T3["M3"]
+            S2T4["M4"]
+            S2B3["IDLE"]
+            S2B1 --&gt; S2B2 --&gt; S2T1 --&gt; S2T2 --&gt; S2T3 --&gt; S2T4 --&gt; S2B3
+        end
+        subgraph Row3["Stage 3"]
+            S3B1["IDLE"]
+            S3B2["IDLE"]
+            S3B3["IDLE"]
+            S3T1["M1"]
+            S3T2["M2"]
+            S3T3["M3"]
+            S3T4["M4"]
+            S3B1 --&gt; S3B2 --&gt; S3B3 --&gt; S3T1 --&gt; S3T2 --&gt; S3T3 --&gt; S3T4
+        end
+    end
+    BSTAT["With M=4 microbatches PP=4:\nBubble fraction ~ 3/7 = 43 pct\nWith M=8: ~3/11 = 27 pct\nWith M=32: ~3/35 = 9 pct\nBubble shrinks as M grows"]</code></pre>
+<h3 id="microbatching-filling-the-pipeline">Microbatching: Filling the Pipeline<a class="headerlink" href="#microbatching-filling-the-pipeline" title="Permanent link">&para;</a></h3>
+<p>The solution is to split the input batch into M micro-batches and feed them through the pipeline in rapid succession. While GPU 3 is processing micro-batch 1, GPU 2 processes micro-batch 2, GPU 1 processes micro-batch 3, and GPU 0 processes micro-batch 4 — all simultaneously. As M grows, the pipeline fills and the bubble fraction shrinks.</p>
+<p><strong>Bubble fraction formula:</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bubble_fraction = (PP - 1) / (PP - 1 + M)
+</span></code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>PP</th>
+<th>M=1</th>
+<th>M=4</th>
+<th>M=8</th>
+<th>M=32</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2</td>
+<td>50%</td>
+<td>20%</td>
+<td>11%</td>
+<td>3%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>75%</td>
+<td>43%</td>
+<td>27%</td>
+<td>9%</td>
+</tr>
+<tr>
+<td>8</td>
+<td>87.5%</td>
+<td>64%</td>
+<td>47%</td>
+<td>19%</td>
+</tr>
+<tr>
+<td>16</td>
+<td>93.8%</td>
+<td>79%</td>
+<td>65%</td>
+<td>32%</td>
+</tr>
+</tbody>
+</table>
+<p>The implication: pipeline parallelism at high PP degree requires many micro-batches to be efficient. A PP=8 deployment needs M ≥ 32 micro-batches to hold bubble fraction below 20%. This is well-suited for throughput-oriented batch serving but problematic for low-latency interactive serving where small M values are forced by the latency budget.</p>
+<h3 id="1f1b-scheduling-for-training">1F1B Scheduling for Training<a class="headerlink" href="#1f1b-scheduling-for-training" title="Permanent link">&para;</a></h3>
+<p>The <strong>one-forward-one-backward (1F1B)</strong> schedule is the standard pipeline schedule for training. Instead of completing all forward passes before any backward pass, 1F1B alternates forward and backward passes within the pipeline. The key benefit: memory usage is bounded by PP stages × 1 microbatch worth of activations, rather than growing with M.</p>
+<p>For <strong>inference-only</strong> pipelines (no backward pass):
+- No 1F1B required — the schedule is purely forward
+- Each micro-batch flows from stage 0 to stage PP−1 in sequence
+- The serving engine (e.g., vLLM with continuous batching) keeps the pipeline full by continuously feeding new decode steps
+- With continuous batching, each decode step is effectively a micro-batch — the pipeline is filled naturally by the stream of requests in the batch</p>
+<h3 id="interleaved-pipeline-scheduling">Interleaved Pipeline Scheduling<a class="headerlink" href="#interleaved-pipeline-scheduling" title="Permanent link">&para;</a></h3>
+<p>Interleaved scheduling assigns each GPU multiple non-consecutive chunks of layers rather than one contiguous block. For PP=4 with interleaving factor V=2:</p>
+<ul>
+<li>GPU 0 holds layers 1–L/8 and layers 4L/8+1–5L/8</li>
+<li>GPU 1 holds layers L/8+1–2L/8 and layers 5L/8+1–6L/8</li>
+<li>GPU 2 holds layers 2L/8+1–3L/8 and layers 6L/8+1–7L/8</li>
+<li>GPU 3 holds layers 3L/8+1–4L/8 and layers 7L/8+1–L</li>
+</ul>
+<p>This requires 2× more communication events (activations must cross the inter-GPU boundary twice per virtual pipeline stage) but reduces the bubble fraction by factor V: <code>bubble_fraction = (PP - 1) / (V × (PP - 1) + M)</code>. Interleaved scheduling is worth the added complexity when PP degree is high (≥ 4) and M cannot be made large enough to absorb the bubble via microbatching alone.</p>
+<h3 id="communication-cost-of-pipeline-parallelism">Communication Cost of Pipeline Parallelism<a class="headerlink" href="#communication-cost-of-pipeline-parallelism" title="Permanent link">&para;</a></h3>
+<p>Pipeline parallelism uses point-to-point send/receive rather than all-reduce. The communication volume per stage boundary per micro-batch:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>volume_per_transfer = batch_size × sequence_length × hidden_dim × dtype_bytes
+</span></code></pre></div>
+<p>Using the same example (batch=32, seq=512, hidden=8192, BF16):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>volume = 32 × 512 × 8192 × 2 bytes = 268 MB per boundary transfer
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Interconnect</th>
+<th>Effective BW</th>
+<th>Time per transfer</th>
+<th>3-boundary pipeline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NVLink (intra-node)</td>
+<td>900 GB/s</td>
+<td>0.3 ms</td>
+<td>~0.9 ms</td>
+</tr>
+<tr>
+<td>InfiniBand NDR</td>
+<td>50 GB/s</td>
+<td><strong>5.4 ms</strong></td>
+<td><strong>~16 ms</strong></td>
+</tr>
+<tr>
+<td>PCIe 5.0</td>
+<td>128 GB/s</td>
+<td>2.1 ms</td>
+<td>~6.3 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Compare to tensor parallelism: TP over NVLink adds 384 ms of all-reduce for the same forward pass, while PP over InfiniBand adds only 16 ms. This is why <strong>PP scales across nodes while TP does not</strong>:</p>
+<ul>
+<li>TP: one all-reduce per layer per forward pass → communication is on the critical path at every layer</li>
+<li>PP: one point-to-point transfer per stage boundary per forward pass → communication happens once per stage, not once per layer</li>
+</ul>
+<p>At InfiniBand NDR (50 GB/s), the 268 MB transfer takes 5.4 ms. For a pipeline stage compute time significantly exceeding 5.4 ms (which it does at batch sizes ≥ 8 for 70B+ models), this transfer is overlapped with the previous stage's compute. The pipeline is efficient even across nodes.</p>
+<h3 id="pp-degree-and-latency-trade-off">PP Degree and Latency Trade-off<a class="headerlink" href="#pp-degree-and-latency-trade-off" title="Permanent link">&para;</a></h3>
+<p>Increasing PP degree reduces per-GPU memory requirement but increases latency:</p>
+<ul>
+<li>Each pipeline stage boundary adds one activation transfer (5.4ms at InfiniBand NDR for the example above)</li>
+<li>The pipeline bubble fraction grows with PP (for fixed M)</li>
+<li>For latency-sensitive serving, target PP=1 (no pipeline) or PP=2</li>
+<li>For throughput-oriented batch serving with large M, PP=4 to PP=8 is practical</li>
+</ul>
+<pre class="mermaid"><code>flowchart TD
+    subgraph PPChoice["Pipeline Parallelism Degree Selection"]
+        Q1{"Is TTFT SLO\nstrict under 500ms?"}
+        Q1 --&gt;|Yes interactive serving| PP1["PP = 1\nNo pipeline overhead\nUse TP for memory if needed"]
+        Q1 --&gt;|No batch throughput| Q2{"Model needs\nmulti-node scale?"}
+        Q2 --&gt;|Yes| PP2["PP = 2 to 4\nFew stage boundaries\nSmall bubble with M = 8 to 32"]
+        Q2 --&gt;|No fits in one rack| PP3["PP = 2\nTwo nodes one boundary\n5.4 ms InfiniBand transfer\nAcceptable even for interactive"]
+    end</code></pre>
+<hr />
+<h2 id="data-parallelism-for-inference">Data Parallelism for Inference<a class="headerlink" href="#data-parallelism-for-inference" title="Permanent link">&para;</a></h2>
+<p>Data parallelism (DP) for inference is simple: run N independent copies of the full model, each serving different requests. No model-level communication happens during the forward pass. After each training step (for training-time DP), gradients are all-reduced across replicas — but for inference-only deployment, there is no inter-replica communication whatsoever.</p>
+<p>DP is the correct scaling strategy when:
+- The model fits on one GPU (or one TP group)
+- The goal is to scale total request throughput, not reduce per-request latency
+- N × VRAM is available</p>
+<p>The cost is N × model memory. A fleet of 8 H100s running a 7B INT4 model (4 GB) could use DP=8 with 8 independent model copies, each serving up to 18 concurrent 4K-token sequences in its remaining VRAM. Total fleet throughput: 8× the per-GPU throughput. Zero communication overhead. For models that fit on a single GPU, DP is the most efficient way to scale.</p>
+<hr />
+<h2 id="expert-parallelism-for-mixture-of-experts-models">Expert Parallelism for Mixture-of-Experts Models<a class="headerlink" href="#expert-parallelism-for-mixture-of-experts-models" title="Permanent link">&para;</a></h2>
+<p>Mixture-of-Experts (MoE) models (Mixtral 8×7B, DeepSeek-V3, Llama 4 Scout) replace dense FFN layers with multiple "expert" FFN layers. A learned router selects 2–4 experts per token. Expert parallelism (EP) places different experts on different GPUs.</p>
+<p>The communication pattern for EP is <strong>all-to-all</strong>, not all-reduce:</p>
+<ol>
+<li>Router assigns each token to specific expert GPUs</li>
+<li><strong>All-to-all (forward)</strong>: Each GPU sends its assigned tokens to the GPU holding the selected expert</li>
+<li>Expert computation runs locally on each GPU</li>
+<li><strong>All-to-all (backward)</strong>: Processed tokens are returned to the originating GPUs</li>
+</ol>
+<pre class="mermaid"><code>flowchart TB
+    subgraph EPPattern["Expert Parallelism All-to-All Pattern\nDeepSeek-V3: 256 experts, 8 selected per token"]
+        subgraph GPUBefore["Before expert computation\nTokens routed to expert GPUs"]
+            R["Router\nAssigns tokens to experts"]
+            T1["GPU 0 tokens: some for Expert 0\nsome for Expert 5\nsome for Expert 12\n..."]
+            T2["GPU 1 tokens: mixed experts"]
+        end
+        subgraph AAFwd["All-to-All Forward\nRedistribute tokens to expert GPUs"]
+            AA1["Tokens for Expert 0 -&gt; GPU 0"]
+            AA2["Tokens for Expert 1 -&gt; GPU 1"]
+            AA3["Tokens for Expert N -&gt; GPU N"]
+        end
+        subgraph ExpertComp["Expert Computation\nLocal on each GPU\nNo communication"]
+            E0["GPU 0: Expert 0 FFN\nOnly processes tokens routed here"]
+            E1["GPU 1: Expert 1 FFN"]
+        end
+        subgraph AABack["All-to-All Backward\nReturn processed tokens to origin"]
+            B1["GPU 0 sends back its processed tokens\nto original GPUs"]
+        end
+        R --&gt; T1 &amp; T2 --&gt; AA1 &amp; AA2 &amp; AA3 --&gt; E0 &amp; E1 --&gt; B1
+    end
+    EPCOST["EP communication cost:\n2 all-to-all operations per MoE layer\nAll-to-all is less efficient than ring-allreduce\n(not bandwidth-optimal)\nRequires high-bandwidth interconnect for efficiency\nDeepSeek-V3: EP combined with TP for dense layers"]</code></pre>
+<p>EP requires high-bandwidth interconnects because all-to-all traffic is less structured than ring-allreduce — each GPU sends to a different subset of GPUs depending on token routing, creating irregular traffic patterns. InfiniBand with fat-tree topology handles this better than rail-optimized topologies designed for ring-allreduce.</p>
+<p>For large MoE models in production: EP is combined with TP (for dense attention layers) and PP (for multi-node scale), creating a 4D parallelism configuration. DeepSeek's production clusters use EP=64 or higher combined with TP=8.</p>
+<hr />
+<h2 id="3d-parallelism-combining-tp-pp-and-dp">3D Parallelism: Combining TP, PP, and DP<a class="headerlink" href="#3d-parallelism-combining-tp-pp-and-dp" title="Permanent link">&para;</a></h2>
+<p>The largest clusters combine all three parallelism strategies simultaneously. The decomposition is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>total_GPUs = TP × PP × DP
+</span></code></pre></div>
+<p><strong>The placement hierarchy:</strong>
+- <strong>TP within node</strong>: All TP ranks must be on the same NVSwitch-connected node (to use NVLink for all-reduce). TP degree ≤ GPUs per node (≤ 8 for DGX H100).
+- <strong>PP across nodes in a rack</strong>: Pipeline stage boundaries use InfiniBand for activation transfer. Prefer nodes in the same rack (same ToR switch) for lowest inter-node latency.
+- <strong>DP across racks</strong>: Each DP replica is an independent TP×PP group. DP synchronization (gradient all-reduce during training) crosses rack boundaries — acceptable because DP communication is infrequent.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph Cluster64["64-GPU Cluster: Serving Llama 3 405B\nTP=8 PP=4 DP=2"]
+        subgraph DP0["DP Replica 0\n32 GPUs"]
+            subgraph PP0_DP0["Pipeline Stage 0\nLayers 1-25\nNode 0"]
+                TP0_PP0["TP Group\nGPU 0-7\nNVSwitch all-reduce\n810 GB / 8 TP / 4 PP = 25 GB per GPU"]
+            end
+            subgraph PP1_DP0["Pipeline Stage 1\nLayers 26-50\nNode 1"]
+                TP0_PP1["TP Group\nGPU 8-15"]
+            end
+            subgraph PP2_DP0["Pipeline Stage 2\nLayers 51-75\nNode 2"]
+                TP0_PP2["TP Group\nGPU 16-23"]
+            end
+            subgraph PP3_DP0["Pipeline Stage 3\nLayers 76-101\nNode 3"]
+                TP0_PP3["TP Group\nGPU 24-31"]
+            end
+            PP0_DP0 --&gt;|"InfiniBand 268 MB activation"| PP1_DP0
+            PP1_DP0 --&gt;|"InfiniBand"| PP2_DP0
+            PP2_DP0 --&gt;|"InfiniBand"| PP3_DP0
+        end
+        subgraph DP1["DP Replica 1\n32 GPUs\nIdentical TP x PP structure\nGPUs 32-63"]
+            PP0_DP1["Stage 0 Node 4"]
+            PP1_DP1["Stage 1 Node 5"]
+            PP2_DP1["Stage 2 Node 6"]
+            PP3_DP1["Stage 3 Node 7"]
+            PP0_DP1 --&gt; PP1_DP1 --&gt; PP2_DP1 --&gt; PP3_DP1
+        end
+        DP0 &lt;--&gt;|"DP grad sync via InfiniBand\nInference only: no sync needed"| DP1
+    end
+    MATH["Memory check: 810 GB weights / 32 GPUs per replica = 25.3 GB per GPU\nWith 80 GB H100: 54.7 GB remaining per GPU for KV cache\n54.7 GB / 320 KB per token = ~170K tokens of KV budget per GPU\nProduction-viable for 4K-token requests at batch 42 per GPU"]</code></pre>
+<h3 id="deriving-the-optimal-3d-parallelism-configuration">Deriving the Optimal 3D Parallelism Configuration<a class="headerlink" href="#deriving-the-optimal-3d-parallelism-configuration" title="Permanent link">&para;</a></h3>
+<p><strong>Step 1: Determine minimum TP degree.</strong></p>
+<p>Start with the constraint that each GPU's weight memory must fit within GPU VRAM:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>memory_per_gpu = model_size / (TP × PP)
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>memory_per_gpu ≤ GPU_VRAM - KV_cache_budget
+</span></code></pre></div>
+<p>For Llama 3 405B BF16 on H100 (80 GB), targeting 20 GB for KV cache:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>810 GB / (TP × PP) ≤ 60 GB
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>TP × PP ≥ 14
+</span></code></pre></div></p>
+<p>With TP=8 (one node): PP ≥ 2. Use PP=2 for minimum pipeline overhead, or PP=4 for more GPUs.</p>
+<p><strong>Step 2: Set PP degree for cluster scale.</strong></p>
+<p>Cluster size = TP × PP × DP. With TP=8 and 64 GPUs: PP × DP = 8. Use PP=4, DP=2 for two replica redundancy. Or PP=2, DP=4 for more throughput.</p>
+<p><strong>Step 3: DP absorbs remaining scale.</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>DP = total_GPUs / (TP × PP)
+</span></code></pre></div>
+<p>For 64 GPUs, TP=8, PP=4: DP = 64/32 = 2.</p>
+<h3 id="representative-3d-parallelism-configurations">Representative 3D Parallelism Configurations<a class="headerlink" href="#representative-3d-parallelism-configurations" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>GPU count</th>
+<th>TP</th>
+<th>PP</th>
+<th>DP</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Llama 3 8B INT4</td>
+<td>8× H100</td>
+<td>1</td>
+<td>1</td>
+<td>8</td>
+<td>Fits easily; maximize throughput via DP</td>
+</tr>
+<tr>
+<td>Llama 3 70B BF16</td>
+<td>8× H100</td>
+<td>8</td>
+<td>1</td>
+<td>1</td>
+<td>One TP group fills node; add more nodes for DP</td>
+</tr>
+<tr>
+<td>Llama 3 70B BF16</td>
+<td>16× H100</td>
+<td>8</td>
+<td>1</td>
+<td>2</td>
+<td>Two DP replicas for 2× throughput</td>
+</tr>
+<tr>
+<td>Llama 3 70B INT4</td>
+<td>16× H100</td>
+<td>4</td>
+<td>1</td>
+<td>4</td>
+<td>Fits at TP=4; 4 DP replicas</td>
+</tr>
+<tr>
+<td>Llama 3 405B BF16</td>
+<td>64× H100</td>
+<td>8</td>
+<td>4</td>
+<td>2</td>
+<td>25 GB/GPU; 2 replicas for redundancy</td>
+</tr>
+<tr>
+<td>Llama 3 405B INT4</td>
+<td>16× H100</td>
+<td>8</td>
+<td>2</td>
+<td>1</td>
+<td>~12.6 GB/GPU after quantization; TP=8 within node</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="choosing-a-parallelism-strategy">Choosing a Parallelism Strategy<a class="headerlink" href="#choosing-a-parallelism-strategy" title="Permanent link">&para;</a></h2>
+<p>The decision tree for parallelism configuration starts with the memory constraint (which sets the minimum TP×PP product) and then optimizes for the latency vs. throughput target.</p>
+<pre class="mermaid"><code>flowchart TD
+    START["Input: model size, GPU VRAM, GPU count, interconnect, SLO target"]
+    START --&gt; MEMFIT{"Does model fit\non one GPU at\ntarget precision?"}
+    MEMFIT --&gt;|"Yes, e.g. 7B INT4 = 4 GB"| NODIST["No model parallelism needed\nUse Data Parallelism only\nDP = total GPU count\nHighest efficiency no comm overhead"]
+    MEMFIT --&gt;|"No, e.g. 70B BF16 = 140 GB"| NVLINK{"NVLink available?\nDGX or HGX node?"}
+    NVLINK --&gt;|"Yes"| TPDEGREE{"What TP degree\nfits model in\none node VRAM?"}
+    TPDEGREE --&gt;|"70B BF16: TP=2 fits in 2x H100\n70B BF16: TP=8 maximizes KV cache"| TPONLY{"Entire cluster\nfits in one TP group?"}
+    TPONLY --&gt;|"Yes 70B on 8x H100"| PUREDP["TP=8 within node\nAdd more nodes as DP replicas\nDP = additional nodes"]
+    TPONLY --&gt;|"No 405B needs 4+ nodes"| ADDPP["TP=8 within node\nPP across nodes\nPP = nodes per model replica\nDP = total nodes / PP"]
+    NVLINK --&gt;|"No PCIe only"| PCIEPATH{"Max TP for PCIe?"}
+    PCIEPATH --&gt;|"TP=2 acceptable\nTP=4+ not viable"| PPONLY["Pipeline Parallelism across GPUs\nTP=2 max on PCIe nodes\nPP for remaining scale\nMicrobatch count M &gt;= 4 x PP"]
+    ADDPP --&gt; LATCHECK{"Latency SLO\nstrict?"}
+    LATCHECK --&gt;|"Yes TTFT &lt; 500ms"| LOWPP["Keep PP = 1 or 2\nSmall pipeline bubble\nFewer stage boundary transfers"]
+    LATCHECK --&gt;|"No throughput oriented"| HIGHPP["PP = 4 to 8 viable\nNeeds M = 16 to 32 microbatches\nUse chunked prefill or large batch"]</code></pre>
+<h3 id="worked-examples">Worked Examples<a class="headerlink" href="#worked-examples" title="Permanent link">&para;</a></h3>
+<p><strong>8B model on 8× H100:</strong>
+- 8B INT4: 4 GB weights → TP=1 (fits on one GPU with 76 GB for KV)
+- Configuration: DP=8, each GPU serves its own requests independently
+- KV cache per GPU: 76 GB / (131 KB/token) ≈ 580K tokens of concurrent capacity</p>
+<p><strong>70B model on 8× H100:</strong>
+- 70B BF16: 140 GB → must distribute across GPUs
+- TP=2: 70 GB/GPU, 10 GB for KV (tight)
+- TP=8: 17.5 GB/GPU, 62.5 GB for KV — <strong>preferred</strong> for KV cache headroom
+- Configuration: TP=8 (one node), DP=1; add more nodes as DP=N replicas</p>
+<p><strong>70B model on 16× H100 (2 nodes):</strong>
+- TP=8 (within each node), PP=1 (no pipeline), DP=2 (two independent replicas)
+- 2× throughput compared to 8-GPU configuration; TTFT unaffected</p>
+<p><strong>405B model on 64× H100 (8 nodes):</strong>
+- 405B BF16: 810 GB; TP=8 per node → 810 GB / 8 / 8 = 12.7 GB/GPU — fits with 67 GB for KV
+- PP=4 (four nodes per replica), DP=2 (two replicas)
+- 8× 8-GPU nodes × TP=8 × PP=4 × DP=2 = 64 GPUs ✓</p>
+<hr />
+<h2 id="interview-questions">Interview Questions<a class="headerlink" href="#interview-questions" title="Permanent link">&para;</a></h2>
+<h3 id="beginner">Beginner<a class="headerlink" href="#beginner" title="Permanent link">&para;</a></h3>
+<p><strong>Q: What is tensor parallelism in one sentence, and when is it required?</strong></p>
+<p>Tensor parallelism splits individual weight matrices across multiple GPUs so that each GPU holds and computes only a fraction of each layer, requiring all-reduce communication to aggregate results at each layer boundary — and it is required whenever a model's weight memory exceeds a single GPU's VRAM (e.g., a 70B BF16 model's 140 GB exceeds an H100's 80 GB).</p>
+<p><strong>Q: What is the pipeline bubble and why does it hurt efficiency?</strong></p>
+<p>The pipeline bubble is the idle time that occurs when a pipeline stage finishes processing one micro-batch and must wait for the next micro-batch to arrive from the upstream stage. For PP=4 with a single micro-batch, three of the four pipeline stages are idle at any given moment — 75% of GPU cycles are wasted. Microbatching reduces the bubble by feeding multiple micro-batches through in rapid succession, but the bubble never disappears entirely.</p>
+<h3 id="intermediate">Intermediate<a class="headerlink" href="#intermediate" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Why must tensor parallelism run within a single NVSwitch-connected node, while pipeline parallelism can span nodes?</strong></p>
+<p>TP requires an all-reduce at every attention layer and every FFN layer — for an 80-layer model, 160 all-reduces per forward pass. Each all-reduce is on the critical path for token generation: the next layer cannot start until the previous all-reduce completes. At InfiniBand NDR bandwidth (50 GB/s), a 537 MB all-reduce takes 10.7 ms. Across 160 all-reduces: 10.7 ms × 160 = 1,712 ms of pure communication per forward pass — longer than the total decode time. With NVLink (450 GB/s effective), the same all-reduce takes 1.2 ms, and 160 × 1.2 ms = 192 ms spread across the full forward pass with compute overlap.</p>
+<p>PP sends one point-to-point activation transfer per stage boundary, not one all-reduce per layer. For the same example: one 268 MB transfer per stage boundary takes 5.4 ms at InfiniBand NDR. A 4-stage pipeline has 3 boundaries: 3 × 5.4 ms = 16.2 ms total for the full forward pass. The compute time for each pipeline stage at batch=32 vastly exceeds 5.4 ms, so the transfer is largely overlapped. PP crosses nodes; TP cannot.</p>
+<p><strong>Q: What happens when a model's num_kv_heads is smaller than the desired TP degree?</strong></p>
+<p>At TP=16 with num_kv_heads=8, there are not enough KV heads to distribute one per TP rank. GQA requires that each TP rank receive a contiguous group of KV heads. With 8 KV heads and TP=16, you would need to assign 0.5 KV heads per rank — fractional, impossible. The solution is: cap TP degree at num_kv_heads (TP ≤ 8 for Llama 3 70B), or replicate KV heads across TP ranks (some frameworks do this). Replication wastes memory and adds transfer cost. Capping TP at num_kv_heads is the clean solution.</p>
+<h3 id="senior">Senior<a class="headerlink" href="#senior" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Work through the full 3D parallelism configuration for a 405B model on a 128-GPU cluster of H100s, 8 GPUs per NVSwitch node. Justify each dimension.</strong></p>
+<p>128 GPUs = 16 nodes × 8 GPUs per node.</p>
+<p><strong>TP=8</strong> (one full NVSwitch node): All-reduce at every layer via NVLink at 900 GB/s. Non-negotiable for efficiency — TP across InfiniBand is too slow. Each GPU holds 810 GB / 8 = 101.25 GB / PP stages in its TP rank.</p>
+<p><strong>PP=4</strong> (four nodes per model replica): 4 pipeline stages, each stage on one node. Memory per GPU: 810 GB / (8 × 4) = 25.3 GB for weights + activations. On 80 GB H100: 54.7 GB remaining for KV cache. Activation transfer between stages: one 268 MB InfiniBand transfer per stage boundary. 3 boundaries × 5.4 ms = 16.2 ms per forward pass for pipeline communication — acceptable.</p>
+<p><strong>DP=4</strong> (four model replicas): 16 nodes / (PP=4 nodes per replica) = 4 replicas. Total throughput: 4× the single-replica serving throughput. For training, gradient all-reduce crosses DP ranks via InfiniBand — once per training step, overlapped with the next iteration.</p>
+<p>Verification: TP × PP × DP = 8 × 4 × 4 = 128 GPUs. ✓</p>
+<p><strong>Q: A team has a 70B BF16 model on 8× H100 with TP=8. They want to reduce TTFT by 30%. Adding GPUs is not possible. What are their options within the parallelism framework?</strong></p>
+<p>Within the parallelism framework, options:</p>
+<ol>
+<li>
+<p><strong>Reduce TP degree with quantization</strong>: Switch to INT8 (70 GB), run TP=4 or TP=2. Fewer TP GPUs means fewer all-reduce communication events and less memory bandwidth contention for KV cache. The per-step communication volume is halved at TP=4 vs TP=8, but so is the KV cache capacity per GPU — a tradeoff. TTFT reduction comes from fewer communication events per forward pass.</p>
+</li>
+<li>
+<p><strong>Speculative decoding</strong>: Use a smaller draft model (e.g., 8B) on separate GPUs to generate k candidate tokens per main model step. For code completion tasks with acceptance rate ~80%, the main model forward passes reduce from N to N/4, directly cutting TTFT by ~3×. (Chapter 03 covers this in full.)</p>
+</li>
+<li>
+<p><strong>Chunked prefill tuning</strong>: If TTFT is dominated by prefill time, reducing the chunk size distributes prefill computation across more decode steps, reducing the per-step prefill burden and enabling faster first-token emission. This trades slightly higher TTFT for better TPOT for other requests.</p>
+</li>
+</ol>
+<h3 id="staff">Staff<a class="headerlink" href="#staff" title="Permanent link">&para;</a></h3>
+<p><strong>Q: Design the parallelism configuration for a MoE model with 256 experts (8 active per token, 70B total parameters) on a 256-GPU H100 cluster. How do you handle the all-to-all communication for expert routing, and how does the expert parallelism degree interact with tensor and pipeline parallelism?</strong></p>
+<p>256 GPUs = 32 nodes × 8 GPUs.</p>
+<p><strong>Dense layers</strong> (embedding, attention): TP=8 within node. Standard NVLink all-reduce.</p>
+<p><strong>Expert layers</strong>: EP=32 (32 expert GPUs, each holding ~8 experts out of 256). With 256 total experts and 32 EP GPUs: 8 experts per GPU. For an 8-expert-per-token MoE, each token activates experts potentially on different GPUs.</p>
+<p>All-to-all cost: For a batch of B tokens, each GPU sends B/32 × (8 expert assignments) tokens to other GPUs and receives the same in return. At batch=256 tokens, each GPU sends ~64 tokens' worth of activations. Each token's activation is hidden_dim × dtype_bytes = 8192 × 2 = 16 KB. 64 tokens × 16 KB = 1 MB per all-to-all step. Two all-to-all operations (one before expert, one after): 2 × 1 MB = 2 MB. At InfiniBand NDR 50 GB/s: 2 MB / 50 GB/s ≈ 0.04 ms per MoE layer.</p>
+<p><strong>PP=4</strong> (4 pipeline stages, one per 8 nodes): Each stage handles ~25 transformer layers. Expert computation within each node is local; the all-to-all crosses the EP dimension using InfiniBand.</p>
+<p><strong>DP=2</strong>: Two full TP×PP×EP replicas for 2× throughput.</p>
+<p>Verification: TP=8 × EP=32 × PP=4 / some overlap... this configuration gets complex. In practice, EP and PP share the node dimension. A cleaner layout: Each 8-node "super-rack" holds one PP stage. Within the super-rack, 8 nodes × 8 GPUs = 64 GPUs serve as EP=64, with TP=1 (or TP=8 within each PP stage for dense layers). DeepSeek's production clusters use a similar approach: EP high, TP within the expert dimension.</p>
+<hr />
+<h2 id="google-level-follow-ups">Google-Level Follow-Ups<a class="headerlink" href="#google-level-follow-ups" title="Permanent link">&para;</a></h2>
+<p><strong>"You've set TP=8 on a DGX H100 node for a 70B model. What happens to effective throughput if you move to a 2×H200 (141GB each) server with only PCIe interconnect?"</strong></p>
+<p>Tests: whether the candidate understands that interconnect type — not VRAM size — determines TP viability.</p>
+<p>With 2× H200 at PCIe only: TP=2 is the only viable configuration (PCIe at 128 GB/s effective for all-reduce). The 70B BF16 model at TP=2: 70 GB/GPU, with 71 GB for KV cache per GPU. All-reduce volume at batch=32, seq=512: 2 × 32 × 512 × 8192 × 2 bytes = 537 MB. At TP=2, ring-allreduce sends 537 MB / 2 = 268 MB per link. At 128 GB/s PCIe: 268 MB / 128 GB/s = 2.1 ms per all-reduce. Across 4 all-reduces per layer × 80 layers: 4 × 80 × 2.1 = 672 ms of communication per forward pass.</p>
+<p>For reference, the 70B model decode time at batch=32 is approximately: 70 GB × 2 bytes / 3.35 TB/s × some batch efficiency factor... actually the H200 has 4.8 TB/s HBM bandwidth, so decode time ≈ 140 GB / 4800 GB/s ≈ 29ms per token. The 672 ms communication overhead is 23× larger than the compute time. TP=2 at PCIe on a 70B model is unusable.</p>
+<p>The correct answer: Use the 2× H200 as DP=2 with INT4 quantization (35 GB/GPU weights), TP=1 on each H200 independently, 2× throughput with zero inter-GPU communication. The larger VRAM of H200 enables this even without NVLink.</p>
+<p><strong>"If you double the batch size in a TP=8 configuration, what happens to the all-reduce communication time and the communication-to-compute ratio?"</strong></p>
+<p>Tests: whether the candidate can distinguish the scaling behavior of communication vs. compute.</p>
+<p>All-reduce volume scales linearly with batch size: at batch=64, the all-reduce is 2 × 64 × 512 × 8192 × 2 = 1.07 GB. At NVLink (450 GB/s): 1.07 GB / 450 GB/s = 2.4 ms per all-reduce vs. 1.2 ms at batch=32. The all-reduce doubles.</p>
+<p>Compute also scales with batch size, but differently. Decode is memory-bandwidth-bound at small batches: doubling batch size barely changes the time per decode step (the weights are read once regardless of batch size, until batch size is large enough to saturate compute). So at small batches (batch ≤ 32 for 70B), doubling batch size doubles throughput without proportionally increasing per-step latency, but the all-reduce overhead doubles. The communication-to-compute ratio stays roughly constant at small batch sizes because both scale similarly.</p>
+<p>At large batch sizes (batch ≥ 128), decode becomes compute-bound. Compute scales superlinearly (more FLOPs per step as the matrix multiplications get larger), while all-reduce scales linearly. The communication-to-compute ratio decreases at large batches — tensor parallelism becomes more efficient at high batch sizes relative to low batch sizes.</p>
+<p><strong>"Three teams each propose a different PP degree for a 405B BF16 model on 64 GPUs: PP=2, PP=4, PP=8. All use TP=8. What does each choice buy and cost?"</strong></p>
+<p>Tests: ability to enumerate tradeoffs with numbers.</p>
+<p>PP=2: TP×PP = 16 GPUs per replica, DP=4. Memory per GPU: 810/16 = 50.6 GB + KV overhead — tight but workable. One stage boundary, 1 × 5.4 ms InfiniBand transfer per forward pass. Very low bubble fraction at M=8: (2-1)/(2-1+8) = 11%. Four model replicas → 4× throughput baseline. <strong>Buy:</strong> High throughput via DP, minimal pipeline overhead. <strong>Cost:</strong> 50.6 GB for weights on 80 GB GPU leaves only 29 GB for KV cache — at 327 KB/token this is ~90K concurrent tokens per GPU, tight for production.</p>
+<p>PP=4: TP×PP = 32 GPUs per replica, DP=2. Memory per GPU: 810/32 = 25.3 GB — very comfortable, 54.7 GB for KV. Three stage boundaries, 3 × 5.4 ms = 16.2 ms pipeline transfer overhead. Bubble at M=8: 3/11 = 27%. <strong>Buy:</strong> Generous KV cache budget, good balance. <strong>Cost:</strong> Higher bubble fraction and more stage-boundary latency vs. PP=2. The 16.2 ms pipeline communication is fine for batch serving (stage compute &gt;&gt; transfer time).</p>
+<p>PP=8: TP×PP = 64 GPUs per model replica, DP=1. Memory per GPU: 810/64 = 12.7 GB — luxurious, 67 GB for KV. Seven stage boundaries, 7 × 5.4 ms = 37.8 ms pipeline overhead. Bubble at M=8: 7/15 = 47% — nearly half the time is idle. Needs M=32 to bring bubble to 18%. <strong>Buy:</strong> Massive KV cache per GPU, single model serves all requests. <strong>Cost:</strong> No DP redundancy (single point of failure for the whole cluster), severe bubble at low M, 37.8 ms pipeline communication overhead.</p>
+<p><strong>Recommendation:</strong> PP=4, DP=2 is the balanced choice for production. PP=2 is better for high-throughput systems where memory pressure at PP=2 is manageable. PP=8 is only justified when you need absolute maximum KV cache per GPU and can fill the pipeline with M≥32 micro-batches.</p>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Running tensor parallelism across InfiniBand.</strong> At InfiniBand NDR (50 GB/s), a 537 MB all-reduce takes 10.7 ms. For 80 layers and 4 all-reduces per layer: 3.4 seconds of communication per forward pass. This is not a performance degradation — it makes the system nonfunctional. TP must run within a single NVSwitch node.</p>
+</li>
+<li>
+<p><strong>Forgetting KV cache in the per-GPU memory budget.</strong> A 70B BF16 model at TP=2 places 70 GB of weights on each H100, leaving 10 GB for KV cache. At 327 KB/token for Llama 3 70B, that is only 30K tokens of concurrent KV budget per GPU — approximately 7 concurrent 4K-token sequences. This is not a production configuration; TP=8 with 17.5 GB weights and 62.5 GB for KV cache is.</p>
+</li>
+<li>
+<p><strong>Choosing PP degree without accounting for bubble fraction.</strong> PP=8 with M=4 micro-batches has a 7/(7+4) = 63.6% bubble fraction — more than half the GPU time is idle. Always pair a high PP degree with enough micro-batches to justify it (M ≥ 4 × PP as a rough rule of thumb).</p>
+</li>
+<li>
+<p><strong>Treating data parallelism as irrelevant to inference.</strong> DP is the most communication-efficient serving strategy. For any model that fits on a single GPU or TP group, DP scales throughput with zero inference-time communication overhead. Teams that over-shard with TP when DP would suffice pay unnecessary communication costs.</p>
+</li>
+<li>
+<p><strong>Ignoring TP alignment requirements for GQA models.</strong> Setting TP=16 for a model with 8 KV heads creates an impossible split. The serving framework will either error or silently fall back to a lower TP degree. Always verify that <code>num_kv_heads % TP_degree == 0</code> before deploying.</p>
+</li>
+<li>
+<p><strong>Conflating pipeline parallelism with tensor parallelism in communication cost estimates.</strong> PP's communication cost is one point-to-point transfer per stage boundary (~5.4 ms at InfiniBand NDR for the 268 MB example). TP's communication cost is 160 all-reduces per forward pass (~1.2 ms each via NVLink for the 537 MB example). They have entirely different communication patterns, frequencies, and interconnect requirements. Mixing these up in capacity planning produces nonsensical estimates.</p>
+</li>
+</ol>
+<hr />
+<h2 id="key-takeaways">Key Takeaways<a class="headerlink" href="#key-takeaways" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Model parallelism is a memory requirement, not an optimization.</strong> A 70B BF16 model physically does not fit in a single 80 GB GPU. Parallelism is the only path to serving it.</li>
+<li><strong>Tensor parallelism requires NVLink (900 GB/s).</strong> All-reduce at every layer on InfiniBand (50 GB/s) produces 3+ seconds of communication overhead per forward pass. TP runs within a node; it does not cross node boundaries.</li>
+<li><strong>Pipeline parallelism scales across nodes because it communicates once per stage boundary, not once per layer.</strong> At InfiniBand NDR, a 4-stage pipeline's 3 activation transfers add 16 ms total per forward pass — acceptable even for interactive serving.</li>
+<li><strong>The pipeline bubble fraction</strong> = (PP-1) / (PP-1+M). High PP degrees require many micro-batches to be efficient. PP=4 with M=8 gives 27% bubble; PP=4 with M=32 gives 9%.</li>
+<li><strong>3D parallelism decomposition</strong>: TP within NVSwitch node (NVLink), PP across nodes in a rack (InfiniBand), DP across racks (InfiniBand, but infrequent). Optimal: minimize TP to what's needed for weight memory, set PP for cluster scale, maximize DP for throughput.</li>
+<li><strong>GQA models cap TP degree at num_kv_heads.</strong> Llama 3 70B with 8 KV heads: TP ≤ 8. TP=16 is invalid — insufficient KV heads to split.</li>
+<li><strong>Data parallelism has zero inference-time communication overhead</strong> and is the first scaling strategy to reach for when the model fits in a single TP group. Don't use TP where DP suffices.</li>
+<li><strong>Expert parallelism for MoE uses all-to-all</strong> communication — two all-to-all operations per MoE layer, less bandwidth-efficient than ring-allreduce, requiring high-bandwidth interconnects and typically combined with TP for dense attention layers.</li>
+</ul>
+<hr />
+<p><em>Part of <a href="../">Distributed Inference</a> · <a href="../02-disaggregated-prefill-decode/">Disaggregated Prefill/Decode</a> · <a href="../03-speculative-decoding-at-scale/">Speculative Decoding at Scale</a> · <a href="../../16-gpu-systems/03-multi-gpu-topologies-and-interconnects/">Multi-GPU Topologies &amp; Interconnects</a> · <a href="../../16-gpu-systems/02-gpu-sizing-and-capacity-planning/">GPU Sizing &amp; Capacity Planning</a> · <a href="../../15-model-serving/02-batching-and-continuous-batching/">Batching &amp; Continuous Batching</a></em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Distributed Inference">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Distributed Inference
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../02-disaggregated-prefill-decode/" class="md-footer__link md-footer__link--next" aria-label="Next: Disaggregated Prefill/Decode">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Disaggregated Prefill/Decode
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; Gyanendra Chaubey
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/GyanendraChaubey/AI-System-Design-Notes" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.path", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mermaid-fit.js"></script>
+      
+        <script src="../../assets/javascripts/sidebar-toggle.js"></script>
+      
+    
+  </body>
+</html>
