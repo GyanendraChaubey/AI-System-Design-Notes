@@ -6035,6 +6035,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#query-understanding-the-upstream-quality-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Understanding: The Upstream Quality Bottleneck
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#hybrid-retrieval-why-neither-bm25-nor-dense-alone-is-sufficient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6443,6 +6454,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#query-understanding-the-upstream-quality-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Understanding: The Upstream Quality Bottleneck
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#hybrid-retrieval-why-neither-bm25-nor-dense-alone-is-sufficient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6645,9 +6667,9 @@
 <p><a href="../04-perplexity/">Perplexity</a> is a product built on an assumption: somewhere, a corpus exists, retrieval over it works, and a query can be answered by fetching and reading a handful of pages — that chapter's Requirements explicitly puts "building and operating a general-purpose web crawler and search index" out of scope and leans on third-party search APIs instead. This chapter is about the assumption itself. Where does a corpus that can answer a same-day-news query in under three seconds come from? Who is crawling the web to build it, on what schedule, and how does an index avoid being stale from the moment the last document finishes embedding? Classic web search (blue links, no synthesis) and pure RAG (a synthesized answer over a static, periodically-rebuilt corpus, the pattern examined in <a href="../08-enterprise-rag-platform/">Enterprise RAG Platform</a> over a fixed, permissioned internal document set) each solve half of what an AI-native search engine needs, and each fails badly deployed alone: a keyword index with no LLM in front of it returns ten links and makes the user do the reading; an LLM layered over a corpus that was indexed last Tuesday confidently answers a "what happened this morning" query with last Tuesday's facts. This chapter builds the system that owns both halves — a live, continuously-updating index and a synthesis pipeline layered on top of it — at a scale where the retrieval infrastructure alone runs into the tens of thousands of CPU cores and the corpus is measured in hundreds of billions of passages.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p><strong>Functional</strong>
-- Four pipeline stages run for every query: <strong>crawl and indexing</strong> (continuous, upstream of any single query — the corpus exists before the query arrives, not built in response to it), <strong>query understanding</strong> (intent classification, freshness-need detection, query expansion, and decomposition for the bounded multi-hop case), <strong>hybrid retrieval fan-out</strong> (parallel dense, keyword, and freshness-prioritized search followed by cross-encoder re-ranking), and <strong>LLM synthesis</strong> (a single grounded answer generated from the re-ranked passages, with inline numbered citations).
-- Three response artifacts per query: a <strong>direct synthesized answer</strong> with inline <code>[N]</code> citations, a <strong>source panel</strong> listing the ranked passages/URLs the answer draws from (title, URL, crawl timestamp), and <strong>follow-up query suggestions</strong> generated from the original query and the retrieved evidence.
-- Time-sensitive and time-insensitive queries are served by the same pipeline but routed differently: query understanding detects freshness need (lexical cues like "latest," "today," a year, "current," plus a learned classifier) and biases retrieval toward the freshness-prioritized news index when it fires.
+- Four pipeline stages run for every query: <strong>crawl and indexing</strong> (continuous, upstream of any single query — the corpus exists before the query arrives, not built in response to it), <strong>query understanding</strong> (query-type classification, entity resolution, freshness-need detection, query expansion, and decomposition for the bounded multi-hop case), <strong>hybrid retrieval fan-out</strong> (parallel dense, keyword, and freshness-prioritized search followed by cross-encoder re-ranking), and <strong>LLM synthesis</strong> (a single grounded answer generated from the re-ranked passages, with inline numbered citations).
+- Five response artifacts per query: a <strong>direct synthesized answer</strong> with inline <code>[N]</code> citations; a <strong>source panel</strong> listing the ranked passages/URLs the answer draws from (title, URL, domain, crawl timestamp); <strong>follow-up query suggestions</strong> (3-5 related queries) generated from the original query and the retrieved evidence; <strong>structured answer variants</strong> — a comparison table, a numbered list of steps, a timeline — rendered instead of a prose paragraph when synthesis detects the query has a structurally appropriate answer shape; and an <strong>index freshness signal</strong> per source, surfacing the crawl timestamp and content hash captured at crawl time so a user can judge how current the underlying information actually is.
+- Query understanding classifies every query into one of four types before retrieval — <strong>factual</strong> (single-source answerable), <strong>comparative/analytical</strong> (requires multiple diverse sources), <strong>navigational</strong> (best served by routing directly to one authoritative source), and <strong>conversational follow-up</strong> (requires session context to resolve an implicit reference) — and routes retrieval strategy accordingly; freshness need (lexical cues like "latest," "today," a year, "current," plus a learned classifier) is detected in the same pass and biases retrieval toward the freshness-prioritized news index when it fires.
 - Bounded multi-hop query resolution for queries whose answer requires chaining retrieval steps (resolving an intermediate entity before the final lookup) — capped at three hops; anything requiring deeper, iterative research routes to <a href="../07-deep-research-agent/">Deep Research Agent</a> rather than being absorbed into this system's single-pass latency budget.</p>
 <p><strong>Non-functional</strong>
 - Latency: P50 &lt; 2.5s, P95 &lt; 5s end-to-end for a complete answer (first-token time is tracked separately as a UX metric, not a substitute for completion latency).
@@ -6873,21 +6895,48 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>}
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>Response: a streamed event sequence —
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  event: status         data: {&quot;stage&quot;: &quot;retrieving&quot;, &quot;freshness_required&quot;: true}
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  event: source          data: {&quot;id&quot;: 1, &quot;url&quot;: &quot;https://...&quot;, &quot;title&quot;: &quot;...&quot;, &quot;crawled_at&quot;: &quot;2026-07-15T13:02:00Z&quot;, &quot;tier&quot;: 0}
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  event: source          data: {&quot;id&quot;: 2, &quot;url&quot;: &quot;https://...&quot;, &quot;title&quot;: &quot;...&quot;, &quot;crawled_at&quot;: &quot;...&quot;}
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  ...
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  event: token           data: {&quot;text&quot;: &quot;The Federal Reserve&quot;}
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>  event: token           data: {&quot;text&quot;: &quot; signaled it would hold rates steady [1][3]&quot;}
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>  ...
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>  event: citation_flag   data: {&quot;sentence_span&quot;: [42, 88], &quot;citation&quot;: 4, &quot;entailment&quot;: &quot;failed&quot;}
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  event: done            data: {
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    &quot;sources&quot;: [{&quot;id&quot;: 1, &quot;url&quot;: &quot;...&quot;, &quot;rank&quot;: 1, &quot;tier&quot;: 0}, ...],
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    &quot;follow_ups&quot;: [&quot;What is the Fed&#39;s next meeting date&quot;, &quot;...&quot;],
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    &quot;usage&quot;: {&quot;retrieval_ms&quot;: 178, &quot;rerank_ms&quot;: 220, &quot;synthesis_ms&quot;: 1450, &quot;grounding_score&quot;: 0.94}
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>  }
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  event: query_understanding data: {&quot;query_type&quot;: &quot;factual&quot;, &quot;freshness_required&quot;: true, &quot;expanded_terms&quot;: [&quot;Fed&quot;, &quot;Federal Reserve&quot;, &quot;FOMC&quot;, &quot;rate cut&quot;]}
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  event: retrieval_complete  data: {&quot;candidates_merged&quot;: 214, &quot;deduped&quot;: 18, &quot;top_reranked&quot;: 20, &quot;retrieval_ms&quot;: 178, &quot;rerank_ms&quot;: 220}
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  event: source          data: {&quot;id&quot;: 1, &quot;url&quot;: &quot;https://...&quot;, &quot;title&quot;: &quot;...&quot;, &quot;crawled_at&quot;: &quot;2026-07-15T13:02:00Z&quot;, &quot;tier&quot;: 0}
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  event: source          data: {&quot;id&quot;: 2, &quot;url&quot;: &quot;https://...&quot;, &quot;title&quot;: &quot;...&quot;, &quot;crawled_at&quot;: &quot;...&quot;}
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  ...
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>  event: token           data: {&quot;text&quot;: &quot;The Federal Reserve&quot;}
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>  event: token           data: {&quot;text&quot;: &quot; signaled it would hold rates steady [1][3]&quot;}
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>  ...
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  event: citation_flag   data: {&quot;sentence_span&quot;: [42, 88], &quot;citation&quot;: 4, &quot;entailment&quot;: &quot;failed&quot;}
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>  event: done            data: {
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    &quot;sources&quot;: [{&quot;id&quot;: 1, &quot;url&quot;: &quot;...&quot;, &quot;rank&quot;: 1, &quot;tier&quot;: 0}, ...],
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    &quot;follow_ups&quot;: [&quot;What is the Fed&#39;s next meeting date&quot;, &quot;...&quot;],
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    &quot;usage&quot;: {&quot;retrieval_ms&quot;: 178, &quot;rerank_ms&quot;: 220, &quot;synthesis_ms&quot;: 1450, &quot;grounding_score&quot;: 0.94}
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  }
 </span></code></pre></div>
-<p><code>source</code> events are emitted as soon as retrieval and re-ranking finish — before synthesis begins — the same decoupling Perplexity's API uses, so the client can render the source panel while the answer is still streaming rather than presenting a blank state for the full ~2.4s. <code>citation_flag</code> events surface a failed entailment check live, on the specific sentence, rather than only in a batch audit the user never sees. <code>usage.grounding_score</code> exposes the answer's own grounding rate per response, not just as an aggregate metric buried in Observability Layer — a caller building on top of this API can make its own decision about whether to surface a lower-confidence answer differently.</p>
+<p><code>query_understanding</code> and <code>retrieval_complete</code> events expose the routing decision and the candidate-funnel numbers (220 merged down to 20 re-ranked) directly to the client — useful both for a Perplexity-style "searching via 3 sources..." progress indicator and for debugging a specific query without needing server-side trace access. <code>source</code> events are emitted as soon as retrieval and re-ranking finish — before synthesis begins — the same decoupling Perplexity's API uses, so the client can render the source panel while the answer is still streaming rather than presenting a blank state for the full ~2.4s. <code>citation_flag</code> events surface a failed entailment check live, on the specific sentence, rather than only in a batch audit the user never sees. <code>usage.grounding_score</code> exposes the answer's own grounding rate per response, not just as an aggregate metric buried in Observability Layer — a caller building on top of this API can make its own decision about whether to surface a lower-confidence answer differently.</p>
+<p>Two supporting endpoints round out the API surface. <code>GET /v1/index/freshness</code> exposes the same per-tier SLO-compliance numbers that back the Observability Layer's freshness-violation-rate metric, as a first-class API surface rather than an internal-only dashboard — a caller building a product on top of this platform needs to know whether the freshness guarantee it depends on is actually being met right now, not just trust the SLO figure in the docs:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET /v1/index/freshness
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Authorization: Bearer {api_key}
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Response:
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>{
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  &quot;tiers&quot;: {
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    &quot;tier0_news&quot;: {&quot;target_minutes&quot;: 15, &quot;p95_actual_minutes&quot;: 11.2, &quot;slo_compliant&quot;: true},
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    &quot;tier1_high&quot;: {&quot;target_hours&quot;: 4, &quot;p95_actual_hours&quot;: 3.1, &quot;slo_compliant&quot;: true},
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    &quot;tier2_standard&quot;: {&quot;target_days&quot;: 7, &quot;p95_actual_days&quot;: 5.8, &quot;slo_compliant&quot;: true}
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  },
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  &quot;total_indexed_passages&quot;: 248673291847,
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  &quot;changed_passages_last_24h&quot;: 187234891,
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  &quot;crawl_throughput_per_second&quot;: 11203
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>}
+</span></code></pre></div>
+<p><code>POST /v1/search/{search_id}/feedback</code> closes the loop the re-ranker depends on: <code>citation_wrong</code> and <code>missing_source</code> feedback becomes labeled training data for the next re-ranker checkpoint (Model Layer, below), and <code>follow_up_used</code> feedback calibrates whether the follow-up suggestions in a <code>done</code> event are actually useful rather than merely plausible-looking:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>POST /v1/search/{search_id}/feedback
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Authorization: Bearer {api_key}
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>{
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  &quot;feedback_type&quot;: &quot;answer_quality&quot;,    // &quot;answer_quality&quot; | &quot;citation_wrong&quot; | &quot;missing_source&quot; | &quot;follow_up_used&quot;
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  &quot;rating&quot;: 4,                          // 1-5, for answer_quality
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  &quot;citation_id&quot;: null,                  // for citation_wrong: which citation number was wrong
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  &quot;missing_url&quot;: null                   // for missing_source: a URL the user found that should have been included
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>}
+</span></code></pre></div>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
     participant U as User
@@ -6980,6 +7029,41 @@
 <li><strong>robots.txt compliance is not best-effort.</strong> Before any URL on a domain is fetched, the scheduler consults that domain's cached robots.txt (itself re-fetched periodically, since it can change) and filters disallowed paths out of the frontier entirely — a disallowed URL never becomes a crawl-worker task, rather than being fetched and discarded after the fact. This is revisited as a security and ethics constraint in Security Layer below.</li>
 <li><strong>Crawl politeness is a hard rate limit, not a suggestion.</strong> No more than 1 request/second to any single domain, enforced centrally at the scheduler by tracking last-request-time per domain across the entire worker fleet — not per-worker, since a per-worker limit would let N independent workers each send 1 req/sec to the same domain and produce N req/sec in aggregate. A shared, centrally-enforced domain-level token bucket is what keeps the crawler from behaving, in aggregate, like a denial-of-service source against any single site, including during a Tier 0 burst, when the temptation to hammer a breaking-news source for freshness is strongest and the politeness constraint matters most.</li>
 </ul>
+<h3 id="query-understanding-the-upstream-quality-bottleneck">Query Understanding: The Upstream Quality Bottleneck<a class="headerlink" href="#query-understanding-the-upstream-quality-bottleneck" title="Permanent link">&para;</a></h3>
+<p>Retrieval fan-out only ever acts on what query understanding decides to ask for — a fan-out over three well-built indexes still retrieves the wrong candidates if the query was misclassified upstream, and no amount of re-ranking recovers a fan-out issued against the wrong retrieval strategy. Four query types drive materially different retrieval behavior, and classifying which one a query is comes before any index is touched:</p>
+<table>
+<thead>
+<tr>
+<th>Query type</th>
+<th>Example</th>
+<th>Retrieval strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Factual (single-source answerable)</td>
+<td>"population of Japan 2024"</td>
+<td>BM25 + Dense, biased toward high-authority sources, synthesis grounded in a small number of passages</td>
+</tr>
+<tr>
+<td>Comparative / analytical</td>
+<td>"React vs. Vue for large-scale apps"</td>
+<td>Full hybrid fan-out with a minimum diverse-source threshold enforced before synthesis, so the answer doesn't collapse onto a single source's framing</td>
+</tr>
+<tr>
+<td>Navigational (authoritative-source-only)</td>
+<td>"Python 3.12 changelog"</td>
+<td>Identify and rank-boost the authoritative source (docs.python.org) directly rather than synthesizing across a broad candidate set</td>
+</tr>
+<tr>
+<td>Conversational follow-up</td>
+<td>"What about the licensing?" after a prior turn on React vs. Vue</td>
+<td>Resolve the implicit reference against session context before the query is even sent to retrieval — the resolved query, not the literal follow-up text, is what gets embedded and searched</td>
+</tr>
+</tbody>
+</table>
+<p>Query-type classification runs in the same short, CPU-bound pass as freshness detection and query expansion — not as three separate model calls — which is what keeps this stage inside its ~50ms budget from the High Level Design latency table.</p>
+<p>Two more responsibilities of this stage are worth naming explicitly. <strong>Query expansion</strong> — the same small, fine-tuned T5 model referenced in Hybrid Retrieval below — adds synonyms and abbreviation variants to the raw query before it reaches BM25, typically improving BM25 recall by 20-30% on technical queries where the user's terminology doesn't match the document's. <strong>Entity resolution</strong> identifies named entities in the query and resolves them to canonical identifiers rather than treating them as plain text — "Apple" in a product-comparison query resolves to Apple Inc., not the fruit — which lets retrieval boost documents about the correct entity instead of relying on lexical co-occurrence alone to disambiguate a query that would otherwise be genuinely ambiguous.</p>
 <h3 id="hybrid-retrieval-why-neither-bm25-nor-dense-alone-is-sufficient">Hybrid Retrieval: Why Neither BM25 nor Dense Alone Is Sufficient<a class="headerlink" href="#hybrid-retrieval-why-neither-bm25-nor-dense-alone-is-sufficient" title="Permanent link">&para;</a></h3>
 <p>Query understanding having decided what the user is asking, retrieval fan-out has to decide <em>how</em> to search 250B passages for the ones that answer it. Three retrieval surfaces run in parallel, each covering a failure mode the others don't:</p>
 <p><strong>BM25 (keyword index, Elasticsearch).</strong> Returns the top-100 passages by term-frequency relevance — classic lexical search. Its strength is exact matching: an error code, an API method name, a product model number, a legal statute number — terms that either appear verbatim in both the query and the document or they don't, with no "close enough" for a part number. Its weakness is vocabulary mismatch: a query using "DB" doesn't match a document that only ever says "database," unless the gap is closed before the query hits the index. That gap is closed by <strong>query expansion</strong> — a small, fine-tuned T5 model adds synonyms and abbreviation expansions to the query before it reaches BM25, running in under 5ms on CPU, deliberately not an LLM call, because at 17,400 QPS an LLM call on every query for a task this narrow would be an enormous and unnecessary cost and latency tax (see Model Layer below).</p>
@@ -6993,17 +7077,17 @@
 <h3 id="citation-grounding-as-an-architectural-mechanism">Citation Grounding as an Architectural Mechanism<a class="headerlink" href="#citation-grounding-as-an-architectural-mechanism" title="Permanent link">&para;</a></h3>
 <p>This is what separates AI-native search from a chatbot that happens to have read some web pages: every factual claim in the answer has to be traceable to a specific retrieved passage, and "traceable" has to mean something a system can <em>check</em>, not just something a prompt asks for. Treating this as "we prompt the model to cite its sources" is a hope, not an architecture — a prompt is a request the model can silently fail to honor, and a pipeline serving 500M queries/day needs a mechanism that catches that failure, not one that merely reduces its likelihood.</p>
 <p><strong>Synthesis prompt structure.</strong> The 20 re-ranked passages are handed to the model numbered, and the prompt makes the numbering load-bearing:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Answer the following query using ONLY the numbered passages below.
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Every factual claim must cite the passage number using [N] inline.
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>If the passages do not contain enough information, say so explicitly.
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Do not state facts not present in the passages.
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Query: {user_query}
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>[1] {passage_1_text} (Source: {url_1}, crawled: {ts_1})
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>[2] {passage_2_text} ...
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>...
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>[20] {passage_20_text}
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Answer the following query using ONLY the numbered passages below.
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Every factual claim must cite the passage number using [N] inline.
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>If the passages do not contain enough information, say so explicitly.
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>Do not state facts not present in the passages.
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Query: {user_query}
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>[1] {passage_1_text} (Source: {url_1}, crawled: {ts_1})
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>[2] {passage_2_text} ...
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>...
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>[20] {passage_20_text}
 </span></code></pre></div>
 <p>The numbered format isn't a stylistic choice — it's what makes citation verification <em>mechanically</em> possible after generation. A citation marker <code>[7]</code> in the output references a specific, addressable unit of retrieved evidence, not a vague gesture at "the sources," and that addressability is the entire foundation the verification step below is built on.</p>
 <p><strong>Post-generation citation verifier.</strong> Two checks run on every generated answer before it reaches the user:</p>
